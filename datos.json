@@ -1,0 +1,1253 @@
+[
+  {
+    "url": "https://www.airbnb.com/rooms/1489399156507737323",
+    "airbnbId": 1489399156507737300,
+    "name": "Heated Pool & Coffee Bar• 5-min to Madeira Beach",
+    "stars": 5,
+    "numberOfGuests": 8,
+    "address": "San Petersburgo, Florida, Estados Unidos",
+    "roomType": "Alojamiento entero: vivienda",
+    "location": {
+      "lat": 27.816,
+      "lng": -82.786
+    },
+    "reviews": {
+      "reviews": [
+        {
+          "author": {
+            "firstName": "Jane",
+            "hasProfilePic": true,
+            "id": "331190060",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/86b21a30-7428-4a8e-a348-f5905502c9d1.jpeg",
+            "smartName": "Jane",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/86b21a30-7428-4a8e-a348-f5905502c9d1.jpeg"
+          },
+          "comments": "Our month stay was more than we expected.  This house is so adorable.  Felt like home from day 1.  Beautifully decorated and updated.  Quiet neighborhood and a 5 minute drive to Madeira Beach.  Any minor questions we had were responded to immediately by the hosts.  If you are looking for a peaceful place to stay on your Florida vacation I strongly recommend you give this house consideration.  The pictures are so accurate.  The price is a great value.  Hopefully we will return in the future.",
+          "createdAt": "2026-02-28T19:59:58Z",
+          "id": "1631349364838882271",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": null,
+          "language": "en",
+          "localizedDate": "Hace 1 semana",
+          "localizedReview": {
+            "comments": "Nuestra estancia de un mes fue más de lo que esperábamos.  Esta casa es adorable.  Me sentí como en casa desde el primer día.  Hermosamente decorado y actualizado.  Barrio tranquilo y a 5 minutos en coche de Madeira Beach.  Los anfitriones respondieron de inmediato a cualquier duda menor que tuviéramos.  Si buscas un alojamiento tranquilo para tus vacaciones en Florida, te recomiendo encarecidamente que consideres esta casa.  Las imágenes son muy precisas.  El precio tiene una buena relación calidad-precio.  Esperamos volver en el futuro.",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": null
+          }
+        },
+        {
+          "author": {
+            "firstName": "Brendan",
+            "hasProfilePic": true,
+            "id": "730336506",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/50cc5d04-b56a-4ddd-a7ae-9795c0a89de4.jpeg",
+            "smartName": "Brendan",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/50cc5d04-b56a-4ddd-a7ae-9795c0a89de4.jpeg"
+          },
+          "comments": "My family had an amazing stay. Kids loved the heated pool and we loved the private jacuzzi. We used the provided bikes to get around because everything was super close. Home had QR codes for easy WiFi and food/location suggestions. House was extremely clean and cozy. Thank you - will definitely come back!",
+          "createdAt": "2025-12-19T21:23:03Z",
+          "id": "1579932103126731326",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Obrigada con voce for taking such good care of our casa, you are welcome anytime!",
+          "language": "en",
+          "localizedDate": "diciembre de 2025",
+          "localizedReview": {
+            "comments": "Mi familia tuvo una estancia increíble. A los niños les encantó la piscina climatizada y a nosotros nos encantó el jacuzzi privado. Utilizamos las bicicletas que nos proporcionaron para desplazarnos, porque todo estaba muy cerca. El alojamiento tenía códigos QR para acceder fácilmente a la wifi y a recomendaciones de comida y lugares de interés. La casa estaba extremadamente limpia y acogedora. Gracias, ¡volveremos sin duda!",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "¡Obrigada con você por cuidar tan bien de nuestra casa, sois bienvenidos en cualquier momento!"
+          }
+        },
+        {
+          "author": {
+            "firstName": "Kim",
+            "hasProfilePic": true,
+            "id": "406652572",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/cb793f97-04f5-49cc-ab97-265140b09685.jpg",
+            "smartName": "Kim",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/cb793f97-04f5-49cc-ab97-265140b09685.jpg"
+          },
+          "comments": "Super communicative, hosts were lovely. Just what we needed for our holiday vacation.",
+          "createdAt": "2025-11-29T18:26:53Z",
+          "id": "1565347923697077173",
+          "collectionTag": null,
+          "rating": 4,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Obrigada for your review, Kim. We did our very best to accommodate all of your requests, including reimbursing the additional cleaning, providing a holiday gift package, and offering an extra night to ensure your comfort.<br/>Some of the feedback felt beyond what is typical, but we always responded promptly, even during late hours (3AM) because we genuinely wanted you to have a positive stay.<br/>While we are disappointed to receive 4 stars after working hard to provide a 5-star experience, we understand that expectations vary. We did everything possible within our policies, as we must also operate responsibly as a business.<br/>We wish you all the best in your future travels and will continue delivering excellent service to all our guests!",
+          "language": "en",
+          "localizedDate": "noviembre de 2025",
+          "localizedReview": {
+            "comments": "Supercomunicativo, los anfitriones eran encantadores. Justo lo que necesitábamos para nuestras vacaciones.",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "Obrigada por tu reseña, Kim. Hicimos todo lo posible para atender todas vuestras peticiones, incluido el reembolso de la limpieza adicional, la entrega de un paquete de regalo para las fiestas y la oferta de una noche adicional, con el fin de garantizar vuestra comodidad.<br/>Algunos de los comentarios nos parecieron fuera de lo habitual, pero siempre respondimos con rapidez, incluso a altas horas de la madrugada (3:00), porque realmente queríamos que tuvieras una estancia positiva.<br/>Aunque nos decepciona recibir 4 estrellas después de esforzarnos por ofrecer una experiencia de 5 estrellas, entendemos que las expectativas varían. Hicimos todo lo posible dentro de nuestras políticas, ya que también debemos operar de forma responsable como empresa.<br/>¡Te deseamos lo mejor en tus futuros viajes y seguiremos ofreciendo un servicio excelente a todos nuestros huéspedes!"
+          }
+        },
+        {
+          "author": {
+            "firstName": "Shelley",
+            "hasProfilePic": true,
+            "id": "534523220",
+            "pictureUrl": "https://a0.muscache.com/im/Portrait/Avatars/messaging/b3e03835-ade9-4eb7-a0bb-2466ab9a534d.jpg?im_t=S&im_w=240&im_f=airbnb-cereal-medium.ttf&im_c=ffffff",
+            "smartName": "Shelley",
+            "thumbnailUrl": "https://a0.muscache.com/im/Portrait/Avatars/messaging/b3e03835-ade9-4eb7-a0bb-2466ab9a534d.jpg?im_t=S&im_w=240&im_f=airbnb-cereal-medium.ttf&im_c=ffffff"
+          },
+          "comments": "Angelica's home is beautifully  decorated with a beachy vibe.<br/>We were able to bike to bars, restaurants, and stores. <br/>Angelica was very responsive and promptly answered all my questions.<br/>We'll be staying here again!!",
+          "createdAt": "2025-11-18T21:19:17Z",
+          "id": "1557462157452668388",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Obrigada por ficar conosco, it was a pleasure hosting you, and we’re so glad you enjoyed your stay. You’re always welcome back.",
+          "language": "en",
+          "localizedDate": "noviembre de 2025",
+          "localizedReview": {
+            "comments": "La casa de Angelica está bellamente decorada con un ambiente playero.<br/>Pudimos ir en bicicleta a bares, restaurantes y tiendas. <br/>Angelica fue muy receptiva y respondió rápidamente a todas mis preguntas.<br/>¡Volveremos a alojarnos aquí!",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "Obrigada por ficar conosco. Ha sido un placer recibirte y nos alegra mucho que hayas disfrutado de tu estancia. Siempre serás bienvenido si regresas."
+          }
+        },
+        {
+          "author": {
+            "firstName": "Angela",
+            "hasProfilePic": true,
+            "id": "535629611",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/b322b4da-8e76-4a48-86cb-4ea76d262583.jpeg",
+            "smartName": "Angela",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/b322b4da-8e76-4a48-86cb-4ea76d262583.jpeg"
+          },
+          "comments": "Host was very quick to respond. House was nice.",
+          "createdAt": "2025-10-24T18:27:04Z",
+          "id": "1539256083714683989",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Obrigada com você. We truly enjoyed hosting you and are very happy to hear you had a great stay. You are welcome back anytime.",
+          "language": "en",
+          "localizedDate": "octubre de 2025",
+          "localizedReview": {
+            "comments": "El anfitrión respondió rápidamente. La casa era bonita.",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "Obrigada com você. Disfrutamos mucho hospedándote y nos alegra mucho saber que tuviste una estancia estupenda. Te damos la bienvenida cuando quieras."
+          }
+        },
+        {
+          "author": {
+            "firstName": "Kennette",
+            "hasProfilePic": true,
+            "id": "361844066",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/17717ccc-a7b0-434f-a41d-780667bf17e0.jpg",
+            "smartName": "Kennette",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/17717ccc-a7b0-434f-a41d-780667bf17e0.jpg"
+          },
+          "comments": "We really enjoyed our weekend stay! Although we didn’t spend much time in the house, it was clean, comfortable, and had everything we needed. The pool area was absolutely beautiful and peaceful—perfect for relaxing. The location was great too, close to plenty of restaurants and attractions. Overall, it was a lovely stay, and we’d definitely return!",
+          "createdAt": "2025-10-20T20:24:55Z",
+          "id": "1536416297532015016",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Thank you for taking the time to leave such a wonderful review. We’re glad you enjoyed your stay and truly appreciate how well you took care of the home. Muito obrigada! You’re welcome back anytime.",
+          "language": "en",
+          "localizedDate": "octubre de 2025",
+          "localizedReview": {
+            "comments": "¡Disfrutamos mucho de nuestra estancia de fin de semana! Aunque no pasamos mucho tiempo en la casa, estaba limpia, cómoda y tenía todo lo que necesitábamos. La zona de la piscina era absolutamente hermosa y tranquila, perfecta para relajarse. La ubicación también era genial, cerca de muchos restaurantes y atracciones. En general, fue una estancia encantadora, ¡y definitivamente volveríamos!",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "Gracias por tomarte el tiempo de dejar una evaluación tan maravillosa. Nos alegra que hayas disfrutado de tu estancia y valoramos mucho lo bien que has cuidado el alojamiento. ¡Muito obrigada! Seréis bienvenidos en cualquier momento."
+          }
+        },
+        {
+          "author": {
+            "firstName": "Michelle",
+            "hasProfilePic": true,
+            "id": "569378481",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/d711f364-6aea-4087-8fda-adfbd333754a.jpeg",
+            "smartName": "Michelle",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/d711f364-6aea-4087-8fda-adfbd333754a.jpeg"
+          },
+          "comments": "We simply loved this home !!! It was 5 minutes from the Beach and Walmart was just around the Corner ,So that was a huge plus . The children enjoyed the pool ,I wish the hot tub had of been working but it did not take away from our trip. Could not figure out for the life of me how to work the dishwasher ( to advanced for me. ) Couldn't  get Ice machine to work but bought a bag of ice ,so no biggie .  We would definitely stay here again ! The Host was great at communicating as well , very nice lady.",
+          "createdAt": "2025-10-07T18:25:18Z",
+          "id": "1526934009560979894",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Obrigada for staying with us! We absolutely loved hosting your family and truly appreciate how well you took care of our property.<br/>At the time of your reservation, the hot tub was not advertised because it’s currently unavailable. A replacement is on the way, but we can’t legally display an amenity on Airbnb that guests cannot use. We value transparency, which is why it was never included in the listing from the beginning.<br/>We’re very sorry to hear about the dishwasher. You didn’t mention it during your stay, if you had, I could have easily guided you through it via a quick video call to show how to turn it on properly. The ice machine is fully functional, though it can be a bit tricky to use. No worries, we’ll make sure to add an instructional video for both appliances so future guests can use them easily.<br/>You’re always welcome back anytime, and thank you again for being such excellent guests!",
+          "language": "en",
+          "localizedDate": "octubre de 2025",
+          "localizedReview": {
+            "comments": "¡Nos encantó este alojamiento! Estaba a 5 minutos de la playa y Walmart estaba a la vuelta de la esquina, así que eso fue una gran ventaja. Los niños disfrutaron de la piscina, me hubiera gustado que la bañera de hidromasaje hubiera funcionado, pero no nos quitó nada de nuestro viaje. No pude averiguar por mi vida cómo hacer funcionar el lavavajillas (demasiado avanzado para mí). No pude hacer que la máquina de hielo funcionara, pero compré una bolsa de hielo, así que no es gran cosa.  ¡Sin duda, volveríamos a repetir! La anfitriona también fue genial en la comunicación, una señora muy agradable.",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "¡Gracias por hospedarte en nuestro alojamiento! Nos encantó hospedar a tu familia y apreciamos mucho lo bien que cuidaste nuestra propiedad.<br/>En el momento de tu reserva, la bañera de hidromasaje no se había anunciado porque actualmente no está disponible. Hay un reemplazo en camino, pero no podemos mostrar legalmente un servicio en Airbnb que los huéspedes no puedan utilizar. Valoramos la transparencia, por lo que nunca se incluyó en el anuncio desde el principio.<br/>Sentimos mucho lo del lavavajillas. No lo mencionaste durante tu estancia, si lo hubieras hecho, podría haberte guiado fácilmente a través de una videollamada rápida para mostrarte cómo encenderlo correctamente. La máquina de hielo es totalmente funcional, aunque puede ser un poco complicada de usar. No te preocupes, nos aseguraremos de añadir un vídeo instructivo para ambos electrodomésticos para que los futuros huéspedes puedan usarlos fácilmente.<br/>¡Siempre seréis bienvenidos en cualquier momento y gracias de nuevo por ser unos huéspedes tan excelentes!"
+          }
+        },
+        {
+          "author": {
+            "firstName": "Christopher",
+            "hasProfilePic": true,
+            "id": "577481722",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/d28674e6-a1d3-4000-a89e-eb1a71739d57.jpg",
+            "smartName": "Christopher",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/d28674e6-a1d3-4000-a89e-eb1a71739d57.jpg"
+          },
+          "comments": "Great stay! My family absolutely loved this Airbnb! The hosts were polite and hospitality was absolutely awesome we will be back!",
+          "createdAt": "2025-09-21T18:59:01Z",
+          "id": "1515354565141340879",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Thank you so much for your kind words! We loved hosting you and your family, and we’re so glad you enjoyed your stay at our casa. Your appreciation means a lot to us. We look forward to welcoming you back to Areia Bela anytime!",
+          "language": "en",
+          "localizedDate": "septiembre de 2025",
+          "localizedReview": {
+            "comments": "¡Gran estancia! ¡A mi familia le encantó este Airbnb! Los anfitriones fueron educados y la hospitalidad fue absolutamente impresionante, ¡volveremos!",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "Muchas gracias por tus amables palabras! Nos encantó hospedarte a ti y a tu familia, y nos alegramos mucho de que hayas disfrutado de tu estancia en nuestra casa. Tu agradecimiento significa mucho para nosotros. ¡Quedamos a la espera de tu llegada a Areia Bela en cualquier momento!"
+          }
+        },
+        {
+          "author": {
+            "firstName": "Eduardo",
+            "hasProfilePic": true,
+            "id": "379670835",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/c20a09e1-99b3-43ba-ae73-810a740cd782.jpeg",
+            "smartName": "Eduardo",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/c20a09e1-99b3-43ba-ae73-810a740cd782.jpeg"
+          },
+          "comments": "I’ve stayed in St. Petersburg before, but Angelica’s Airbnb has been the most unique experience yet. Every room had QR codes with fun and thoughtful activities that made the stay feel really special. The house looked exactly like the photos no filters or edits which I really appreciated. My wife loved the selfie booth, and I really enjoyed the complimentary snacks and coffee. Overall, it was an amazing stay, and we’ll definitely be coming back!”",
+          "createdAt": "2025-09-09T20:07:01Z",
+          "id": "1506691483231641240",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Muito obrigado for your wonderful review! We’re so glad you enjoyed the special touches like the QR codes, selfie booth, and complimentary snacks. It warms our hearts to hear the casa felt just like the photos. We can’t wait to welcome you and your wife back to Areia Bela soon, sempre bem-vindos!",
+          "language": "en",
+          "localizedDate": "septiembre de 2025",
+          "localizedReview": {
+            "comments": "Ya me había alojado en San Petersburgo antes, pero el Airbnb de Angelica ha sido la experiencia más especial hasta la fecha. Todas las habitaciones tenían códigos QR con actividades divertidas y bien pensadas que hicieron que la estancia fuera realmente especial. La casa era exactamente igual que en las fotos, sin filtros ni retoques, lo cual agradecí mucho. A mi mujer le encantó la cabina para selfis, y yo disfruté mucho de los tentempiés y el café de cortesía. En general, fue una estancia increíble y, sin duda, volveremos.»",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "¡Muito obrigado por tu maravillosa evaluación! Nos alegra mucho que te hayan gustado los detalles especiales, como los códigos QR, la cabina para selfis y los tentempiés de cortesía. Nos alegra mucho saber que la casa era tal cual las fotos. Estamos deseando volver a recibirte a ti y a tu esposa en Areia Bela pronto, ¡sempre bem-vindos!"
+          }
+        },
+        {
+          "author": {
+            "firstName": "Lucy",
+            "hasProfilePic": true,
+            "id": "525744056",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/232918a1-a94a-4fe8-80e6-ab307e7bda0f.jpg",
+            "smartName": "Lucy",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/232918a1-a94a-4fe8-80e6-ab307e7bda0f.jpg"
+          },
+          "comments": "I have an awesome stay ! !! Also I was celebrating my anniversary and they did a little touch <br/>With a champagne and a card! <br/>That was amazing❤️",
+          "createdAt": "2025-09-07T19:17:23Z",
+          "id": "1505216952857874565",
+          "collectionTag": null,
+          "rating": 5,
+          "recipient": {
+            "firstName": "Angelica",
+            "hasProfilePic": true,
+            "id": "257080642",
+            "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg",
+            "smartName": "Angelica",
+            "thumbnailUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg"
+          },
+          "response": "Que alegria reading your review! We’re so happy your anniversary celebration was made extra special with our little touch  ❤️ It was a pleasure hosting you, and you’ll always have a warm welcome here at Areia Bela!",
+          "language": "en",
+          "localizedDate": "septiembre de 2025",
+          "localizedReview": {
+            "comments": "¡Tengo una estancia increíble! También estaba celebrando mi aniversario y tuvieron un pequeño detalle. <br/>¡Con una botella de champán y una tarjeta! <br/>Eso fue increíble.❤️",
+            "disclaimer": "Traducido del inglés",
+            "needsTranslation": true,
+            "response": "¡Qué alegría leer tu evaluación! Nos alegra mucho que la celebración de vuestro aniversario haya sido aún más especial gracias a nuestro pequeño detalle. ❤️ Ha sido un placer alojaros, y siempre seréis bienvenidos aquí, en Areia Bela."
+          }
+        }
+      ],
+      "reviewsCount": 10,
+      "isAutoTranslateOn": true,
+      "reviewTags": []
+    },
+    "pricing": {
+      "price_per_night": 300,
+      "cleaning_fee": 120,
+      "service_fee_percent": 12,
+      "taxes_percent": 13,
+      "extras": [
+        {
+          "id": "heated-pool",
+          "label": "Heated pool",
+          "price_per_night": 20
+        }
+      ]
+    },
+    "photos": [
+      {
+        "caption": "",
+        "id": 2484516739,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/40a17db2-7992-4580-a222-d8fe07087e28.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "SQUARE",
+        "aspectRatio": 1
+      },
+      {
+        "caption": "A pool that defines paradise, drawing inspiration from relaxing coastal getaways worldwide.",
+        "id": 2474972248,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/c3e81b9b-8fd0-4334-b82d-ad919bea2bbe.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2474972228,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/58ef08d8-d3f4-4722-a5cf-d57284cc2beb.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Screened pool with lounge chairs, which can be heated for cozy winter swims.",
+        "id": 2474972141,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/942777bf-4cd4-48cd-9730-5f71dd72b2c8.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2474972136,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/018ab8d8-2e04-4320-a60c-a7dd61c8a9e2.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Create fun memories at the photo booth! Tag us on Instagram @areiabelastpete.\n",
+        "id": 2474972137,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/fc8b39e6-bddc-4ebf-b041-23bfa8fce12a.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Grab a chair in the back and enjoy some well-deserved downtime.",
+        "id": 2474972126,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/5fc2ddfb-7bc8-4e78-8ac4-cd287e41955e.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Teapot ready for you to brew and enjoy your favorite tea.",
+        "id": 2474972101,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/60040006-8fd7-4dfc-ae4c-ef3d29a2cce8.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Fully equipped kitchen with all the essentials and accessories you need to prepare any type of meal,  perfect for home cooking during your stay. Fully equipped with a coffee maker, microwave, blender, and toaster for easy meals and drinks.",
+        "id": 2474972095,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/98aecab8-e3cb-4551-9aa1-cefd97509e25.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Cook comfortably with our range hood that removes smoke and keeps the kitchen fresh. Explore our pantry stocked with international foods, take something, leave something, and share a taste with fellow guests.",
+        "id": 2474972100,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/36ac1e34-a959-494b-a691-a278367aa1a9.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Comfortable bar stools at the island, perfect for enjoying a drink or a casual meal. If you need inspiration, open the island drawer where you’ll find a few cookbooks.",
+        "id": 2474972099,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/8f01cfd9-ab26-4be8-87c0-fe49a7ebc23b.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "A coastal retreat inspired by the vibrant cliffs of Praia da Falésia.",
+        "id": 2474971809,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/00cc535a-7bb4-400f-b339-c2d2dd2d580e.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Coastal coral decor bringing a touch of Portugal indoors.",
+        "id": 2474971942,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/f413e410-1397-4abd-a0fe-70144372a754.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Pamper yourself with creams, chocolates, and a QR code full of activities, refreshed twice a year to keep each stay special.",
+        "id": 2474971857,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/f5598f27-80be-4f6a-82fd-aa1bf33bb6b2.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Relax on a handmade cotton pillow under a chandelier inspired by Portugal’s beach corals.",
+        "id": 2474988840,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/32ba801d-cdf3-4d88-9a6f-3f2716b2f618.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Pamper yourself with creams, chocolates, and a QR code full of activities, refreshed twice a year to keep each stay special.",
+        "id": 2474971802,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/8cd1872e-5daf-4c66-9b86-7090573dd039.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Handcrafted wooden vanity, blending authenticity with classic style.",
+        "id": 2474971776,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/f24b6250-467e-4fae-b1de-1ccf7eb7a2b2.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Pamper yourself with creams, chocolates, and a QR code full of activities, refreshed twice a year to keep each stay special.",
+        "id": 2474971937,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/19b15a1b-3235-4126-be7e-7018dd9e13f0.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Cozy twin bunk beds designed for a restful stay.",
+        "id": 2474971908,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/0b1eb0b4-20ee-49e8-8e3a-6fef22d0065f.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Stay productive with a private workspace and full internet access.",
+        "id": 2474971919,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/c6558baf-84f0-4a2d-b6c6-73be5256df98.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2474971939,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/a697cd11-e494-40f5-8b54-32ccf68a0398.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "A cozy coffee bar with everything you need to sip and relax. Scan the QR code for unlimited Wi-Fi access during your stay.",
+        "id": 2474972097,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/134541cd-d513-4bc7-8206-f748410ec880.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Adjustable dining table that grows with your group, making every meal special.",
+        "id": 2474972046,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/db10c187-9a83-4051-9861-9c04460bbe57.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "A cozy coffee bar with everything you need to sip and relax.",
+        "id": 2474972058,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/3a6a04c8-4f10-496a-b4ee-02da0b4eeb79.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Smart TV ready for you to stream and enjoy your favorite shows, movies, and entertainment.",
+        "id": 2474972077,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/3217814f-8e6a-4591-9d44-d9a40bdeb8b3.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "A cozy, space-saving sleeper sofa that easily converts into a comfortable bed for up to two guests, perfect for families or extra visitors.\n",
+        "id": 2474972048,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/df9e981d-ecb7-4aba-9606-0b142316c7f3.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Spacious open-concept living room featuring two plush black recliners, plenty of room to relax, unwind, and enjoy quality family time while watching TV.\n",
+        "id": 2474972059,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/f533e011-2348-4ce8-83fb-0c5ae5cb38a7.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Soft blue towels for lounging and unwinding by the pool.",
+        "id": 2474972056,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/36963ef9-4837-41bd-843e-5ba12ed232f4.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Easily control the temperature with our smart thermostat system , adjust the AC or heat to your comfort with just a touch.\n",
+        "id": 2474971987,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/5696cae3-765d-4cc2-b46e-92c08da414a5.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2474989991,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/551b2354-eabf-4c1d-82e4-6dabe6944b37.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Bathroom with coastal décor, sink, toilet, and emergency aid kit conveniently under the sink.",
+        "id": 2474971991,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/a33f4466-4f21-45c4-bcee-a83d55d9dd90.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Walk-in shower plus tub, ideal for refreshing rinses or relaxing soaks, with luxury toiletries included.",
+        "id": 2474989988,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/3b6d2f8b-75a0-4ee6-9e5e-c8b0664a354c.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Smart bidet featuring warm mode for a cozy, refreshing experience. Full walk-in shower, perfect to rinse off beach sand or freshen up before pool time.",
+        "id": 2474971989,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/4ba8bc0b-006c-4e19-8635-41e8907cfb3f.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Step out to the yard easily, with a stylish sink and mirror for refreshes.",
+        "id": 2474971990,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/f5242832-d036-4521-b669-334e95beed33.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Relax on our outdoor furniture and enjoy backyard darts, fun for all!",
+        "id": 2474972138,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/f7dea255-1141-46de-9631-8c525c39cf7c.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Challenge your family to a fun aqua tic-tac-toe match.",
+        "id": 2474972215,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/4d8cefef-cdcb-4b5d-bda0-c5c9acc00375.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2474972199,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/aab11ab9-0d78-441e-bf8e-8fbbb636cd18.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "Outdoor BBQ spot for tasty meals and good times under the sun or stars.",
+        "id": 2474972211,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/c0b9265a-17e8-40b5-8aca-44b4868e2171.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2474971822,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/eefefed3-f1f8-4aef-8994-03922d8a31e0.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.5
+      },
+      {
+        "caption": "",
+        "id": 2309260336,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/7f7ed32d-af54-48a7-88a8-74b20c576cc2.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "PORTRAIT",
+        "aspectRatio": 0.75
+      },
+      {
+        "caption": "",
+        "id": 2309260337,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/59b67464-fd4c-488b-9e8e-4d9afc39226c.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.3333333333333333
+      },
+      {
+        "caption": "Just minutes from Madeira Beach, relax, swim, and enjoy one of Florida’s gems.\n Fun fact: the area is famous for dolphin sightings on local boat tours!",
+        "id": 2310243560,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/b13042de-492a-40d4-9ffa-64a8cee8252a.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "PORTRAIT",
+        "aspectRatio": 0.8940397350993378
+      },
+      {
+        "caption": "Just look how close we are! The water is only a few minutes’ walk, a local supermarket is 2 minutes away, and we have bikes if you prefer to enjoy the view while riding.",
+        "id": 2475046642,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/42167cd9-9d69-4259-a17e-c3394958fdc3.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.3333333333333333
+      },
+      {
+        "caption": "Unlike other beaches, here you experience true peace and relaxation.",
+        "id": 2425136066,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/dc2f8f0f-22e7-4439-a408-41404ed4bfc6.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.8626309662398137
+      },
+      {
+        "caption": "Snapshots from our real experiences, see the moments we loved.",
+        "id": 2425136069,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/30517cf9-2c84-4f7a-a8b2-3939c6fe5320.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "PORTRAIT",
+        "aspectRatio": 0.7792880258899676
+      },
+      {
+        "caption": "See the real experience here: live like a local, unwind like a beach lover.",
+        "id": 2448906539,
+        "large": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/fa91b492-55dc-4b4c-b2eb-eecbe404c1bb.jpeg?aki_policy=large",
+        "previewEncodedPng": "",
+        "scrimColor": "",
+        "isProfessional": false,
+        "pictureOrientation": "LANDSCAPE",
+        "aspectRatio": 1.3333333333333333
+      }
+    ],
+    "amenities": [
+      "Cocina",
+      "Aparcamiento gratuito en las instalaciones",
+      "Wifi",
+      "Piscina",
+      "Zona para trabajar",
+      "Perchas",
+      "TV",
+      "Secadora",
+      "Champú",
+      "Lavadora",
+      "Secador de pelo",
+      "Servicios básicos",
+      "Aire acondicionado",
+      "Calefacción",
+      "Aparcamiento gratuito en la calle",
+      "Detector de humo",
+      "Detector de monóxido de carbono",
+      "Botiquín",
+      "Extintor de incendios",
+      "Cerradura con teclado",
+      "Entrada privada",
+      "Bañera",
+      "Recomendaciones de canguros",
+      "Parque/cuna de viaje",
+      "Agua caliente",
+      "Gel de ducha",
+      "Ropa de cama",
+      "Almohadas y mantas adicionales",
+      "Microondas",
+      "Cafetera",
+      "Nevera",
+      "Lavavajillas",
+      "Platos y cubiertos",
+      "Utensilios básicos de cocina",
+      "Horno",
+      "Fogones",
+      "Alojamiento de una altura",
+      "Barbacoa",
+      "Patio o balcón",
+      "Patio trasero",
+      "Básicos de playa",
+      "Disponible para estancias largas",
+      "Junto al agua",
+      "Ventilador de techo",
+      "Bidé",
+      "Sistema de sonido",
+      "Bicicletas",
+      "Mesa de comedor",
+      "Mobiliario exterior",
+      "Congelador",
+      "Juegos de mesa",
+      "Cafetera Keurig",
+      "Gel de ducha",
+      "Bandeja de repostería",
+      "Utensilios de barbacoa",
+      "Acondicionador",
+      "Productos de limpieza",
+      "Tendedero para ropa",
+      "Espacio para guardar la ropa",
+      "Copas de vino"
+    ],
+    "city": "St. Petersburg",
+    "country": "Estados Unidos",
+    "bedrooms": "3",
+    "monthChecked": null,
+    "yearChecked": null,
+    "bathroomLabel": "2 baños",
+    "bedLabel": "5 camas",
+    "bedroomLabel": "3 dormitorios",
+    "hasHouseRules": true,
+    "id": 1489399156507737300,
+    "isNewListing": false,
+    "listingRooms": [
+      {
+        "beds": [
+          {
+            "id": "725668816/queen_bed",
+            "quantity": 1,
+            "type": "queen_bed"
+          }
+        ],
+        "id": 725668816,
+        "roomNumber": 1
+      },
+      {
+        "beds": [
+          {
+            "id": "725668818/queen_bed",
+            "quantity": 1,
+            "type": "queen_bed"
+          }
+        ],
+        "id": 725668818,
+        "roomNumber": 2
+      },
+      {
+        "beds": [
+          {
+            "id": "725668820/bunk_bed",
+            "quantity": 1,
+            "type": "bunk_bed"
+          }
+        ],
+        "id": 725668820,
+        "roomNumber": 3
+      }
+    ],
+    "p3SummaryAddress": "San Petersburgo, Florida, Estados Unidos",
+    "primaryHost": {
+      "about": "It has always been my dream to help make people’s dreams come true. During my very first Airbnb stay, I realized I wanted others to enjoy life as much as possible without breaking the bank. That experience inspired me, as a host, to create a space where guests can relax, discover, and truly embrace the journey of life while finding themselves along the way.",
+      "badges": [
+        {
+          "count": 10,
+          "id": "reviews",
+          "label": "10 evaluaciones",
+          "link": "/users/show/257080642#reviews"
+        },
+        {
+          "id": "identity-verified",
+          "label": "Identidad verificada"
+        }
+      ],
+      "firstName": "Angelica",
+      "id": 257080642,
+      "isSuperhost": true,
+      "memberSinceFullStr": "Se registró en abril de 2019",
+      "name": "Angelica",
+      "languages": [
+        "English",
+        "Español"
+      ],
+      "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg?aki_policy=profile_x_medium",
+      "responseRateWithoutNa": "100%",
+      "responseTimeWithoutNa": "en menos de una hora",
+      "hasInclusionBadge": false,
+      "pictureLargeUrl": "https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg?aki_policy=profile_large",
+      "hostIntroTags": [
+        "10 evaluaciones"
+      ]
+    },
+    "roomTypeCategory": "entire_home",
+    "sectionedDescription": {
+      "authorType": "human",
+      "description": "Welcome to Areia Bela, just 5 minutes from Madeira Beach! Enjoy a private heated pool, Smart Toilet,  BBQ, full coffee bar, selfie station, and game corner with Bubble Surprise for kids. Pet-friendly with treats, fully stocked kitchen, unlimited Wi-Fi, and in-room QR codes for dining & local adventures. Comfort, fun, and unforgettable memories in one family- and group-friendly beach getaway.\n\nWelcome to our spacious, newly renovated 3-bedroom, 2-bathroom casa in St. Petersburg, Florida. We are the perfect family-friendly beach retreat. This single-story home blends comfort and style, offering plenty of space to relax just 5 minutes from the beach. Ideal for families, groups, and extended stays.\n\nTreat yourself to a heated pool (available October 1st to May 1st) for 20$ per day as an add-on.\n\nFor beach days, we’ve got you covered with beach towels, chairs, umbrellas, sunscreen, and a beach stroller, making every outing effortless and enjoyable.\n\nWe also provide 2 bicycles for guest use, complete with locks for your convenience, so you can explore the area safely and at your own pace.\n\n🛋 Living Areas\n\nLarge, comfortable living room with 55” Roku Smart TV for movie nights\n\nCozy indoor sitting area for games, reading, or conversation\n\nFun selfie photo station to capture vacation memories\n\nScreened-in porch with seating area to relax\n\nBackyard patio with string lights and BBQ grill\n\nDedicated game corner with a wide selection of board games\n\n🍽 Kitchen & Dining\n\nThe fully remodeled kitchen is stocked with everything you need for home-cooked meals. We also offer an international pantry, where guests are welcome to enjoy the available items and are kindly invited to leave something in exchange,  completely free of charge.\n\nEnjoy complimentary coffee and snacks in our coffee bar area.\n\nDining table seating up to 8 guests\n\nOutdoor dining option on the screened porch for a breezy Florida experience\n\n\n🛏 Bedrooms & Bathrooms\n\nThis home comfortably sleeps up to 8 guests:\n\nBedroom 1: Queen bed\n\nBedroom 2: Queen bed\n\nBedroom 3: Twin Bunk beds\n\nLiving room: Sofa converts into a queen-size bed\n\n💡 Additional guests over 8 incur a $30/night fee. Children over 2 years old are counted as guests.\n\n🚿 Two newly remodeled bathrooms:\n\nOne with a bathtub/shower combo\n\nOne featuring a modern tiled shower and smart Toilet with bidet for added comfort\n\n👶 Kid-Friendly \n\nPack ’n Play provided\n\nA CPR-certified babysitter is available upon request for $20 per hour.\n\nFamily games available\n\nPlease note: the home is child-friendly but not child-proof.\n\n\n🌴 Outdoor Living\n\nSpacious screened-in porch with comfortable seating\n\nBackyard patio with BBQ grill surrounded by charming string lights, perfect for evenings outdoors\n\n⭐ Extra Amenities\n\nUltra-fast Wi-Fi: 150+ Mbps download / 225+ Mbps upload (perfect for remote work & streaming)\n\nDriveway parking for up to 4 cars\n\nBoat parking allowed\n\nPet-friendly (cats & dogs welcome) with a $100 non-refundable pet fee (including service animals)\n\nQR codes in the home unlock curated restaurant and excursion recommendations, updated every 6 months.\n\n📍 Location – Prime Coastal Access\n\n5 minutes to Madeira Beach & Redington Beach\n\n10 minutes to Treasure Island\n\n5 minutes to Madeira Beach Marina & public boat launch\n\n25 minutes to Tampa International Airport (TPA)\n\n20 minutes to St. Pete-Clearwater International Airport (PIE)\n\n🌴 Welcome to Your St. Petersburg Getaway! 🌴\n\nLocated in the peaceful Bay Pines/Orange Estates neighborhood, this home offers the perfect blend of comfort, convenience, and coastal charm. Guests will enjoy a quiet residential setting while being just minutes away from the Gulf beaches, Downtown St. Petersburg, and local attractions.\n\nFree on-site parking is included for your convenience. The property is only 5 minutes from Madeira Beach, 15 minutes from downtown St. Pete, and has quick access to U.S. 19 and Gulf Boulevard. Public transportation is also nearby, making it easy to explore the area.\n\n**Please Note Before Booking**\n\n▫️ Lawn & Pool Care: To keep the property in great condition, routine lawn service (weekly) and pool service (twice weekly) will access the backyard. These visits may occur without advance notice. If privacy during your stay is important, feel free to let us know and we’ll do our best to accommodate.\n\n▫️ Pool Guidelines: For safety and maintenance reasons, pets are kindly asked to stay out of the pool. If this policy is not followed, a $150 filter replacement fee may apply.\n\n▫️ Trash & Recycling: As the home is located on a private street, we kindly ask guests to place all trash bins outside at the end of their stay. A $50 fee may apply if this step is missed.\n\n▫️ Quiet Enjoyment: To respect our neighbors and community, parties, fiestas, and large gatherings are not permitted. If this policy is violated, a $999 fee may be charged. We truly appreciate your help in maintaining a peaceful environment.\n\n▫️ Special Requests & Extras: If you’re interested in babysitting services or would like decorations for a special occasion, please let us know in advance. We’re happy to help coordinate whenever possible.",
+      "houseRules": "We do not allow large event gatherings of any kind, as we want to keep a quiet and peaceful environment. \n\nOnly one pet per booking is permitted.\n\nThank you advance for understanding.",
+      "locale": "en",
+      "localizedLanguageName": "inglés",
+      "name": "Heated Pool & Coffee Bar• 5-min to Madeira Beach",
+      "neighborhoodOverview": "🌴 Welcome to Your St. Petersburg Getaway! 🌴\n\nLocated in the peaceful Bay Pines/Orange Estates neighborhood, this home offers the perfect blend of comfort, convenience, and coastal charm. Guests will enjoy a quiet residential setting while being just minutes away from the Gulf beaches, Downtown St. Petersburg, and local attractions.",
+      "notes": "**Please Note Before Booking**\n\n▫️ Lawn & Pool Care: To keep the property in great condition, routine lawn service (weekly) and pool service (twice weekly) will access the backyard. These visits may occur without advance notice. If privacy during your stay is important, feel free to let us know and we’ll do our best to accommodate.\n\n▫️ Pool Guidelines: For safety and maintenance reasons, pets are kindly asked to stay out of the pool. If this policy is not followed, a $150 filter replacement fee may apply.\n\n▫️ Trash & Recycling: As the home is located on a private street, we kindly ask guests to place all trash bins outside at the end of their stay. A $50 fee may apply if this step is missed.\n\n▫️ Quiet Enjoyment: To respect our neighbors and community, parties, fiestas, and large gatherings are not permitted. If this policy is violated, a $999 fee may be charged. We truly appreciate your help in maintaining a peaceful environment.\n\n▫️ Special Requests & Extras: If you’re interested in babysitting services or would like decorations for a special occasion, please let us know in advance. We’re happy to help coordinate whenever possible.",
+      "space": "Welcome to our spacious, newly renovated 3-bedroom, 2-bathroom casa in St. Petersburg, Florida. We are the perfect family-friendly beach retreat. This single-story home blends comfort and style, offering plenty of space to relax just 5 minutes from the beach. Ideal for families, groups, and extended stays.\n\nTreat yourself to a heated pool (available October 1st to May 1st) for 20$ per day as an add-on.\n\nFor beach days, we’ve got you covered with beach towels, chairs, umbrellas, sunscreen, and a beach stroller, making every outing effortless and enjoyable.\n\nWe also provide 2 bicycles for guest use, complete with locks for your convenience, so you can explore the area safely and at your own pace.\n\n🛋 Living Areas\n\nLarge, comfortable living room with 55” Roku Smart TV for movie nights\n\nCozy indoor sitting area for games, reading, or conversation\n\nFun selfie photo station to capture vacation memories\n\nScreened-in porch with seating area to relax\n\nBackyard patio with string lights and BBQ grill\n\nDedicated game corner with a wide selection of board games\n\n🍽 Kitchen & Dining\n\nThe fully remodeled kitchen is stocked with everything you need for home-cooked meals. We also offer an international pantry, where guests are welcome to enjoy the available items and are kindly invited to leave something in exchange,  completely free of charge.\n\nEnjoy complimentary coffee and snacks in our coffee bar area.\n\nDining table seating up to 8 guests\n\nOutdoor dining option on the screened porch for a breezy Florida experience\n\n\n🛏 Bedrooms & Bathrooms\n\nThis home comfortably sleeps up to 8 guests:\n\nBedroom 1: Queen bed\n\nBedroom 2: Queen bed\n\nBedroom 3: Twin Bunk beds\n\nLiving room: Sofa converts into a queen-size bed\n\n💡 Additional guests over 8 incur a $30/night fee. Children over 2 years old are counted as guests.\n\n🚿 Two newly remodeled bathrooms:\n\nOne with a bathtub/shower combo\n\nOne featuring a modern tiled shower and smart Toilet with bidet for added comfort\n\n👶 Kid-Friendly \n\nPack ’n Play provided\n\nA CPR-certified babysitter is available upon request for $20 per hour.\n\nFamily games available\n\nPlease note: the home is child-friendly but not child-proof.\n\n\n🌴 Outdoor Living\n\nSpacious screened-in porch with comfortable seating\n\nBackyard patio with BBQ grill surrounded by charming string lights, perfect for evenings outdoors\n\n⭐ Extra Amenities\n\nUltra-fast Wi-Fi: 150+ Mbps download / 225+ Mbps upload (perfect for remote work & streaming)\n\nDriveway parking for up to 4 cars\n\nBoat parking allowed\n\nPet-friendly (cats & dogs welcome) with a $100 non-refundable pet fee (including service animals)\n\nQR codes in the home unlock curated restaurant and excursion recommendations, updated every 6 months.\n\n📍 Location – Prime Coastal Access\n\n5 minutes to Madeira Beach & Redington Beach\n\n10 minutes to Treasure Island\n\n5 minutes to Madeira Beach Marina & public boat launch\n\n25 minutes to Tampa International Airport (TPA)\n\n20 minutes to St. Pete-Clearwater International Airport (PIE)",
+      "summary": "Welcome to Areia Bela, just 5 minutes from Madeira Beach! Enjoy a private heated pool, Smart Toilet,  BBQ, full coffee bar, selfie station, and game corner with Bubble Surprise for kids. Pet-friendly with treats, fully stocked kitchen, unlimited Wi-Fi, and in-room QR codes for dining & local adventures. Comfort, fun, and unforgettable memories in one family- and group-friendly beach getaway.",
+      "transit": "Free on-site parking is included for your convenience. The property is only 5 minutes from Madeira Beach, 15 minutes from downtown St. Pete, and has quick access to U.S. 19 and Gulf Boulevard. Public transportation is also nearby, making it easy to explore the area."
+    },
+    "tierId": 0,
+    "guestControls": {
+      "allowsChildren": true,
+      "allowsEvents": false,
+      "allowsInfants": true,
+      "allowsPets": true,
+      "allowsSmoking": false,
+      "personCapacity": 8,
+      "structuredHouseRules": [
+        "Prohibido fumar",
+        "No se permiten fiestas ni eventos",
+        "Admite mascotas"
+      ],
+      "structuredHouseRulesWithTips": [
+        {
+          "key": "is_smoking_allowed_as_host",
+          "text": "Prohibido fumar",
+          "airmojiKey": "house_rules_no_smoking"
+        },
+        {
+          "key": "are_events_allowed_as_host",
+          "text": "No se permiten fiestas ni eventos",
+          "airmojiKey": "house_rules_no_party"
+        },
+        {
+          "key": "pets_allowed_as_host",
+          "text": "Admite mascotas",
+          "airmojiKey": "house_rules_yes_pets"
+        }
+      ],
+      "allowsNonChinaUsers": true
+    },
+    "hasSpecialOffer": false,
+    "maxNights": 365,
+    "minNights": 1,
+    "priceDetails": [
+      {
+        "label": "Personas adicionales",
+        "value": "$35 por noche más de 7 viajeros",
+        "attributeType": "EXTRA_PEOPLE"
+      },
+      {
+        "label": "Precio de fin de semana",
+        "value": "$300 por noche",
+        "attributeType": "WEEKEND_PRICE"
+      }
+    ],
+    "hasWeWorkLocation": false,
+    "isBusinessTravelReady": false,
+    "additionalHosts": [
+      {
+        "about": "",
+        "badges": [],
+        "firstName": "Paulo",
+        "id": 288281851,
+        "isSuperhost": false,
+        "memberSinceFullStr": "Se registró en agosto de 2019",
+        "name": "Paulo",
+        "languages": [],
+        "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/9a2d9c68-c143-4449-ac47-b0879e0f3983.jpeg?aki_policy=profile_x_medium",
+        "hasInclusionBadge": false,
+        "pictureLargeUrl": "https://a0.muscache.com/im/pictures/user/User/original/9a2d9c68-c143-4449-ac47-b0879e0f3983.jpeg?aki_policy=profile_large",
+        "hostIntroTags": []
+      },
+      {
+        "about": "",
+        "badges": [],
+        "firstName": "Brenda",
+        "id": 333414759,
+        "isSuperhost": false,
+        "memberSinceFullStr": "Se registró en febrero de 2020",
+        "name": "Brenda",
+        "languages": [
+          "English",
+          "Español",
+          "Français",
+          "Português"
+        ],
+        "pictureUrl": "https://a0.muscache.com/im/pictures/user/User/original/c019ba79-35b3-4e0a-8460-e1947c152a94.jpeg?aki_policy=profile_x_medium",
+        "hasInclusionBadge": false,
+        "pictureLargeUrl": "https://a0.muscache.com/im/pictures/user/User/original/c019ba79-35b3-4e0a-8460-e1947c152a94.jpeg?aki_policy=profile_large",
+        "hostIntroTags": []
+      }
+    ],
+    "isHostedBySuperhost": true,
+    "hometourRooms": [
+      {
+        "details": [],
+        "highlightsHometour": [
+          "1 cama de matrimonio grande"
+        ],
+        "highlightsPreview": [],
+        "isShared": false,
+        "id": 725668816,
+        "name": "",
+        "nameWithType": "Dormitorio 1",
+        "photos": [],
+        "roomTypeId": 1,
+        "icons": [
+          {
+            "type": "queen_bed",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "details": [],
+        "highlightsHometour": [
+          "1 cama de matrimonio grande"
+        ],
+        "highlightsPreview": [],
+        "isShared": false,
+        "id": 725668818,
+        "name": "",
+        "nameWithType": "Dormitorio 2",
+        "photos": [],
+        "roomTypeId": 1,
+        "icons": [
+          {
+            "type": "queen_bed",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "details": [],
+        "highlightsHometour": [
+          "1 litera"
+        ],
+        "highlightsPreview": [],
+        "isShared": false,
+        "id": 725668820,
+        "name": "",
+        "nameWithType": "Dormitorio 3",
+        "photos": [],
+        "roomTypeId": 1,
+        "icons": [
+          {
+            "type": "bunk_bed",
+            "url": ""
+          }
+        ]
+      }
+    ],
+    "hometourSections": [],
+    "descriptionLocale": "en",
+    "initialDescriptionAuthorType": "human",
+    "localizedCheckInTimeWindow": "A partir de las 16:00",
+    "localizedCheckOutTime": "12:00",
+    "countryCode": "US",
+    "hasHostGuidebook": false,
+    "hasLocalAttractions": false,
+    "neighborhoodCommunityTags": [],
+    "state": "FL",
+    "paidGrowthRemarketingListingIds": [],
+    "hasCommercialHostInfo": false,
+    "reviewDetailsInterface": {
+      "reviewCount": 10,
+      "reviewSummary": []
+    },
+    "reviewsOrder": "language_country",
+    "nearbyAirportDistanceDescriptions": [],
+    "renderTierId": 0,
+    "isHotel": false,
+    "accessibilityModule": {
+      "amenities": [
+        {
+          "description": "La habitación está en la planta baja o se puede acceder a ella en ascensor o por una rampa. En el trayecto desde la entrada hasta la habitación no hay escaleras, escalones ni umbrales de más de 5 centímetros de alto.",
+          "id": 606,
+          "isPresent": true,
+          "name": "Acceso sin escalones"
+        }
+      ],
+      "rootHighlights": [
+        "Acceso sin escalones"
+      ],
+      "seeAllSections": [
+        {
+          "id": "accessibility_group_kitchen:5d57b254d26d834f",
+          "title": "Cocina completa",
+          "subtitle": "",
+          "amenityIds": [
+            606
+          ],
+          "photos": [
+            {
+              "id": 2309566395,
+              "thumbnailUrl": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/dcc14994-f9c7-4a78-82b0-feaa83574f69.jpeg?aki_policy=small",
+              "largeUrl": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/dcc14994-f9c7-4a78-82b0-feaa83574f69.jpeg?aki_policy=large",
+              "caption": "",
+              "xLargeUrl": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/dcc14994-f9c7-4a78-82b0-feaa83574f69.jpeg?aki_policy=x_large",
+              "xxLargeUrl": "https://a0.muscache.com/im/pictures/hosting/Hosting-1489399156507737323/original/dcc14994-f9c7-4a78-82b0-feaa83574f69.jpeg?aki_policy=xx_large"
+            }
+          ]
+        }
+      ],
+      "seeAllSummary": "Este anfitrión ha comprobado las características de accesibilidad de su alojamiento. Las entradas anchas miden al menos 81 cm."
+    },
+    "showReviewTag": false,
+    "isRepresentativeInventory": false,
+    "localizedCity": "San Petersburgo",
+    "categorizedPreviewAmenities": [
+      {
+        "category": "Estándar",
+        "amenities": "Cocina, Wifi, Zona para trabajar, Perchas, TV y 20 más"
+      },
+      {
+        "category": "Otros aspectos destacables",
+        "amenities": "Aparcamiento gratuito en las instalaciones, Piscina, Aparcamiento gratuito en la calle, Botiquín, Cerradura con teclado y 30 más"
+      }
+    ],
+    "pointOfInterests": [],
+    "chinaPointsOfInterestMatcha": {},
+    "pageViewType": "DEFAULT",
+    "previewTags": [],
+    "seeAllHometourSections": [],
+    "enableHighlightsVoting": false,
+    "listingExpectations": [
+      {
+        "addedDetails": "Front yard, Garage, Backyard.",
+        "title": "Hay dispositivos de vigilancia o grabación en la propiedad",
+        "type": "surveillance",
+        "airmojiKey": "status_cancelled"
+      }
+    ],
+    "localizedListingExpectations": [
+      {
+        "addedDetails": "Front yard, Garage, Backyard.",
+        "title": "Hay dispositivos de vigilancia o grabación en la propiedad",
+        "type": "surveillance",
+        "airmojiKey": "status_cancelled"
+      }
+    ],
+    "heroModule": {
+      "categorizedPhotos": []
+    },
+    "houseRulesModule": {
+      "structuredRules": [
+        {
+          "key": "is_smoking_allowed_as_host",
+          "text": "Prohibido fumar",
+          "airmojiKey": "house_rules_no_smoking"
+        },
+        {
+          "key": "are_events_allowed_as_host",
+          "text": "No se permiten fiestas ni eventos",
+          "airmojiKey": "house_rules_no_party"
+        },
+        {
+          "key": "pets_allowed_as_host",
+          "text": "Admite mascotas",
+          "airmojiKey": "house_rules_yes_pets"
+        }
+      ],
+      "listingExpectations": [
+        {
+          "addedDetails": "Front yard, Garage, Backyard.",
+          "title": "Hay dispositivos de vigilancia o grabación en la propiedad",
+          "type": "surveillance",
+          "airmojiKey": "status_cancelled"
+        }
+      ],
+      "additionalRules": "We do not allow large event gatherings of any kind, as we want to keep a quiet and peaceful environment. \n\nOnly one pet per booking is permitted.\n\nThank you advance for understanding. ",
+      "localizedListingExpectations": [
+        {
+          "addedDetails": "Front yard, Garage, Backyard.",
+          "title": "Hay dispositivos de vigilancia o grabación en la propiedad",
+          "type": "surveillance",
+          "airmojiKey": "status_cancelled"
+        }
+      ],
+      "selfCheckinInfo": "Llegada autónoma con cerradura con teclado"
+    },
+    "reviewsModule": {},
+    "availabilityModule": {},
+    "additionalHouseRules": "We do not allow large event gatherings of any kind, as we want to keep a quiet and peaceful environment. \n\nOnly one pet per booking is permitted.\n\nThank you advance for understanding. ",
+    "sortedReviews": [],
+    "documentDisplayPictures": [],
+    "sections": [],
+    "metadata": {},
+    "idStr": "1489399156507737323"
+  }
+]

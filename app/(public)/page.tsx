@@ -2,10 +2,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Star, Award, User, Waves, Key, MapPin, Wind, Cat, Calendar, ChevronRight, CheckCircle2, MessageSquare, Map, Tag, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { BookingWidget } from '@/components/booking/booking-widget'
+import { BookingWidget } from '@/components/BookingWidget'
+import { ContactSection } from '@/components/ContactSection'
 import { ImageGallery } from '@/components/rooms/image-gallery'
 import { reviews, propertyInfo } from '@/lib/mock-data'
-
+import { propertyData } from "@/lib/property-data";
 export default function HomePage() {
   return (
     <div className="max-w-[1120px] mx-auto px-4 sm:px-6 lg:px-10 py-6 mb-12">
@@ -56,7 +57,12 @@ export default function HomePage() {
               </p>
             </div>
             <div className="h-12 w-12 md:h-14 md:w-14 rounded-full overflow-hidden bg-muted ml-4 flex-shrink-0 relative">
-              <User className="absolute inset-0 m-auto h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
+          
+              {propertyData.host.pictureUrl ? (
+                <Image src={propertyData.host.pictureUrl} alt={propertyData.host.name} fill className="object-cover" />
+              ) : (
+                <User className="absolute inset-0 m-auto h-6 w-6 text-muted-foreground" />
+              )}
             </div>
           </div>
 
@@ -120,44 +126,7 @@ export default function HomePage() {
         <div className="hidden lg:block relative">
           <div className="sticky top-28 z-10 w-[380px]">
             <div className="bg-background border border-border rounded-xl shadow-[0_6px_16px_rgba(0,0,0,0.12)] p-6">
-              <div className="mb-6 flex justify-between items-end">
-                <div>
-                  <span className="text-[22px] font-semibold text-foreground">$150</span>
-                  <span className="text-foreground/80 ml-1">noche</span>
-                </div>
-                <div className="flex items-center gap-1 text-sm font-semibold">
-                  <Star className="h-3 w-3 fill-foreground" />
-                  <span>4.9</span>
-                  <span className="text-foreground/50 mx-0.5">·</span>
-                  <span className="text-foreground/60 underline font-normal">{reviews.length} reseñas</span>
-                </div>
-              </div>
-              
-              <BookingWidget variant="sidebar" className="mb-4" />
-              
-              <div className="mt-4 text-center text-sm text-foreground/70">
-                No se te cobrará nada todavía
-              </div>
-              
-              <div className="mt-6 space-y-4 border-b border-border pb-6">
-                <div className="flex justify-between text-foreground/90 underline">
-                  <span>$150 x 3 noches</span>
-                  <span>$450</span>
-                </div>
-                <div className="flex justify-between text-foreground/90 underline">
-                  <span>Tarifa de limpieza</span>
-                  <span>$120</span>
-                </div>
-                <div className="flex justify-between text-foreground/90 underline">
-                  <span>Comisión de servicio</span>
-                  <span>$80</span>
-                </div>
-              </div>
-              
-              <div className="flex justify-between text-foreground font-semibold pt-6 text-lg">
-                <span>Total sin impuestos</span>
-                <span>$650</span>
-              </div>
+              <BookingWidget className="border-0 p-0 shadow-none" />
             </div>
             
             <div className="mt-6 p-4 border border-border rounded-xl flex items-start gap-4">
@@ -379,6 +348,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <ContactSection />
       
       {/* Mobile Sticky Booking Footer */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border px-6 py-4 flex justify-between items-center z-40">
