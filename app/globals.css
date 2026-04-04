@@ -7,6 +7,7 @@
 :root {
   --background: oklch(0.995 0.002 90);
   --foreground: oklch(0.15 0.01 250);
+  --text-muted-custom: rgb(108, 108, 108);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0.01 250);
   --popover: oklch(1 0 0);
@@ -30,6 +31,7 @@
   --chart-4: oklch(0.70 0.15 60);
   --chart-5: oklch(0.50 0.10 280);
   --radius: 0.5rem;
+  --m13-pdp-top-of-content-border-radius: 12px;
   --sidebar: oklch(0.98 0.002 90);
   --sidebar-foreground: oklch(0.15 0.01 250);
   --sidebar-primary: oklch(0.55 0.15 25);
@@ -47,6 +49,7 @@
 .dark {
   --background: oklch(0.14 0.01 250);
   --foreground: oklch(0.96 0.005 90);
+  --text-muted-custom: rgb(108, 108, 108);
   --card: oklch(0.18 0.01 250);
   --card-foreground: oklch(0.96 0.005 90);
   --popover: oklch(0.18 0.01 250);
@@ -84,10 +87,12 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+--font-serif: var(--font-playfair), serif;
+--font-mono: ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted-custom: var(--text-muted-custom);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -129,10 +134,26 @@
 }
 
 @layer base {
+  @font-face {
+    font-family: 'Areia Bela';
+    src: url('/fonts/Areia-bela.woff2') format('woff2-variations');
+    font-weight: 100 900;
+    font-display: swap;
+  }
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
   body {
-    @apply bg-background text-foreground;
+    font-family: 'Areia Bela', 'Circular', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    @apply bg-background text-muted-custom antialiased;
   }
 }

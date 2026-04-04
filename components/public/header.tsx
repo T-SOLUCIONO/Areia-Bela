@@ -19,7 +19,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
+      <div className="flex h-16 items-center justify-between px-4 md:px-40">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <div className="flex flex-col">
@@ -32,9 +32,9 @@ export function Header() {
           </div>
         </Link>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Navigation 
         <nav className="hidden md:flex items-center gap-8">
-          {navigation.map((item) => (
+          {/* {navigation.map((item) => (
             <Link
               key={item.name}
               href={item.href}
@@ -56,8 +56,8 @@ export function Header() {
           </Link>
           <Link href="/admin">
             <Button variant="ghost" size="sm">
-              <User className="h-4 w-4 mr-2" />
-              Admin
+            {/* <User className="h-4 w-4 mr-2" /> 
+              Admin*/} 
             </Button>
           </Link>
           <Link href="/rooms/1489399156507737323">

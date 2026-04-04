@@ -1,6 +1,6 @@
 import { Header } from '@/components/public/header'
 import { Footer } from '@/components/public/footer'
-
+import { Reserve } from '@/components/public/reserve'
 export default function PublicLayout({
   children,
 }: {
@@ -13,6 +13,7 @@ export default function PublicLayout({
         {children}
       </main>
       <Footer />
+      <Reserve />
     </div>
   )
 }

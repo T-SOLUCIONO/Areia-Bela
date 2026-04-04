@@ -30,7 +30,7 @@ import type {
 
 // Property Info
 export const propertyInfo: PropertyInfo = {
-  name: 'Areia Bela • Heated Pool & Coffee Bar',
+  name: 'Heated Pool & Coffee Bar • 5 minutes to Madeira Beach',
   description: 'Welcome to Areia Bela, just 5 minutes from Madeira Beach! Enjoy a private heated pool, Smart Toilet, BBQ, full coffee bar, selfie station, and game corner with Bubble Surprise for kids. Pet-friendly with treats, fully stocked kitchen, unlimited Wi-Fi, and in-room QR codes for dining & local adventures. Comfort, fun, and unforgettable memories in one family- and group-friendly beach getaway.',
   address: 'San Petersburgo, Florida, Estados Unidos',
   city: 'St. Petersburg',
