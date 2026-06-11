@@ -2,9 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import Image from "next/image";
-import { Mail, MessageCircle, Phone, User } from "lucide-react";
+import { Mail, MessageCircle, Phone, User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { propertyData } from "@/lib/property-data";
+import { useLanguage } from "@/components/language-provider";
 
 const contact = {
   phone: "+1 (727) 555-3043",
@@ -14,6 +18,8 @@ const contact = {
 
 export function ContactSection() {
   const [sent, setSent] = useState(false);
+  const { language } = useLanguage();
+  const isEnglish = language === "en";
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -22,13 +28,21 @@ export function ContactSection() {
   };
 
   return (
-    <section className="py-12 border-b border-border">
-      <h2 className="mb-6 text-[22px] font-semibold text-foreground">Contacto</h2>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border p-6">
-          <h3 className="mb-4 text-lg font-semibold">Información del anfitrión</h3>
-          <div className="mb-5 flex items-center gap-4">
-            <div className="relative h-14 w-14 overflow-hidden rounded-full bg-muted">
+    <section id="contact" className="rounded-[32px] border border-border/70 bg-card/80 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8">
+      <div className="mb-6 max-w-2xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">{isEnglish ? "Contact" : "Contacto"}</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {isEnglish
+            ? "We answer questions about availability, access, pets, and amenities before you book."
+            : "Resolvemos dudas de disponibilidad, accesos, mascotas y servicios antes de reservar."}
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-[28px] border border-border/70 bg-background p-6">
+          <h3 className="text-lg font-semibold text-foreground">{isEnglish ? "Host info" : "Información del anfitrión"}</h3>
+          <div className="mt-5 flex items-center gap-4">
+            <div className="relative h-16 w-16 overflow-hidden rounded-full bg-muted">
               {propertyData.host.pictureUrl ? (
                 <Image src={propertyData.host.pictureUrl} alt={propertyData.host.name} fill className="object-cover" />
               ) : (
@@ -36,33 +50,49 @@ export function ContactSection() {
               )}
             </div>
             <div>
-              <p className="font-semibold">{propertyData.host.name}</p>
-              <p className="text-sm text-foreground/70">Anfitrión desde {propertyData.hostSinceYear}</p>
+              <p className="font-semibold text-foreground">{propertyData.host.name}</p>
+              <p className="text-sm text-muted-foreground">{isEnglish ? "Host since" : "Anfitrión desde"} {propertyData.hostSinceYear}</p>
             </div>
           </div>
-          <div className="space-y-2 text-sm">
-            <p className="flex items-center gap-2"><Phone className="h-4 w-4" />{contact.phone}</p>
-            <p className="flex items-center gap-2"><Mail className="h-4 w-4" />{contact.email}</p>
+
+          <div className="mt-6 space-y-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2"><Phone className="h-4 w-4" /><span>{contact.phone}</span></div>
+            <div className="flex items-center gap-2"><Mail className="h-4 w-4" /><span>{contact.email}</span></div>
           </div>
+
           <a
             href={`https://wa.me/${contact.whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm font-semibold hover:bg-muted"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
           >
             <MessageCircle className="h-4 w-4" />
             WhatsApp
           </a>
         </div>
 
-        <div className="rounded-2xl border border-border p-6">
-          <h3 className="mb-4 text-lg font-semibold">Envíanos un mensaje</h3>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <input required type="text" placeholder="Nombre" className="h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-            <input required type="email" placeholder="Email" className="h-11 w-full rounded-xl border border-border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-            <textarea required rows={4} placeholder="Mensaje" className="w-full rounded-xl border border-border px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-            <Button type="submit" className="h-11 w-full rounded-xl bg-[#E31C5F] text-white hover:bg-[#D70466]">Enviar mensaje</Button>
-            {sent ? <p className="text-sm text-emerald-700">Mensaje enviado. Te responderemos pronto.</p> : null}
+        <div className="rounded-[28px] border border-border/70 bg-background p-6">
+          <h3 className="text-lg font-semibold text-foreground">{isEnglish ? "Send us a message" : "Envíanos un mensaje"}</h3>
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="contact-name">{isEnglish ? "Name" : "Nombre"}</Label>
+              <Input id="contact-name" required type="text" placeholder={isEnglish ? "Your name" : "Tu nombre"} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact-email">Email</Label>
+              <Input id="contact-email" required type="email" placeholder={isEnglish ? "you@email.com" : "tu@email.com"} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact-message">{isEnglish ? "Message" : "Mensaje"}</Label>
+              <Textarea id="contact-message" required rows={5} placeholder={isEnglish ? "Tell us your dates or questions" : "Cuéntanos tus fechas o dudas"} />
+            </div>
+            <Button type="submit" className="h-11 w-full rounded-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90">
+              <Send className="h-4 w-4" />
+              {isEnglish ? "Send message" : "Enviar mensaje"}
+            </Button>
+            <p aria-live="polite" className="text-sm text-success">
+              {sent ? (isEnglish ? "Message sent. We will reply soon." : "Mensaje enviado. Te responderemos pronto.") : ""}
+            </p>
           </form>
         </div>
       </div>

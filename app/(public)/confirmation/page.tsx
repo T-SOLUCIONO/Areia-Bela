@@ -10,10 +10,13 @@ import { Button } from "@/components/ui/button";
 import { getQuoteFromStorage } from "@/lib/booking";
 import { propertyData } from "@/lib/property-data";
 import type { BookingQuote } from "@/lib/booking";
+import { useLanguage } from "@/components/language-provider";
 
 function ConfirmationContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
+  const { language } = useLanguage();
+  const isEnglish = language === 'en';
   const [quote, setQuote] = useState<BookingQuote | null>(null);
 
   useEffect(() => {
@@ -29,8 +32,8 @@ function ConfirmationContent() {
         <div className="w-16 h-16 rounded-full bg-[#d4edda] flex items-center justify-center mb-6">
           <CheckCircle className="w-10 h-10 text-[#1b5e20]" />
         </div>
-        <h1 className="text-2xl font-semibold text-[#222222] mb-2">Booking Confirmed!</h1>
-        <p className="text-[#717171] mb-6">Loading your booking details...</p>
+        <h1 className="text-2xl font-semibold text-[#222222] mb-2">{isEnglish ? 'Booking Confirmed!' : '¡Reserva confirmada!'}</h1>
+        <p className="text-[#717171] mb-6">{isEnglish ? 'Loading your booking details...' : 'Cargando los detalles de tu reserva...'}</p>
         <div className="animate-pulse">
           <div className="h-8 w-8 rounded-full border-4 border-[#FF385C] border-t-transparent animate-spin" />
         </div>
@@ -57,13 +60,13 @@ function ConfirmationContent() {
           <div className="w-20 h-20 rounded-full bg-[#d4edda] flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-12 h-12 text-[#1b5e20]" />
           </div>
-          <h1 className="text-3xl font-semibold text-[#222222] mb-2">Booking Confirmed!</h1>
+          <h1 className="text-3xl font-semibold text-[#222222] mb-2">{isEnglish ? 'Booking Confirmed!' : '¡Reserva confirmada!'}</h1>
           <p className="text-[#717171] text-lg">
-            Thanks, your reservation has been confirmed.
+            {isEnglish ? 'Thanks, your reservation has been confirmed.' : 'Gracias, tu reserva ha sido confirmada.'}
           </p>
           {sessionId && (
             <p className="text-sm text-[#717171] mt-2">
-              Confirmation ID: <span className="font-mono text-xs">{sessionId.slice(0, 20)}...</span>
+              {isEnglish ? 'Confirmation ID' : 'ID de confirmación'}: <span className="font-mono text-xs">{sessionId.slice(0, 20)}...</span>
             </p>
           )}
         </div>
@@ -93,21 +96,21 @@ function ConfirmationContent() {
                 <div className="flex items-start gap-2">
                   <Calendar className="h-5 w-5 text-[#717171] mt-0.5" />
                   <div>
-                    <p className="text-xs text-[#717171] uppercase tracking-wide">Check-in</p>
+                    <p className="text-xs text-[#717171] uppercase tracking-wide">{isEnglish ? 'Check-in' : 'Llegada'}</p>
                     <p className="font-medium text-[#222222]">
                       {quote.checkIn ? format(parseISO(quote.checkIn), "MMM d, yyyy") : "N/A"}
                     </p>
-                    <p className="text-sm text-[#717171]">From 4:00 PM</p>
+                    <p className="text-sm text-[#717171]">{isEnglish ? 'From 4:00 PM' : 'Desde las 4:00 PM'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Calendar className="h-5 w-5 text-[#717171] mt-0.5" />
                   <div>
-                    <p className="text-xs text-[#717171] uppercase tracking-wide">Check-out</p>
+                    <p className="text-xs text-[#717171] uppercase tracking-wide">{isEnglish ? 'Check-out' : 'Salida'}</p>
                     <p className="font-medium text-[#222222]">
                       {quote.checkOut ? format(parseISO(quote.checkOut), "MMM d, yyyy") : "N/A"}
                     </p>
-                    <p className="text-sm text-[#717171]">By 10:00 AM</p>
+                    <p className="text-sm text-[#717171]">{isEnglish ? 'By 10:00 AM' : 'Antes de las 10:00 AM'}</p>
                   </div>
                 </div>
               </div>
@@ -121,10 +124,10 @@ function ConfirmationContent() {
           <div className="flex items-center gap-2 mb-4">
             <Users className="h-5 w-5 text-[#717171]" />
             <div>
-              <p className="text-xs text-[#717171] uppercase tracking-wide">Guests</p>
+              <p className="text-xs text-[#717171] uppercase tracking-wide">{isEnglish ? 'Guests' : 'Huéspedes'}</p>
               <p className="font-medium text-[#222222]">
-                {quote.guests.adults + quote.guests.children} guest{(quote.guests.adults + quote.guests.children) !== 1 ? "s" : ""}
-                {quote.guests.children > 0 && ` (${quote.guests.children} children)`}
+                {quote.guests.adults + quote.guests.children} {isEnglish ? 'guest' : 'huésped'}{(quote.guests.adults + quote.guests.children) !== 1 ? (isEnglish ? 's' : 'es') : ''}
+                {quote.guests.children > 0 && ` (${quote.guests.children} ${isEnglish ? 'children' : 'niños'})`}
               </p>
             </div>
           </div>
@@ -133,9 +136,9 @@ function ConfirmationContent() {
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-[#717171]" />
             <div>
-              <p className="text-xs text-[#717171] uppercase tracking-wide">Duration</p>
+              <p className="text-xs text-[#717171] uppercase tracking-wide">{isEnglish ? 'Duration' : 'Duración'}</p>
               <p className="font-medium text-[#222222]">
-                {quote.nights} night{quote.nights !== 1 ? "s" : ""}
+                {quote.nights} {isEnglish ? 'night' : 'noche'}{quote.nights !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -153,13 +156,13 @@ function ConfirmationContent() {
               />
             </div>
             <div>
-              <h3 className="font-semibold text-[#222222]">
-                Message from {propertyData.host.firstName}
-              </h3>
+                <h3 className="font-semibold text-[#222222]">
+                 {isEnglish ? 'Message from' : 'Mensaje de'} {propertyData.host.firstName}
+               </h3>
               <p className="text-[#717171] text-sm mt-1">
-                Thank you for choosing Areia Bela! We&apos;re excited to host you and make your stay unforgettable. 
-                If you have any questions before your arrival, don&apos;t hesitate to reach out. 
-                We can&apos;t wait to welcome you!
+                {isEnglish
+                  ? 'Thank you for choosing Areia Bela! We are excited to host you and make your stay unforgettable. If you have any questions before your arrival, do not hesitate to reach out. We cannot wait to welcome you!'
+                  : '¡Gracias por elegir Areia Bela! Estamos emocionados de hospedarte y hacer que tu estadía sea inolvidable. Si tienes preguntas antes de tu llegada, no dudes en escribirnos. ¡No vemos la hora de recibirte!'}
               </p>
             </div>
           </div>
@@ -167,33 +170,33 @@ function ConfirmationContent() {
 
         {/* Price Summary */}
         <div className="rounded-2xl border border-[#ebebeb] p-6 md:p-8 mb-8">
-          <h3 className="font-semibold text-[#222222] mb-4">Price details</h3>
+          <h3 className="font-semibold text-[#222222] mb-4">{isEnglish ? 'Price details' : 'Detalles del precio'}</h3>
           <div className="space-y-3">
             <div className="flex justify-between text-[#222222]">
-              <span>{propertyData.pricing.price_per_night} x {quote.nights} nights</span>
+              <span>{propertyData.pricing.price_per_night} x {quote.nights} {isEnglish ? 'nights' : 'noches'}</span>
               <span>${quote.subtotal.toLocaleString()}</span>
             </div>
             {quote.extrasTotal > 0 && (
               <div className="flex justify-between text-[#222222]">
-                <span>Extras</span>
+                <span>{isEnglish ? 'Extras' : 'Extras'}</span>
                 <span>${quote.extrasTotal.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between text-[#222222]">
-              <span>Cleaning fee</span>
+              <span>{isEnglish ? 'Cleaning fee' : 'Tarifa de limpieza'}</span>
               <span>${quote.cleaningFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-[#222222]">
-              <span>Service fee</span>
+              <span>{isEnglish ? 'Service fee' : 'Tarifa de servicio'}</span>
               <span>${quote.serviceFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-[#222222]">
-              <span>Taxes & fees</span>
+              <span>{isEnglish ? 'Taxes & fees' : 'Impuestos y tarifas'}</span>
               <span>${quote.taxes.toLocaleString()}</span>
             </div>
             <div className="h-px bg-[#ebebeb] my-3" />
             <div className="flex justify-between text-lg font-semibold text-[#222222]">
-              <span>Total</span>
+              <span>{isEnglish ? 'Total' : 'Total'}</span>
               <span>${quote.total.toLocaleString()}</span>
             </div>
           </div>
@@ -204,55 +207,55 @@ function ConfirmationContent() {
           <div className="flex items-start gap-3 mb-6">
             <Shield className="h-6 w-6 text-[#717171] mt-0.5" />
             <div>
-              <h3 className="font-semibold text-[#222222]">Booking Protection</h3>
+              <h3 className="font-semibold text-[#222222]">{isEnglish ? 'Booking Protection' : 'Protección de la reserva'}</h3>
               <p className="text-sm text-[#717171] mt-1">
-                Your booking is protected by free AirCover. If there&apos;s a problem with your stay, we&apos;re here to help.
+                {isEnglish ? 'Your booking is protected by free AirCover. If there\'s a problem with your stay, we\'re here to help.' : 'Tu reserva está protegida por AirCover gratis. Si hay un problema con tu estadía, estamos para ayudarte.'}
               </p>
             </div>
           </div>
 
-          <h3 className="font-semibold text-[#222222] mb-4">Guest controls</h3>
+          <h3 className="font-semibold text-[#222222] mb-4">{isEnglish ? 'Guest controls' : 'Controles del huésped'}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-3 text-sm text-[#717171]">
               <Mail className="h-4 w-4" />
-              <span>Confirmation email sent to your inbox</span>
+              <span>{isEnglish ? 'Confirmation email sent to your inbox' : 'Correo de confirmación enviado a tu bandeja de entrada'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#717171]">
               <Calendar className="h-4 w-4" />
-              <span>Add to calendar feature available</span>
+              <span>{isEnglish ? 'Add to calendar feature available' : 'Función de agregar al calendario disponible'}</span>
             </div>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button 
             variant="outline" 
-            className="flex items-center gap-2 h-12 px-6 border-[#222222] text-[#222222] hover:bg-[#f7f7f7]"
+            className="h-12 w-full border-[#222222] px-6 text-[#222222] hover:bg-[#f7f7f7] sm:w-auto"
           >
             <Download className="h-4 w-4" />
-            Download receipt
+            {isEnglish ? 'Download receipt' : 'Descargar recibo'}
           </Button>
           <Button 
             variant="outline" 
-            className="flex items-center gap-2 h-12 px-6 border-[#222222] text-[#222222] hover:bg-[#f7f7f7]"
+            className="h-12 w-full border-[#222222] px-6 text-[#222222] hover:bg-[#f7f7f7] sm:w-auto"
           >
             <Share2 className="h-4 w-4" />
-            Share trip details
+            {isEnglish ? 'Share trip details' : 'Compartir detalles del viaje'}
           </Button>
-          <Link href="/">
-            <Button className="h-12 px-6 bg-[#FF385C] hover:bg-[#E31C5F] text-white font-medium">
-              Back to home
-            </Button>
-          </Link>
+          <Button asChild className="h-12 w-full bg-[#FF385C] px-6 font-medium text-white hover:bg-[#E31C5F] sm:w-auto">
+            <Link href="/">
+              {isEnglish ? 'Back to home' : 'Volver al inicio'}
+            </Link>
+          </Button>
         </div>
 
         {/* Need Help */}
         <div className="mt-8 text-center">
           <p className="text-sm text-[#717171]">
-            Need help with your reservation?{" "}
+            {isEnglish ? 'Need help with your reservation?' : '¿Necesitas ayuda con tu reserva?'}{" "}
             <Link href="#" className="underline text-[#222222] hover:text-[#FF385C]">
-              Contact us
+              {isEnglish ? 'Contact us' : 'Contáctanos'}
             </Link>
           </p>
         </div>
@@ -261,11 +264,11 @@ function ConfirmationContent() {
       {/* Footer */}
       <footer className="border-t border-[#ebebeb] py-6 px-6 md:px-12">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-[#717171]">
-          <p>&copy; {new Date().getFullYear()} Areia Bela. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Areia Bela. {isEnglish ? 'All rights reserved.' : 'Todos los derechos reservados.'}</p>
           <div className="flex gap-6">
-            <Link href="#" className="hover:text-[#222222]">Privacy</Link>
-            <Link href="#" className="hover:text-[#222222]">Terms</Link>
-            <Link href="#" className="hover:text-[#222222]">Sitemap</Link>
+            <Link href="#" className="hover:text-[#222222]">{isEnglish ? 'Privacy' : 'Privacidad'}</Link>
+            <Link href="#" className="hover:text-[#222222]">{isEnglish ? 'Terms' : 'Términos'}</Link>
+            <Link href="#" className="hover:text-[#222222]">{isEnglish ? 'Sitemap' : 'Mapa del sitio'}</Link>
           </div>
         </div>
       </footer>

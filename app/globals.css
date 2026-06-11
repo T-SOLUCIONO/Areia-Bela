@@ -146,14 +146,14 @@
   html {
     width: 100%;
     overflow-x: hidden;
-    overscroll-behavior: none;
+    overflow-y: auto;
   }
   body {
     font-family: 'Areia Bela', 'Circular', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
     min-height: 100vh;
     width: 100%;
     overflow-x: hidden;
-    overscroll-behavior: none;
+    overflow-y: auto;
     @apply bg-background text-muted-custom antialiased;
   }
 }
