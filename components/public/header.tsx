@@ -1,70 +1,60 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
-import { Menu, Phone, User } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet'
-
-const navigation = [
-  { name: 'Amenities', href: '/about#amenities' },
-  { name: 'Offers', href: '/offers' },
-  { name: 'Reviews', href: '/reviews' },
-  { name: 'About', href: '/about' },
-  { name: 'Contact', href: '/contact' },
-]
+import { languages } from '@/lib/i18n'
+import { translations } from '@/lib/i18n'
+import { useLanguage } from '@/components/language-provider'
+import { publicNavItems } from '@/components/public/public-navigation'
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const { language, setLanguage } = useLanguage()
+  const copy = translations[language]
+  const navigation = publicNavItems.map((item, index) => ({
+    name: copy.nav[index],
+    href: item.href,
+  }))
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="flex h-16 items-center justify-between px-4 md:px-40">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex flex-col">
-            <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
-              Areia Bela
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              Vacation Rental
-            </span>
-          </div>
+    <header className="sticky top-0 z-50 w-full border-b border-white/60 bg-[rgba(255,251,246,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[rgba(255,251,246,0.72)]">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-3">
+          <Image src="/areia-bela-logo.png" alt="Areia Bela" width={170} height={56} className="h-auto w-[170px] sm:w-[190px]" />
         </Link>
 
-        {/* Desktop Navigation 
-        <nav className="hidden md:flex items-center gap-8">
-          {/* {navigation.map((item) => (
+        <nav className="hidden items-center gap-2 lg:flex">
+          {navigation.map((item) => (
             <Link
-              key={item.name}
+              key={item.href}
               href={item.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-[#174d7a]"
             >
               {item.name}
             </Link>
           ))}
         </nav>
 
-        {/* Desktop Actions */}
-        <div className="hidden md:flex items-center gap-4">
-          <Link
-            href="tel:+15551234567"
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Phone className="h-4 w-4" />
-            <span>+1 (555) 123-4567</span>
-          </Link>
-          <Link href="/admin">
-            <Button variant="ghost" size="sm">
-            {/* <User className="h-4 w-4 mr-2" /> 
-              Admin*/} 
-            </Button>
-          </Link>
-          <Link href="/rooms/1489399156507737323">
-            <Button size="sm">
-              Book Now
-            </Button>
-          </Link>
+        <div className="hidden items-center gap-3 md:flex">
+          <Button asChild className="h-11 rounded-full bg-[#174d7a] px-5 font-semibold text-white hover:bg-[#0f4068]">
+            <Link href="#reservar">{copy.bookNow}</Link>
+          </Button>
+          <div className="flex items-center gap-2 rounded-full border border-border bg-white/80 px-2 py-1 shadow-sm">
+            {languages.map((item) => (
+              <button
+                key={item.code}
+                type="button"
+                onClick={() => setLanguage(item.code)}
+                className={item.code === language ? 'rounded-full bg-[#174d7a] px-3 py-1 text-xs font-semibold tracking-[0.18em] text-white' : 'rounded-full px-3 py-1 text-xs font-semibold tracking-[0.18em] text-muted-foreground'}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Mobile Menu */}
@@ -77,22 +67,22 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="right" className="overflow-y-auto">
             <SheetHeader className="pt-8">
-              <SheetTitle className="font-serif text-xl font-semibold tracking-tight">
-                Areia Bela
+              <SheetTitle className="flex justify-center">
+                <Image src="/areia-bela-logo.png" alt="Areia Bela" width={220} height={72} className="h-auto w-[220px]" />
               </SheetTitle>
               <SheetDescription className="text-[10px] uppercase tracking-[0.2em]">
-                Vacation Rental
+                {language === 'en' ? 'Beach retreat in St. Petersburg' : 'Escapada junto a la playa en St. Petersburg'}
               </SheetDescription>
             </SheetHeader>
 
-            <div className="flex flex-col gap-6 pb-6 px-4">
+            <div className="flex flex-col gap-6 px-4 pb-6">
               <nav className="flex flex-col gap-4">
                 {navigation.map((item) => (
                   <Link
-                    key={item.name}
+                    key={item.href}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
-                    className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+                    className="text-lg font-medium text-slate-800 transition-colors hover:text-[#174d7a]"
                   >
                     {item.name}
                   </Link>
@@ -100,24 +90,26 @@ export function Header() {
               </nav>
 
               <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
-                <Link
-                  href="tel:+15551234567"
-                  className="flex items-center gap-2 text-muted-foreground"
-                >
-                  <Phone className="h-4 w-4" />
-                  <span>+1 (555) 123-4567</span>
-                </Link>
-                <Link href="/admin" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" className="w-full">
-                    <User className="h-4 w-4 mr-2" />
-                    Admin Portal
-                  </Button>
-                </Link>
-                <Link href="/rooms/1489399156507737323" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full">
-                    Book Now
-                  </Button>
-                </Link>
+                <Button asChild className="w-full rounded-full bg-[#174d7a] font-semibold text-white hover:bg-[#0f4068]">
+                  <Link href="#reservar" onClick={() => setIsOpen(false)}>
+                    {copy.bookNow}
+                  </Link>
+                </Button>
+                <div className="grid gap-3 rounded-2xl border border-border bg-background p-4">
+                  <div className="text-sm font-medium text-foreground">{language === 'en' ? 'Language' : 'Idioma'}</div>
+                  <div className="flex items-center gap-2 rounded-full border border-border px-2 py-1 w-fit">
+                    {languages.map((item) => (
+                      <button
+                        key={item.code}
+                        type="button"
+                        onClick={() => setLanguage(item.code)}
+                        className={item.code === language ? 'rounded-full bg-[#174d7a] px-3 py-1 text-xs font-semibold text-white' : 'rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground'}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </SheetContent>
