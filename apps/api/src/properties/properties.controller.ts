@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 import { PropertiesService } from './properties.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
 
@@ -9,5 +9,10 @@ export class PropertiesController {
   @Post(':slug/quote')
   getQuote(@Param('slug') slug: string, @Body() dto: QuoteRequestDto) {
     return this.propertiesService.getQuote(slug, dto)
+  }
+
+  @Get(':slug/blocked-dates')
+  getBlockedDates(@Param('slug') slug: string) {
+    return this.propertiesService.getBlockedDates(slug)
   }
 }

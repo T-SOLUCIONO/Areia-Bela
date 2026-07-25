@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common'
 import { computeQuote, type QuoteBreakdown } from '@areia-bela/shared'
+import type { BlockedDate } from '@areia-bela/types'
 import { PrismaService } from '../prisma/prisma.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
 
@@ -45,5 +46,28 @@ export class PropertiesService {
         })),
       },
     })
+  }
+
+  // Read-only for now: exposes BlockedDate ranges so the public calendar can
+  // disable them. Booking creation, hold/pay/confirm, and conflict validation
+  // beyond this exclusion land in Fase 6 — see docs/migration-plan.md.
+  async getBlockedDates(slug: string): Promise<BlockedDate[]> {
+    const property = await this.prisma.property.findUnique({ where: { slug } })
+
+    if (!property) {
+      throw new NotFoundException(`Property "${slug}" not found`)
+    }
+
+    const blockedDates = await this.prisma.blockedDate.findMany({
+      where: { propertyId: property.id },
+    })
+
+    return blockedDates.map((blockedDate) => ({
+      id: blockedDate.id,
+      propertyId: blockedDate.propertyId,
+      startDate: blockedDate.startDate.toISOString(),
+      endDate: blockedDate.endDate.toISOString(),
+      reason: blockedDate.reason ?? undefined,
+    }))
   }
 }
