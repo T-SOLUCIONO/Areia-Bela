@@ -10,3 +10,4 @@ dist
 .env.backup
 .DS_Store
 .claude/settings.local.json
+*.tsbuildinfo

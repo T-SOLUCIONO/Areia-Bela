@@ -263,17 +263,26 @@ modelado, y la limitación de entorno explicada abajo). Resumen:
   (por qué `PriceRule` solo tiene la tarifa base sembrada, por qué
   `cleaningFee`/fees viven en `Property`, etc.)
 
-**Limitación honesta de este entorno, no un hueco escondido:** este sandbox no
-tiene Docker ni un servidor PostgreSQL instalado (solo el cliente `psql`, y sin
-sudo para instalar el paquete de servidor). Por eso no pude correr
-`prisma migrate dev`/`prisma db seed` contra una base real, ni levantar el
-endpoint HTTP completo y pegarle con curl. Lo que sí verifiqué de verdad, sin
-DB de por medio: el schema es válido (`prisma validate`), el cliente Prisma
-genera sin errores (`prisma generate`), `nest build` compila el backend
-completo sin errores, y la fórmula de precios servidor-vs-cliente coincide
-(test ejecutado, no solo revisado a ojo). Te dejo el comando exacto para
-terminar de cerrar el criterio de salida en tu máquina en la última sección de
-`docs/database.md` — avisame si algo falla ahí y lo corrijo a partir del error.
+**Actualización — cerrado de verdad contra Postgres real:** nos diste
+credenciales de una instancia accesible desde este entorno
+(`127.0.0.1:5432`). Con eso: `prisma migrate deploy` aplicó la migración
+generada, `prisma/seed.ts` corrió dos veces sin error (upsert idempotente,
+datos verificados por consulta directa), y levanté el servidor Nest real
+(`ts-node --transpile-only src/main.ts`) para pegarle al endpoint con `curl` —
+`total: 1700` (con `heated-pool`) y `total: 1620` (sin extras), **los mismos
+números exactos** que ya había confirmado `verify-quote-parity.ts` de forma
+aislada. 404 para propiedad inexistente, 400 para input inválido. Detalle
+completo en `docs/database.md`.
+
+De paso encontré y corregí un bug real: `nest build` calculaba mal el
+`rootDir` de salida (por el import relativo de `prisma/seed.ts` a
+`apps/web/datos.json`), y separadamente, `node dist/main.js` no arranca
+porque `packages/{utils,types,shared,ui}` son TS fuente sin build propio y el
+loader ESM nativo de Node no las resuelve en runtime (sí funciona con
+Next.js y con `ts-node`). Cambié `dev`/`start` de `apps/api` para usar
+`ts-node` en vez de `node dist/main.js` — funciona igual hoy, pero un build
+real de esos packages (p. ej. con `tsup`) queda pendiente para antes de un
+deploy de producción de verdad. No bloquea Fase 3.
 
 ## 13. Verificación — criterio de salida completo (Fase 2 + Fase 3)
 

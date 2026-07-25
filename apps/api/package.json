@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
-    "start": "node dist/main.js",
+    "dev": "node --watch -r ts-node/register/transpile-only src/main.ts",
+    "start": "ts-node --transpile-only src/main.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",

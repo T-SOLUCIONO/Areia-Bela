@@ -153,44 +153,70 @@ OK   {"checkIn":"2026-09-01","checkOut":"2026-09-02","extraIds":[]} -> total=495
 Todos los 4 casos coinciden entre buildQuote() (cliente) y computeQuote() (servidor).
 ```
 
-Lo que esto **no** prueba (limitación honesta, no un hueco escondido): el
-endpoint HTTP completo (`Controller` → `Service` → `PrismaService` → Postgres)
-no se pudo probar end-to-end en esta sesión porque el sandbox de desarrollo no
-tiene Docker ni un servidor Postgres local disponible (ver siguiente sección).
-Lo que sí está verificado es la fórmula de cálculo en sí — la parte que el
-audit original señalaba como el riesgo real (precios manipulables /
-inconsistentes entre cliente y servidor). El _wiring_ del controller con
-`ValidationPipe` + DTOs se revisó manualmente pero no se ejecutó contra una
-DB real.
+**Actualización — probado end-to-end contra una Postgres real** (después de que
+nos dieras credenciales de una instancia accesible desde este entorno,
+`127.0.0.1:5432`): migración aplicada (`prisma migrate deploy`), seed corrido
+(dos veces, confirmando que el `upsert` es idempotente), servidor Nest real
+levantado (`ts-node --transpile-only src/main.ts`) y el endpoint HTTP golpeado
+de verdad con `curl`:
 
-## Migraciones y seed — limitación del entorno, léela antes de correr nada
+```
+$ curl -s -X POST http://localhost:3001/properties/areia-bela/quote \
+  -H "Content-Type: application/json" \
+  -d '{"checkIn":"2026-08-10","checkOut":"2026-08-14","guests":{"adults":2,"children":0,"infants":0},"extraIds":["heated-pool"]}'
+{"nights":4,"pricePerNight":300,"extras":[{"id":"heated-pool","label":"Heated pool","pricePerNight":20,"total":80}],"subtotal":1200,"extrasTotal":80,"cleaningFee":120,"serviceFee":144,"taxes":156,"total":1700}
 
-**Este sandbox no tiene Docker ni un binario de servidor PostgreSQL instalado**
-(sí hay cliente `psql`, pero no `postgres`/`initdb`/`pg_ctl`, y no hay sudo sin
-contraseña para instalarlo). Por eso no pude ejecutar `prisma migrate dev` ni
-`prisma db seed` contra una base de datos real en esta sesión. Lo que sí hice,
-y es real:
+$ curl ... extraIds:[] ...
+{"nights":4,...,"total":1620}
 
-- `prisma/schema.prisma` — validado offline con `npx prisma validate` (pasa).
-- `prisma generate` — corrido offline, genera el Prisma Client sin errores.
-- `prisma/migrations/<timestamp>_init/migration.sql` — **no escrito a mano**:
-  generado con `prisma migrate diff --from-empty --to-schema-datamodel
-prisma/schema.prisma --script`, la forma soportada por Prisma de producir el
-  SQL de una migración inicial sin conexión a DB. Es el mismo SQL que
-  `prisma migrate dev --name init` habría escrito contra una DB real.
-- `prisma/seed.ts` — completo, usa datos reales (ver comentario al inicio del
-  archivo para las fuentes exactas), pero **no se ejecutó** contra una DB.
-
-**Lo que falta para cerrar el criterio de salida de verdad** ("seed corre
-limpio desde cero") — a correr en tu máquina, no en este sandbox:
-
-```bash
-docker compose up -d
-cp apps/api/.env.example apps/api/.env   # ya existe, con las mismas credenciales dev
-pnpm --filter @areia-bela/api prisma:migrate   # aplica la migración generada
-pnpm --filter @areia-bela/api seed
+$ curl -X POST .../properties/no-existe/quote ...   -> 404
+$ curl -X POST .../properties/areia-bela/quote -d '{"checkIn":"no-es-fecha",...}'   -> 400
 ```
 
-Si algo falla ahí, avisame — no lo voy a poder reproducir yo mismo sin Docker
-en este entorno, pero puedo corregir el schema/seed a partir del error que me
-pegues.
+`total: 1700` y `total: 1620` son exactamente los mismos números que produjo
+`verify-quote-parity.ts` de forma aislada — confirma que el `Controller` →
+`ValidationPipe`/DTO → `Service` → `PrismaService` → Postgres → `computeQuote()`
+completo funciona y sigue coincidiendo con la UI. 404 para propiedad
+inexistente y 400 para input inválido, ambos correctos.
+
+**Bug real que encontré y corregí en el proceso:** `nest build` calculaba mal
+el `rootDir` de salida (`dist/api/...` en vez de `dist/...`) porque
+`prisma/seed.ts` importa `../../web/datos.json` — TypeScript usaba eso para
+inferir la raíz común. Solucionado con `apps/api/tsconfig.build.json` (excluye
+`prisma/**` del build de la app) + `nest-cli.json` apuntando a ese tsconfig.
+
+**Limitación real que queda, no resuelta todavía:** `node dist/main.js`
+(el output compilado de `nest build`) **no arranca** — Node no puede resolver
+`@areia-bela/shared` en tiempo de ejecución porque ese paquete (y
+`utils`/`types`/`ui`) son TS fuente sin build propio
+(`"main": "./src/index.ts"`), y el loader ESM nativo de Node no resuelve el
+`export * from "./constants"` sin extensión dentro de ese paquete. Funciona
+con Next.js (Turbopack/webpack) y con `ts-node` (resolución estilo CommonJS,
+auto-resuelve extensiones) pero no con Node corriendo JS compilado
+directamente. Por eso `apps/api/package.json` usa `ts-node --transpile-only`
+tanto para `dev` como para `start` en vez de `node dist/main.js` — funciona
+igual de bien hoy, pero significa que `packages/{utils,types,shared,ui}`
+necesitan un paso de build real (p. ej. `tsup`) antes de un despliegue de
+producción de verdad. Anotado como pendiente, no bloquea Fase 3.
+
+## Migraciones y seed — verificado contra Postgres real
+
+`prisma/schema.prisma` validado offline (`prisma validate`), cliente generado
+offline (`prisma generate`), migración inicial generada con
+`prisma migrate diff --from-empty --to-schema-datamodel ... --script` (no
+escrita a mano) y luego **aplicada de verdad** con `prisma migrate deploy`
+contra la instancia en `127.0.0.1:5432`. `prisma/seed.ts` corrido dos veces
+seguidas sin error (upsert idempotente) — datos verificados por consulta
+directa:
+
+```
+slug=areia-bela maxGuests=8 cleaningFee=120.00
+extras: additional-guest($30/night), certified-nanny($20/hour),
+        heated-pool($20/night), pet($100/stay)
+priceRule: "Tarifa base" LOW $300/night
+blockedDate: 2026-12-24..2026-12-26 "Ejemplo para testing del calendario"
+```
+
+Criterio de salida de Fase 3 ("el quote server-side coincide con la UI
+actual"; "seed corre limpio desde cero") cerrado de verdad, no solo en
+apariencia.
