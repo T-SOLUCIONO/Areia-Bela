@@ -1,0 +1,11 @@
+{
+  "name": "@areia-bela/types",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "devDependencies": {
+    "@areia-bela/config": "workspace:*",
+    "typescript": "5.7.3"
+  }
+}

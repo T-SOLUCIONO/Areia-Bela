@@ -1,0 +1,101 @@
+export type Language = 'en' | 'es'
+
+export const languages: Array<{ code: Language; label: string }> = [
+  { code: 'en', label: 'EN' },
+  { code: 'es', label: 'ES' },
+]
+
+export const translations = {
+  en: {
+    nav: ['HOME', 'GALLERY', 'AMENITIES', 'LOCATION'],
+    bookNow: 'BOOK NOW',
+    heroTitle: ['Your private pool', 'retreat near', 'Madeira Beach'],
+    heroDescription: '3 bedrooms, 2 bathrooms · Family-friendly · Pet-friendly',
+    heroSubline: 'Just 5 minutes to Madeira Beach',
+    heroCta: 'BOOK YOUR STAY',
+    featureBadges: [
+      'Sleeps 8',
+      'Private Heated Pool',
+      'Pet Friendly',
+      'Family Ready',
+      'Fast Wi-Fi',
+    ],
+    availability: {
+      title: 'Check Availability',
+      guaranteed: 'Best rate guaranteed',
+      checkIn: 'Check-in',
+      checkOut: 'Check-out',
+      addDate: 'Add date',
+      guests: 'Guests',
+      guestOne: 'Guest',
+      guestMany: 'Guests',
+      babiesOne: 'baby',
+      babiesMany: 'babies',
+      guestRows: [
+        { title: 'Adults', description: 'Over 13' },
+        { title: 'Children', description: 'Ages 2-12' },
+        { title: 'Babies', description: 'Under 2' },
+      ],
+      reserve: 'Check Availability',
+      footer: 'Best rate guaranteed when you book direct.',
+    },
+    footer: {
+      description:
+        'Premium getaway near Madeira Beach with a heated pool, coffee bar, and self check-in for a smooth stay.',
+      explore: 'Explore',
+      reserve: 'Reserve',
+      photos: 'Photos',
+      services: 'Amenities',
+      reviews: 'Reviews',
+      from: 'Price from',
+      availability: 'View availability',
+      rights: 'All rights reserved.',
+    },
+  },
+  es: {
+    nav: ['INICIO', 'GALERIA', 'SERVICIOS', 'UBICACION'],
+    bookNow: 'RESERVAR',
+    heroTitle: ['Tu refugio con piscina', 'cerca de', 'Madeira Beach'],
+    heroDescription: '3 dormitorios, 2 baños · Familiar · Pet friendly',
+    heroSubline: 'A solo 5 minutos de Madeira Beach',
+    heroCta: 'RESERVA TU ESTADIA',
+    featureBadges: [
+      'Capacidad 8',
+      'Piscina climatizada',
+      'Acepta mascotas',
+      'Ideal para familias',
+      'Wi-Fi rapido',
+    ],
+    availability: {
+      title: 'Ver disponibilidad',
+      guaranteed: 'Mejor tarifa garantizada',
+      checkIn: 'Llegada',
+      checkOut: 'Salida',
+      addDate: 'Agregar fecha',
+      guests: 'Huespedes',
+      guestOne: 'huesped',
+      guestMany: 'huespedes',
+      babiesOne: 'bebe',
+      babiesMany: 'bebes',
+      guestRows: [
+        { title: 'Adultos', description: 'Mas de 13 anos' },
+        { title: 'Ninos', description: 'De 2 a 12' },
+        { title: 'Bebes', description: 'Menos de 2' },
+      ],
+      reserve: 'Reservar',
+      footer: 'Mejor tarifa garantizada al reservar directo.',
+    },
+    footer: {
+      description:
+        'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin friccion.',
+      explore: 'Explorar',
+      reserve: 'Reservar',
+      photos: 'Fotos',
+      services: 'Servicios',
+      reviews: 'Resenas',
+      from: 'Precio desde',
+      availability: 'Ver disponibilidad',
+      rights: 'Todos los derechos reservados.',
+    },
+  },
+} as const
