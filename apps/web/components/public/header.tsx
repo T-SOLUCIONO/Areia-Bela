@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { Menu } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import {
@@ -13,7 +14,7 @@ import {
   SheetDescription,
   SheetTrigger,
 } from '@areia-bela/ui/sheet'
-import { languages } from '@/lib/i18n'
+import { languages, type Language } from '@/lib/i18n'
 import { translations } from '@/lib/i18n'
 import { useLanguage } from '@/components/language-provider'
 import { publicNavItems } from '@/components/public/public-navigation'
@@ -21,11 +22,24 @@ import { publicNavItems } from '@/components/public/public-navigation'
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
+  const router = useRouter()
+  const pathname = usePathname()
   const copy = translations[language]
   const navigation = publicNavItems.map((item, index) => ({
     name: copy.nav[index],
     href: item.href,
   }))
+
+  const changeLanguage = (next: Language) => {
+    setLanguage(next)
+    const segments = pathname.split('/')
+    if (segments[1] === 'en' || segments[1] === 'es') {
+      segments[1] = next
+    } else {
+      segments.splice(1, 0, next)
+    }
+    router.push(segments.join('/') || '/')
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/60 bg-[rgba(255,251,246,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[rgba(255,251,246,0.72)]">
@@ -45,7 +59,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-[#174d7a]"
+              className="rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-primary"
             >
               {item.name}
             </Link>
@@ -53,10 +67,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button
-            asChild
-            className="h-11 rounded-full bg-[#174d7a] px-5 font-semibold text-white hover:bg-[#0f4068]"
-          >
+          <Button asChild variant="brand" size="lg" className="font-semibold">
             <Link href="#reservar">{copy.bookNow}</Link>
           </Button>
           <div className="flex items-center gap-2 rounded-full border border-border bg-white/80 px-2 py-1 shadow-sm">
@@ -64,10 +75,10 @@ export function Header() {
               <button
                 key={item.code}
                 type="button"
-                onClick={() => setLanguage(item.code)}
+                onClick={() => changeLanguage(item.code)}
                 className={
                   item.code === language
-                    ? 'rounded-full bg-[#174d7a] px-3 py-1 text-xs font-semibold tracking-[0.18em] text-white'
+                    ? 'rounded-full bg-primary px-3 py-1 text-xs font-semibold tracking-[0.18em] text-primary-foreground'
                     : 'rounded-full px-3 py-1 text-xs font-semibold tracking-[0.18em] text-muted-foreground'
                 }
               >
@@ -82,7 +93,7 @@ export function Header() {
           <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon">
               <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle menu</span>
+              <span className="sr-only">{language === 'en' ? 'Toggle menu' : 'Abrir menú'}</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="overflow-y-auto">
@@ -110,7 +121,7 @@ export function Header() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
-                    className="text-lg font-medium text-slate-800 transition-colors hover:text-[#174d7a]"
+                    className="text-lg font-medium text-slate-800 transition-colors hover:text-primary"
                   >
                     {item.name}
                   </Link>
@@ -118,10 +129,7 @@ export function Header() {
               </nav>
 
               <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
-                <Button
-                  asChild
-                  className="w-full rounded-full bg-[#174d7a] font-semibold text-white hover:bg-[#0f4068]"
-                >
+                <Button asChild variant="brand" size="lg" className="w-full font-semibold">
                   <Link href="#reservar" onClick={() => setIsOpen(false)}>
                     {copy.bookNow}
                   </Link>
@@ -135,10 +143,10 @@ export function Header() {
                       <button
                         key={item.code}
                         type="button"
-                        onClick={() => setLanguage(item.code)}
+                        onClick={() => changeLanguage(item.code)}
                         className={
                           item.code === language
-                            ? 'rounded-full bg-[#174d7a] px-3 py-1 text-xs font-semibold text-white'
+                            ? 'rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground'
                             : 'rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground'
                         }
                       >

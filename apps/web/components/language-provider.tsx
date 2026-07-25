@@ -1,9 +1,14 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { SUPPORTED_LOCALES } from '@areia-bela/shared'
 import type { Language } from '@/lib/i18n'
 
-const STORAGE_KEY = 'areia_bela_language_v1'
+// Read by middleware.ts to honor a returning visitor's choice when they land
+// on a path with no locale prefix. A cookie (not localStorage) because the
+// middleware runs on the server and can only see cookies.
+export const LANGUAGE_COOKIE = 'areia_bela_language'
 
 type LanguageContextValue = {
   language: Language
@@ -12,26 +17,44 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>('en')
+/** Strips a leading `/es` or `/en` so the path can be re-prefixed. */
+function stripLocale(pathname: string) {
+  for (const locale of SUPPORTED_LOCALES) {
+    if (pathname === `/${locale}`) return '/'
+    if (pathname.startsWith(`/${locale}/`)) return pathname.slice(locale.length + 1)
+  }
+  return pathname
+}
+
+export function LanguageProvider({
+  children,
+  language,
+}: {
+  children: React.ReactNode
+  language: Language
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (saved === 'en' || saved === 'es') {
-      setLanguageState(saved)
-      return
-    }
-
-    const browser = window.navigator.language.toLowerCase()
-    setLanguageState(browser.startsWith('es') ? 'es' : 'en')
-  }, [])
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, language)
     document.documentElement.lang = language
   }, [language])
 
-  const value = useMemo(() => ({ language, setLanguage: setLanguageState }), [language])
+  // No local state on purpose: the `[locale]` URL segment is the single source
+  // of truth, so navigating is what changes the language. That makes it
+  // impossible for a shared /es link or back-button navigation to drift out of
+  // sync with the copy on screen.
+  const setLanguage = useCallback(
+    (next: Language) => {
+      document.cookie = `${LANGUAGE_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`
+
+      const rest = stripLocale(pathname)
+      router.push(`/${next}${rest === '/' ? '' : rest}`)
+    },
+    [pathname, router],
+  )
+
+  const value = useMemo(() => ({ language, setLanguage }), [language, setLanguage])
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }

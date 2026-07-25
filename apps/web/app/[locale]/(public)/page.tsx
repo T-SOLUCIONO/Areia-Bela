@@ -14,18 +14,22 @@ import {
   Users,
 } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@areia-bela/ui/dialog'
 import { HomeHero } from '@/components/public/home-hero'
+import { PhotoGallery } from '@/components/public/photo-gallery'
 import { ContactSection } from '@/components/ContactSection'
 import { ChatAssistant } from '@/components/chat/chat-assistant'
-import { reviews, propertyInfo } from '@/lib/mock-data'
+import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
+import { RESPONSE_TIME_COMPACT } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
 
 const galleryImages = propertyData.photos?.map((photo) => photo.large) ?? propertyInfo.images
 
 export default function HomePage() {
   const { language } = useLanguage()
-  const guest = reviews[0]
+  const guest = propertyData.reviews[0]
+  const featuredReviews = propertyData.reviews.slice(1, 4)
   const home =
     language === 'en'
       ? {
@@ -47,6 +51,7 @@ export default function HomePage() {
           amenitiesTitle: 'Everything you need, already in place.',
           amenitiesBody:
             'Clean, useful details that help guests decide faster without scanning a noisy block of icons.',
+          showAllPhotos: 'Show all photos',
           reviewsIntro: 'Verified guests',
           reviewsTitle: 'What our guests say',
           locationTitle: "Where you'll be staying",
@@ -64,36 +69,10 @@ export default function HomePage() {
           hostKicker: 'Your host',
           hostTitle: 'Meet Angélica',
           hostBadge: 'Superhost',
-          hostSince: 'Host since 2019',
           hostBody:
             'Hi! I am Angélica, and I love sharing this beautiful corner of Florida with travelers from around the world. My mission is to make your stay perfect: from the first message to your last day.',
-          hostStats: [
-            { value: '87+', label: 'Reviews' },
-            { value: '<1 hr', label: 'Response' },
-            { value: '100%', label: 'Acceptance' },
-          ],
           contactHost: 'Contact Angélica',
           verified: 'Verified',
-          reviewCards: [
-            {
-              date: 'May 2024',
-              comment:
-                'Absolutely perfect. The house was spotless, beautifully decorated, and had everything we needed for a relaxing family vacation. The pool was amazing and the beach was just minutes away. We will definitely be back!',
-              location: 'Tampa, FL',
-            },
-            {
-              date: 'Apr 2024',
-              comment:
-                'Great location, very clean, and the host was super responsive. Perfect for families.',
-              location: 'Orlando, FL',
-            },
-            {
-              date: 'Mar 2024',
-              comment:
-                'We loved the pool and the easy walk to nearby spots. A smooth, relaxing stay.',
-              location: 'Miami, FL',
-            },
-          ],
         }
       : {
           galleryTitle: 'Detalles pensados para una estadía inolvidable',
@@ -113,6 +92,7 @@ export default function HomePage() {
           ],
           amenitiesTitle: 'Todo lo que necesitas, ya está aquí.',
           amenitiesBody: 'Detalles útiles y claros que ayudan a decidir sin ruido visual.',
+          showAllPhotos: 'Ver todas las fotos',
           reviewsIntro: 'Huéspedes verificados',
           reviewsTitle: 'Lo que dicen nuestros huéspedes',
           locationTitle: 'Dónde te quedarás',
@@ -130,40 +110,14 @@ export default function HomePage() {
           hostKicker: 'Tu anfitriona',
           hostTitle: 'Conoce a Angélica',
           hostBadge: 'Superanfitriona',
-          hostSince: 'Anfitriona desde 2019',
           hostBody:
             '¡Hola! Soy Angélica, y me encanta compartir este hermoso rincón de Florida con viajeros de todo el mundo. Mi misión es que tu estadía sea perfecta: desde el primer mensaje hasta el último día.',
-          hostStats: [
-            { value: '87+', label: 'Reseñas' },
-            { value: '<1 hr', label: 'Respuesta' },
-            { value: '100%', label: 'Aceptación' },
-          ],
           contactHost: 'Contactar a Angélica',
           verified: 'Verificado',
-          reviewCards: [
-            {
-              date: 'Mayo 2024',
-              comment:
-                'Absolutamente perfecto. La casa estaba impecable, bellamente decorada y tenía todo lo que necesitábamos para unas vacaciones familiares relajantes. La piscina fue increíble y la playa estaba a solo minutos. ¡Definitivamente volveremos!',
-              location: 'Tampa, FL',
-            },
-            {
-              date: 'Abr 2024',
-              comment:
-                'Excelente ubicación, muy limpia y la anfitriona respondió súper rápido. Perfecto para familias.',
-              location: 'Orlando, FL',
-            },
-            {
-              date: 'Mar 2024',
-              comment:
-                'Nos encantó la piscina y la caminata fácil a lugares cercanos. Una estadía muy relajante.',
-              location: 'Miami, FL',
-            },
-          ],
         }
 
   return (
-    <div className="bg-[#f7f2ea] text-slate-900">
+    <div className="bg-background text-foreground">
       <HomeHero images={galleryImages} />
 
       <section id="gallery" className="relative overflow-hidden py-10 sm:py-12 lg:py-14">
@@ -175,6 +129,14 @@ export default function HomePage() {
             <h2 className="font-serif text-3xl tracking-tight text-[#173a57] sm:text-4xl">
               {home.galleryTitle}
             </h2>
+          </div>
+
+          <div className="relative mt-8">
+            <PhotoGallery
+              photos={propertyData.photos}
+              propertyName={propertyData.name}
+              showAllLabel={home.showAllPhotos}
+            />
           </div>
 
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
@@ -245,34 +207,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* <section
-        id="reviews"
-        className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
-      >
+      <section id="reviews" className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="mb-2 text-xs uppercase tracking-widest text-amber-600">
               {home.reviewsIntro}
             </p>
-            <h2 className="font-serif text-4xl text-[#173a57]">
-              {home.reviewsTitle}
-            </h2>
+            <h2 className="font-serif text-4xl text-[#173a57]">{home.reviewsTitle}</h2>
           </div>
 
           <div className="flex shrink-0 items-center gap-5 rounded-[24px] bg-[#f8f5f0] px-6 py-4">
             <div className="text-center">
               <p className="font-serif text-5xl leading-none text-[#173a57]">
-                4.9
+                {propertyData.rating.toFixed(1)}
               </p>
               <div className="mt-1.5 flex justify-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, index) => (
-                  <Star
-                    key={index}
-                    className="h-4 w-4 fill-amber-500 text-amber-500"
-                  />
+                  <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
                 ))}
               </div>
-              <p className="mt-1 text-xs text-gray-400">{language === 'en' ? '87+ reviews' : '87+ reseñas'}</p>
+              <p className="mt-1 text-xs text-gray-400">
+                {propertyData.reviewsCount} {language === 'en' ? 'reviews' : 'reseñas'}
+              </p>
             </div>
 
             <div className="space-y-1.5 border-l border-gray-200 pl-5">
@@ -283,18 +239,14 @@ export default function HomePage() {
                 { label: language === 'en' ? 'Value' : 'Valor', val: 97 },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2">
-                  <span className="w-24 text-xs text-gray-500">
-                    {item.label}
-                  </span>
+                  <span className="w-24 text-xs text-gray-500">{item.label}</span>
                   <div className="h-1 w-20 overflow-hidden rounded-full bg-gray-200">
                     <div
                       className="h-full rounded-full bg-[#173a57]"
                       style={{ width: `${item.val}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500">
-                    {(item.val / 20).toFixed(1)}
-                  </span>
+                  <span className="text-xs text-gray-500">{(item.val / 20).toFixed(1)}</span>
                 </div>
               ))}
             </div>
@@ -307,10 +259,7 @@ export default function HomePage() {
             <div className="flex-1">
               <div className="mb-4 flex gap-1">
                 {Array.from({ length: 5 }).map((_, index) => (
-                  <Star
-                    key={index}
-                    className="h-5 w-5 fill-amber-400 text-amber-400"
-                  />
+                  <Star key={index} className="h-5 w-5 fill-amber-400 text-amber-400" />
                 ))}
               </div>
               <p className="mb-6 text-lg leading-relaxed text-white md:text-xl">
@@ -319,10 +268,10 @@ export default function HomePage() {
                   : '"Absolutamente perfecto. La casa estaba impecable, bellamente decorada y tenía todo lo que necesitábamos para unas vacaciones familiares relajantes. La piscina fue increíble y la playa estaba a solo minutos. ¡Definitivamente volveremos!"'}
               </p>
               <div className="flex items-center gap-3">
-                {guest?.guestAvatar ? (
+                {guest?.author?.pictureUrl ? (
                   <Image
-                    src={guest.guestAvatar}
-                    alt={guest.guestName}
+                    src={guest.author.pictureUrl}
+                    alt={guest.author.firstName ?? ''}
                     width={48}
                     height={48}
                     className="h-12 w-12 rounded-full border-2 border-white/30 object-cover"
@@ -333,11 +282,11 @@ export default function HomePage() {
                   </div>
                 )}
                 <div>
-                  <p className="text-white">
-                    - {guest?.guestName ?? "Jamie L."}
-                  </p>
+                  <p className="text-white">- {guest?.author?.firstName ?? 'Guest'}</p>
                   <p className="flex items-center gap-1 text-sm text-blue-300">
-                    <ShieldCheck className="h-3.5 w-3.5" /> {language === 'en' ? 'Verified stay · Tampa, FL · May 2024' : 'Estadía verificada · Tampa, FL · Mayo 2024'}
+                    <ShieldCheck className="h-3.5 w-3.5" />{' '}
+                    {language === 'en' ? 'Verified stay' : 'Estadía verificada'}
+                    {guest?.localizedDate ? ` · ${guest.localizedDate}` : ''}
                   </p>
                 </div>
               </div>
@@ -346,7 +295,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {reviews.slice(1, 4).map((review, index) => (
+          {featuredReviews.map((review) => (
             <article
               key={review.id}
               className="flex flex-col gap-4 rounded-[24px] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md"
@@ -354,24 +303,23 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <div className="flex gap-0.5">
                   {Array.from({ length: review.rating }).map((_, index) => (
-                    <Star
-                      key={index}
-                      className="h-4 w-4 fill-amber-500 text-amber-500"
-                    />
+                    <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
                   ))}
                 </div>
-                <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-gray-400">
-                  {home.reviewCards[index].date}
-                </span>
+                {review.localizedDate && (
+                  <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-gray-400">
+                    {review.localizedDate}
+                  </span>
+                )}
               </div>
               <p className="flex-1 text-sm leading-relaxed text-gray-700">
-                &quot;{home.reviewCards[index].comment}&quot;
+                &quot;{review.comments}&quot;
               </p>
               <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
-                {review.guestAvatar ? (
+                {review.author?.pictureUrl ? (
                   <Image
-                    src={review.guestAvatar}
-                    alt={review.guestName}
+                    src={review.author.pictureUrl}
+                    alt={review.author.firstName ?? ''}
                     width={40}
                     height={40}
                     className="h-10 w-10 rounded-full object-cover"
@@ -383,10 +331,8 @@ export default function HomePage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-[#173a57]">
-                    {review.guestName}
-                  </p>
-                  <p className="flex items-center gap-1 text-xs text-gray-400">
-                    <MapPin className="h-3 w-3" /> {home.reviewCards[index].location}
+                    {review.author?.firstName ??
+                      (language === 'en' ? 'Verified guest' : 'Huésped verificado')}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1 text-[11px] text-gray-400">
@@ -397,7 +343,7 @@ export default function HomePage() {
             </article>
           ))}
         </div>
-      </section> */}
+      </section>
 
       <section id="location" className="mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16">
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
@@ -454,15 +400,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* <section className="bg-gradient-to-b from-[#e8f4f8] to-white py-7">
+      <section className="bg-gradient-to-b from-[#e8f4f8] to-white py-7">
         <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
             <p className="mb-2 text-xs uppercase tracking-widest text-amber-600">
               {home.hostKicker}
             </p>
-            <h2 className="font-serif text-4xl text-[#173a57]">
-              {home.hostTitle}
-            </h2>
+            <h2 className="font-serif text-4xl text-[#173a57]">{home.hostTitle}</h2>
           </div>
 
           <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-xl">
@@ -470,19 +414,21 @@ export default function HomePage() {
               <div className="relative shrink-0 md:w-64">
                 <div className="relative h-64 overflow-hidden md:h-full">
                   <Image
-                    src="https://a0.muscache.com/im/pictures/user/User/original/0d98cc6f-3738-4c73-8557-ececc66e0200.jpeg?aki_policy=profile_x_medium"
-                    alt="Angélica"
+                    src={propertyData.host.pictureUrl}
+                    alt={propertyData.host.name}
                     width={400}
                     height={400}
                     className="h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#173a57]/40 to-transparent" />
-                  <div className="absolute bottom-4 left-4">
+                  {propertyData.host.isSuperhost && (
+                    <div className="absolute bottom-4 left-4">
                       <span className="flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs text-[#173a57] backdrop-blur-sm">
                         <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                       {home.hostBadge}
+                        {home.hostBadge}
                       </span>
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -490,74 +436,66 @@ export default function HomePage() {
                 <div className="mb-4 flex items-start justify-between">
                   <div>
                     <h3 className="font-serif text-2xl text-[#173a57]">
-                      Angélica
+                      {propertyData.host.firstName}
                     </h3>
                     <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
-                      <Sparkles className="h-3.5 w-3.5" /> {home.hostSince}
+                      <Sparkles className="h-3.5 w-3.5" />{' '}
+                      {language === 'en' ? 'Host since' : 'Anfitriona desde'}{' '}
+                      {propertyData.hostSinceYear}
                     </p>
                   </div>
                   <div className="flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, index) => (
-                      <Star
-                        key={index}
-                        className="h-4 w-4 fill-amber-500 text-amber-500"
-                      />
+                      <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
                     ))}
                   </div>
                 </div>
 
-                <p className="mb-6 text-sm leading-relaxed text-gray-600">
-                  {home.hostBody}
-                </p>
+                <p className="mb-6 text-sm leading-relaxed text-gray-600">{home.hostBody}</p>
 
                 <div className="mb-6 grid grid-cols-3 gap-4">
                   {[
                     {
-                      icon: (
-                        <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                      ),
-                      value: "87+",
-                      label: "Reseñas",
+                      icon: <Star className="h-4 w-4 fill-amber-500 text-amber-500" />,
+                      value: `${propertyData.reviewsCount}+`,
+                      label: language === 'en' ? 'Reviews' : 'Reseñas',
                     },
                     {
                       icon: <ShieldCheck className="h-4 w-4 text-[#173a57]" />,
-                      value: "<1 hr",
-                      label: "Respuesta",
+                      value: RESPONSE_TIME_COMPACT[language][propertyData.hostResponseTime],
+                      label: language === 'en' ? 'Response' : 'Respuesta',
                     },
                     {
                       icon: <Sparkles className="h-4 w-4 text-green-500" />,
-                      value: "100%",
-                      label: "Aceptación",
+                      value: propertyData.host.responseRateWithoutNa ?? '—',
+                      label: language === 'en' ? 'Response rate' : 'Tasa de respuesta',
                     },
-                    ].map((item, index) => (
-                      <div
-                        key={home.hostStats[index].label}
-                        className="rounded-xl bg-[#f8f5f0] px-2 py-3 text-center"
-                      >
-                      <div className="mb-1 flex justify-center">
-                        {item.icon}
-                      </div>
-                        <p className="text-sm text-[#173a57]">{home.hostStats[index].value}</p>
-                        <p className="text-[11px] text-gray-400">{home.hostStats[index].label}</p>
-                      </div>
-                    ))}
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-xl bg-[#f8f5f0] px-2 py-3 text-center">
+                      <div className="mb-1 flex justify-center">{item.icon}</div>
+                      <p className="text-sm text-[#173a57]">{item.value}</p>
+                      <p className="text-[11px] text-gray-400">{item.label}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <Button
-                  asChild
-                  className="h-12 w-full rounded-xl bg-[#173a57] text-white hover:bg-[#23476a]"
-                >
-                  <Link href="#contact">
-                    <Quote className="h-4 w-4" /> {home.contactHost}
-                  </Link>
-                </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="brand" size="lg" className="w-full font-semibold">
+                      <Quote className="h-4 w-4" /> {home.contactHost}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-none bg-transparent p-0 shadow-none [&>button]:z-10 [&>button]:rounded-full [&>button]:bg-white [&>button]:p-1.5 [&>button]:opacity-100 [&>button]:shadow-md">
+                    <DialogTitle className="sr-only">{home.contactHost}</DialogTitle>
+                    <ContactSection />
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </div>
         </div>
-      </section> */}
+      </section>
 
-      <ContactSection />
       <ChatAssistant />
     </div>
   )

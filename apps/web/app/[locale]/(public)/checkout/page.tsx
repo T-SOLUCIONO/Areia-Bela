@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { format, parseISO, subDays } from 'date-fns'
-import { Star, Shield, ShieldCheck, Clock, CreditCard, Info } from 'lucide-react'
+import { Star, ShieldCheck, Clock, CreditCard } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
@@ -20,6 +20,8 @@ import {
 import { propertyData } from '@/lib/property-data'
 import { createCheckoutSession } from '@/services/payment'
 import { useLanguage } from '@/components/language-provider'
+import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
+import { HostResponseBadges } from '@/components/public/host-response-badges'
 
 const guestLabel = (
   adults: number,
@@ -66,83 +68,6 @@ function CheckoutForm() {
     specialRequests: '',
   })
 
-  const text = isEnglish
-    ? {
-        loading: 'Loading your reservation...',
-        backHome: 'Back to home',
-        title: 'Confirm and pay',
-        yourTrip: 'Your trip',
-        dates: 'Dates',
-        guests: 'Guests',
-        nights: 'nights',
-        freeCancellation: 'Free cancellation',
-        cancellationCopy:
-          'Cancel before {date} for a partial refund. After that, cancel before check-in to get a 50% refund, minus the service fee.',
-        messageHost: 'Message the host',
-        hostedBy: 'Hosted by',
-        hostSince: 'Host since',
-        requestPlaceholder: "Let the host know a little about yourself and why you're traveling...",
-        refundPolicy: 'guest refund policy',
-        guestInformation: 'Guest information',
-        firstName: 'First name',
-        lastName: 'Last name',
-        email: 'Email address',
-        phone: 'Phone number',
-        country: 'Country/Region',
-        payment: 'Payment',
-        card: 'Credit or debit card',
-        terms: 'I agree to the Terms of Service, Privacy Policy, and Guest Refund Policy.',
-        confirmPay: 'Confirm and pay',
-        processing: 'Processing...',
-        protected:
-          'Your booking is protected by AirCover. If there is a problem with your stay, we are here to help.',
-        receipt: 'Download receipt',
-        share: 'Share trip details',
-        home: 'Back to home',
-        help: 'Need help with your reservation?',
-        contact: 'Contact us',
-        loadingCheckout: 'Loading checkout...',
-        bookingConfirmed: 'Booking Confirmed!',
-      }
-    : {
-        loading: 'Cargando tu reserva...',
-        backHome: 'Volver al inicio',
-        title: 'Confirmar y pagar',
-        yourTrip: 'Tu viaje',
-        dates: 'Fechas',
-        guests: 'Huéspedes',
-        nights: 'noches',
-        freeCancellation: 'Cancelación gratuita',
-        cancellationCopy:
-          'Cancela antes de {date} para un reembolso parcial. Después de eso, cancela antes del check-in para obtener un reembolso del 50%, menos la tarifa de servicio.',
-        messageHost: 'Mensaje al anfitrión',
-        hostedBy: 'Anfitrión',
-        hostSince: 'Anfitrión desde',
-        requestPlaceholder: 'Cuéntale al anfitrión un poco sobre ti y por qué viajas...',
-        refundPolicy: 'política de reembolso para huéspedes',
-        guestInformation: 'Información del huésped',
-        firstName: 'Nombre',
-        lastName: 'Apellido',
-        email: 'Correo electrónico',
-        phone: 'Número de teléfono',
-        country: 'País/Región',
-        payment: 'Pago',
-        card: 'Tarjeta de crédito o débito',
-        terms:
-          'Acepto los Términos de servicio, la Política de privacidad y la Política de reembolso para huéspedes.',
-        confirmPay: 'Confirmar y pagar',
-        processing: 'Procesando...',
-        protected:
-          'Tu reserva está protegida por AirCover. Si hay un problema con tu estadía, estamos para ayudarte.',
-        receipt: 'Descargar recibo',
-        share: 'Compartir detalles del viaje',
-        home: 'Volver al inicio',
-        help: '¿Necesitas ayuda con tu reserva?',
-        contact: 'Contáctanos',
-        loadingCheckout: 'Cargando checkout...',
-        bookingConfirmed: 'Reserva confirmada!',
-      }
-
   useEffect(() => {
     if (quoteFromParams) {
       setQuote(quoteFromParams)
@@ -161,8 +86,8 @@ function CheckoutForm() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="h-8 w-8 rounded-full border-4 border-[#FF385C] border-t-transparent animate-spin" />
-          <p className="mt-4 text-[#717171]">
+          <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <p className="mt-4 text-muted-foreground">
             {isEnglish ? 'Loading your reservation...' : 'Cargando tu reserva...'}
           </p>
         </div>
@@ -209,36 +134,15 @@ function CheckoutForm() {
   }
 
   const cancellationDate = format(subDays(parseISO(quote.checkIn), 5), 'MMM d')
-  const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
-  const savings = hasDiscount
-    ? (quote.originalPricePerNight - quote.pricePerNight) * quote.nights
-    : 0
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header 
-      <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-[#ebebeb] bg-white px-6 md:px-12">
-        <Link href="/" className="flex items-center gap-2">
-          <svg viewBox="0 0 32 32" className="h-8 w-8" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2zm0 4a3 3 0 110 6 3 3 0 010-6zm0 22c-6.627 0-12-5.373-12-12h4c0 4.418 3.582 8 8 8s8-3.582 8-8h4c0 6.627-5.373 12-12 12z" fill="#FF385C"/>
-          </svg>
-          <span className="font-semibold text-xl text-[#222222]">areia bela</span>
-        </Link>
-        
-        <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-2 text-sm text-[#717171]">
-            <Shield className="h-4 w-4 text-[#008A05]" />
-            <span>{isEnglish ? 'Booking protected' : 'Reserva protegida'}</span>
-          </div>
-        </div>
-      </header>*/}
-
+    <div className="min-h-screen bg-background">
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-12">
         <Button
           asChild
           variant="ghost"
-          className="mb-6 h-10 rounded-full px-3 text-sm text-[#717171] hover:bg-[#fafafa] hover:text-[#222222]"
+          className="mb-6 h-10 rounded-full px-3 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground"
         >
           <Link href="/">← {isEnglish ? 'Back to home' : 'Volver al inicio'}</Link>
         </Button>
@@ -247,14 +151,14 @@ function CheckoutForm() {
           {/* Left Column - Form */}
           <div className="lg:col-span-3 space-y-8">
             {/* Header Section */}
-            <div className="border-b border-[#ebebeb] pb-6">
-              <h1 className="text-2xl font-semibold text-[#222222]">
+            <div className="border-b border-border pb-6">
+              <h1 className="font-serif text-3xl text-foreground">
                 {isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}
               </h1>
             </div>
 
             {/* Property Card */}
-            <div className="rounded-xl border border-[#ebebeb] p-5">
+            <div className="rounded-xl border border-border p-5">
               <div className="flex gap-4">
                 <div className="relative h-24 w-32 flex-shrink-0 overflow-hidden rounded-lg">
                   <Image
@@ -265,16 +169,16 @@ function CheckoutForm() {
                   />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-[#222222]">{propertyData.name}</p>
-                  <p className="text-sm text-[#717171] mt-1">
+                  <p className="font-semibold text-foreground">{propertyData.name}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     {propertyData.city}, {propertyData.country}
                   </p>
                   <div className="flex items-center gap-1 mt-2">
-                    <Star className="h-4 w-4 fill-[#222222] text-[#222222]" />
-                    <span className="font-medium text-[#222222]">
+                    <Star className="h-4 w-4 fill-foreground text-foreground" />
+                    <span className="font-medium text-foreground">
                       {propertyData.rating.toFixed(2)}
                     </span>
-                    <span className="text-[#717171]">
+                    <span className="text-muted-foreground">
                       ({propertyData.reviewsCount} {isEnglish ? 'reviews' : 'reseñas'})
                     </span>
                   </div>
@@ -284,26 +188,28 @@ function CheckoutForm() {
 
             {/* Trip Details */}
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#222222]">
+              <h2 className="font-serif text-xl text-foreground">
                 {isEnglish ? 'Your trip' : 'Tu viaje'}
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg border border-[#ebebeb] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#717171]">
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {isEnglish ? 'Dates' : 'Fechas'}
                   </p>
-                  <p className="mt-1 font-medium text-[#222222]">
+                  <p className="mt-1 font-medium text-foreground">
                     {format(parseISO(quote.checkIn), 'MMM d')} -{' '}
                     {format(parseISO(quote.checkOut), 'MMM d, yyyy')}
                   </p>
-                  <p className="text-sm text-[#717171]">{quote.nights} nights</p>
+                  <p className="text-sm text-muted-foreground">
+                    {quote.nights} {isEnglish ? 'nights' : 'noches'}
+                  </p>
                 </div>
-                <div className="rounded-lg border border-[#ebebeb] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#717171]">
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {isEnglish ? 'Guests' : 'Huéspedes'}
                   </p>
-                  <p className="mt-1 font-medium text-[#222222]">
+                  <p className="mt-1 font-medium text-foreground">
                     {guestLabel(
                       quote.guests.adults,
                       quote.guests.children,
@@ -317,14 +223,14 @@ function CheckoutForm() {
             </section>
 
             {/* Cancellation Policy */}
-            <section className="rounded-xl border border-[#ebebeb] p-5 bg-[#fafafa]">
+            <section className="rounded-xl border border-border p-5 bg-muted/40">
               <div className="flex items-start gap-4">
-                <Clock className="h-6 w-6 text-[#717171] mt-0.5" />
+                <Clock className="h-6 w-6 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="font-semibold text-[#222222]">
+                  <p className="font-semibold text-foreground">
                     {isEnglish ? 'Free cancellation' : 'Cancelación gratuita'}
                   </p>
-                  <p className="text-sm text-[#717171] mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {isEnglish
                       ? `Cancel before ${cancellationDate} for a partial refund. After that, cancel before check-in to get a 50% refund, minus the service fee.`
                       : `Cancela antes del ${cancellationDate} para un reembolso parcial. Después de eso, cancela antes del check-in para obtener un reembolso del 50%, menos la tarifa de servicio.`}
@@ -334,12 +240,12 @@ function CheckoutForm() {
             </section>
 
             {/* Message to Host */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#222222]">
-                {isEnglish ? 'Message the host' : 'Mensaje al anfitrión'}
+            <section className="space-y-4 rounded-[24px] border border-border bg-card p-5">
+              <h2 className="font-serif text-xl text-foreground">
+                {isEnglish ? 'Message the host' : 'Mensaje a la anfitriona'}
               </h2>
               <div className="flex items-center gap-3">
-                <div className="relative h-10 w-10 overflow-hidden rounded-full">
+                <div className="relative h-12 w-12 overflow-hidden rounded-full">
                   <Image
                     src={propertyData.host.pictureUrl}
                     alt={propertyData.host.name}
@@ -348,14 +254,20 @@ function CheckoutForm() {
                   />
                 </div>
                 <div>
-                  <p className="font-medium text-[#222222]">
-                    {isEnglish ? 'Hosted by' : 'Anfitrión'} {propertyData.host.firstName}
+                  <p className="font-medium text-foreground">
+                    {isEnglish ? 'Hosted by' : 'Anfitriona'} {propertyData.host.firstName}
                   </p>
-                  <p className="text-sm text-[#717171]">
-                    {isEnglish ? 'Host since' : 'Anfitrión desde'} {propertyData.hostSinceYear}
+                  <p className="text-sm text-muted-foreground">
+                    {isEnglish ? 'Host since' : 'Anfitriona desde'} {propertyData.hostSinceYear}
                   </p>
                 </div>
               </div>
+              <HostResponseBadges
+                isSuperhost={propertyData.host.isSuperhost}
+                responseTime={propertyData.hostResponseTime}
+                responseRate={propertyData.host.responseRateWithoutNa}
+                isEnglish={isEnglish}
+              />
               <Textarea
                 id="specialRequests"
                 name="specialRequests"
@@ -364,15 +276,15 @@ function CheckoutForm() {
                 placeholder={
                   isEnglish
                     ? "Let the host know a little about yourself and why you're traveling..."
-                    : 'Cuéntale al anfitrión un poco sobre ti y por qué viajas...'
+                    : 'Cuéntale a la anfitriona un poco sobre ti y por qué viajas...'
                 }
                 rows={4}
-                className="rounded-lg border-[#b0b0b0] resize-none"
+                className="resize-none rounded-[16px] border-border bg-background/60"
               />
-              <p className="text-sm text-[#717171]">
+              <p className="text-sm text-muted-foreground">
                 {isEnglish
                   ? "By messaging the host, you agree to the host's house rules and the "
-                  : 'Al enviar un mensaje al anfitrión, aceptas las reglas de la casa y la '}
+                  : 'Al enviar un mensaje a la anfitriona, aceptas las reglas de la casa y la '}
                 <Link href="#" className="underline">
                   {isEnglish ? 'guest refund policy' : 'política de reembolso para huéspedes'}
                 </Link>
@@ -382,13 +294,13 @@ function CheckoutForm() {
 
             {/* Guest Information */}
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#222222]">
+              <h2 className="font-serif text-xl text-foreground">
                 {isEnglish ? 'Guest information' : 'Información del huésped'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="firstName" className="text-sm font-medium text-[#222222]">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
                       {isEnglish ? 'First name' : 'Nombre'}
                     </Label>
                     <Input
@@ -397,11 +309,11 @@ function CheckoutForm() {
                       value={formData.firstName}
                       onChange={handleInputChange}
                       required
-                      className="rounded-lg border-[#b0b0b0]"
+                      className="rounded-lg border-input"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="lastName" className="text-sm font-medium text-[#222222]">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-foreground">
                       {isEnglish ? 'Last name' : 'Apellido'}
                     </Label>
                     <Input
@@ -410,12 +322,12 @@ function CheckoutForm() {
                       value={formData.lastName}
                       onChange={handleInputChange}
                       required
-                      className="rounded-lg border-[#b0b0b0]"
+                      className="rounded-lg border-input"
                     />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="email" className="text-sm font-medium text-[#222222]">
+                  <Label htmlFor="email" className="text-sm font-medium text-foreground">
                     {isEnglish ? 'Email address' : 'Correo electrónico'}
                   </Label>
                   <Input
@@ -425,16 +337,16 @@ function CheckoutForm() {
                     value={formData.email}
                     onChange={handleInputChange}
                     required
-                    className="rounded-lg border-[#b0b0b0]"
+                    className="rounded-lg border-input"
                   />
-                  <p className="text-xs text-[#717171]">
+                  <p className="text-xs text-muted-foreground">
                     {isEnglish
                       ? 'Confirmation will be sent to this email'
                       : 'La confirmación se enviará a este correo'}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="phone" className="text-sm font-medium text-[#222222]">
+                  <Label htmlFor="phone" className="text-sm font-medium text-foreground">
                     {isEnglish ? 'Phone number' : 'Número de teléfono'}
                   </Label>
                   <Input
@@ -444,11 +356,11 @@ function CheckoutForm() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    className="rounded-lg border-[#b0b0b0]"
+                    className="rounded-lg border-input"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="country" className="text-sm font-medium text-[#222222]">
+                  <Label htmlFor="country" className="text-sm font-medium text-foreground">
                     {isEnglish ? 'Country/Region' : 'País/Región'}
                   </Label>
                   <select
@@ -456,7 +368,7 @@ function CheckoutForm() {
                     name="country"
                     value={formData.country}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-[#b0b0b0] px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm"
                   >
                     <option value="United States">United States</option>
                     <option value="Canada">Canada</option>
@@ -473,13 +385,13 @@ function CheckoutForm() {
 
             {/* Payment */}
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#222222]">
+              <h2 className="font-serif text-xl text-foreground">
                 {isEnglish ? 'Payment' : 'Pago'}
               </h2>
-              <div className="rounded-xl border border-[#ebebeb] p-5 bg-[#fafafa]">
+              <div className="rounded-xl border border-border p-5 bg-muted/40">
                 <div className="flex items-center gap-3 mb-4">
-                  <CreditCard className="h-5 w-5 text-[#717171]" />
-                  <span className="text-[#717171]">
+                  <CreditCard className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-muted-foreground">
                     {isEnglish ? 'Credit or debit card' : 'Tarjeta de crédito o débito'}
                   </span>
                 </div>
@@ -487,7 +399,7 @@ function CheckoutForm() {
                   {['Visa', 'Mastercard', 'Amex', 'Discover'].map((brand) => (
                     <span
                       key={brand}
-                      className="rounded-md border border-[#b0b0b0] bg-white px-3 py-1.5 text-xs font-medium text-[#222222]"
+                      className="rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground"
                     >
                       {brand}
                     </span>
@@ -495,10 +407,10 @@ function CheckoutForm() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#ebebeb] p-5">
+              <div className="rounded-xl border border-border p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="font-medium text-[#222222]">Total (USD)</span>
-                  <span className="text-xl font-semibold text-[#222222]">
+                  <span className="font-medium text-foreground">Total (USD)</span>
+                  <span className="text-xl font-semibold text-foreground">
                     {currency(quote.total)}
                   </span>
                 </div>
@@ -510,9 +422,9 @@ function CheckoutForm() {
                       id="agreeTerms"
                       checked={agreedToTerms}
                       onChange={(e) => setAgreedToTerms(e.target.checked)}
-                      className="h-4 w-4 rounded border-[#b0b0b0] accent-[#FF385C]"
+                      className="h-4 w-4 rounded border-input accent-primary"
                     />
-                    <label htmlFor="agreeTerms" className="text-sm text-[#717171]">
+                    <label htmlFor="agreeTerms" className="text-sm text-muted-foreground">
                       {isEnglish ? 'I agree to the ' : 'Acepto los '}
                       <Link href="#" className="underline">
                         {isEnglish ? 'Terms of Service' : 'Términos de servicio'}
@@ -534,7 +446,9 @@ function CheckoutForm() {
                   type="submit"
                   onClick={handleSubmit}
                   disabled={isLoading || !agreedToTerms}
-                  className="mt-6 w-full h-14 rounded-lg bg-[#FF385C] hover:bg-[#E31C5F] text-white font-semibold text-base shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  variant="brand"
+                  size="lg"
+                  className="mt-6 w-full text-base font-semibold shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">
@@ -549,8 +463,8 @@ function CheckoutForm() {
             </section>
 
             {/* Security Note */}
-            <div className="flex items-start gap-3 text-sm text-[#717171]">
-              <ShieldCheck className="h-5 w-5 text-[#008A05] mt-0.5" />
+            <div className="flex items-start gap-3 text-sm text-muted-foreground">
+              <ShieldCheck className="h-5 w-5 text-success mt-0.5" />
               <p>
                 {isEnglish
                   ? "Your booking is protected by AirCover. If there's a problem with your stay, we're here to help."
@@ -561,105 +475,28 @@ function CheckoutForm() {
 
           {/* Right Column - Price Card */}
           <div className="lg:col-span-2">
-            <div className="sticky top-24 rounded-xl border border-[#dddddd] bg-white p-6 shadow-lg">
-              {/* Property Preview */}
-              <div className="flex gap-4 pb-5 border-b border-[#ebebeb]">
-                <div className="relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-lg">
-                  <Image
-                    src={propertyData.photos[0].large}
-                    alt={propertyData.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div>
-                  <p className="font-medium text-[#222222] line-clamp-2">{propertyData.name}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="h-3.5 w-3.5 fill-[#222222] text-[#222222]" />
-                    <span className="text-sm font-medium">{propertyData.rating.toFixed(2)}</span>
-                    <span className="text-sm text-[#717171]">({propertyData.reviewsCount})</span>
-                  </div>
-                </div>
+            <div className="sticky top-24">
+              <button
+                type="button"
+                onClick={() => setShowPriceBreakdown((prev) => !prev)}
+                className="mb-3 flex w-full items-center justify-between rounded-[16px] border border-border bg-card px-4 py-3 lg:hidden"
+              >
+                <span className="text-sm font-semibold text-foreground">
+                  {isEnglish ? 'Price details' : 'Detalle del precio'} · {currency(quote.total)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {showPriceBreakdown
+                    ? isEnglish
+                      ? 'Hide'
+                      : 'Ocultar'
+                    : isEnglish
+                      ? 'Show'
+                      : 'Mostrar'}
+                </span>
+              </button>
+              <div className={showPriceBreakdown ? 'block' : 'hidden lg:block'}>
+                <PriceBreakdownCard quote={quote} isEnglish={isEnglish} propertyPreview />
               </div>
-
-              {/* Price Breakdown */}
-              <div className="py-5 border-b border-[#ebebeb] space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="underline text-[#222222]">
-                    {currency(quote.pricePerNight)} x {quote.nights}{' '}
-                    {isEnglish ? 'nights' : 'noches'}
-                  </span>
-                  <span className="text-[#222222]">{currency(quote.subtotal)}</span>
-                </div>
-
-                {hasDiscount && savings > 0 && (
-                  <div className="flex justify-between items-center text-[#1b5e20]">
-                    <span className="underline">
-                      {isEnglish ? 'Weekly discount' : 'Descuento semanal'}
-                    </span>
-                    <span>-{currency(savings)}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center">
-                  <span className="underline text-[#222222]">
-                    {isEnglish ? 'Cleaning fee' : 'Tarifa de limpieza'}
-                  </span>
-                  <span className="text-[#222222]">{currency(quote.cleaningFee)}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="underline text-[#222222]">
-                    {isEnglish ? 'Service fee' : 'Tarifa de servicio'}
-                  </span>
-                  <span className="text-[#222222]">{currency(quote.serviceFee)}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="underline text-[#222222]">
-                    {isEnglish ? 'Taxes & fees' : 'Impuestos y tarifas'}
-                  </span>
-                  <span className="text-[#222222]">{currency(quote.taxes)}</span>
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="pt-5">
-                <div className="flex justify-between items-center">
-                  <span className="text-base font-semibold text-[#222222]">
-                    {isEnglish ? 'Total (USD)' : 'Total (USD)'}
-                  </span>
-                  <span className="text-xl font-semibold text-[#222222]">
-                    {currency(quote.total)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Cancellation Policy in Card */}
-              <div className="mt-5 p-4 rounded-lg bg-[#fafafa]">
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-[#717171] mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-[#222222]">
-                      {isEnglish ? 'Free cancellation' : 'Cancelación gratuita'}
-                    </p>
-                    <p className="text-sm text-[#717171] mt-1">
-                      Cancel before {cancellationDate} for a partial refund.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Price Tip */}
-              {hasDiscount && savings > 0 && (
-                <div className="mt-4 p-3 rounded-lg bg-[#d4edda] flex items-start gap-2">
-                  <Info className="h-4 w-4 text-[#1b5e20] mt-0.5" />
-                  <p className="text-sm text-[#1b5e20]">
-                    You&apos;re saving <span className="font-semibold">{currency(savings)}</span>{' '}
-                    with this discount!
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -677,8 +514,10 @@ export default function CheckoutPage() {
       fallback={
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-pulse flex flex-col items-center">
-            <div className="h-8 w-8 rounded-full border-4 border-[#FF385C] border-t-transparent animate-spin" />
-            <p className="mt-4 text-[#717171]">Loading checkout...</p>
+            <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            <p className="mt-4 text-muted-foreground">
+              {isEnglish ? 'Loading checkout...' : 'Cargando checkout...'}
+            </p>
           </div>
         </div>
       }

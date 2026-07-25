@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { propertyData } from '@/lib/property-data'
+import { propertyData, PROPERTY_SLUG } from '@/lib/property-data'
 
 export type GuestCounts = {
   adults: number
@@ -132,6 +132,26 @@ export function parseQuoteFromSearchParams(searchParams: URLSearchParams): Booki
     serviceFee,
     taxes,
     total,
+  }
+}
+
+export async function getBlockedDateRanges(): Promise<Array<{ from: Date; to: Date }>> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return []
+
+  try {
+    const res = await fetch(`${apiUrl}/properties/${PROPERTY_SLUG}/blocked-dates`)
+    if (!res.ok) return []
+
+    const blockedDates = (await res.json()) as Array<{ startDate: string; endDate: string }>
+    return blockedDates.map((blockedDate) => ({
+      from: parseISO(blockedDate.startDate),
+      to: parseISO(blockedDate.endDate),
+    }))
+  } catch {
+    // Fail-soft: the calendar still works (just without excluding blocked
+    // dates) if the API is unreachable.
+    return []
   }
 }
 

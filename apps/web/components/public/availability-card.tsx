@@ -1,13 +1,19 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { addDays, format } from 'date-fns'
 import { CalendarDays, ChevronDown, Minus, Plus, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@areia-bela/ui/button'
 import { Calendar } from '@areia-bela/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
-import { buildQuote, saveQuoteToStorage, serializeQuoteToSearchParams } from '@/lib/booking'
+import {
+  buildQuote,
+  getBlockedDateRanges,
+  saveQuoteToStorage,
+  serializeQuoteToSearchParams,
+} from '@/lib/booking'
+import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -26,6 +32,12 @@ export function AvailabilityCard({ className }: Props) {
   const [guestsOpen, setGuestsOpen] = useState(false)
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0 })
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
+  const [hoverDate, setHoverDate] = useState<Date | undefined>()
+
+  useEffect(() => {
+    getBlockedDateRanges().then(setBlockedRanges)
+  }, [])
 
   const quote = useMemo(
     () =>
@@ -117,7 +129,20 @@ export function AvailabilityCard({ className }: Props) {
               setCheckIn(range?.from)
               setCheckOut(range?.to)
             }}
-            disabled={{ before: today }}
+            disabled={[{ before: today }, ...blockedRanges]}
+            modifiers={{
+              blocked: blockedRanges,
+              previewRange:
+                checkIn && !checkOut && hoverDate && hoverDate > checkIn
+                  ? { from: checkIn, to: hoverDate }
+                  : [],
+            }}
+            modifiersClassNames={{
+              blocked: 'line-through decoration-red-400 bg-red-50 text-red-300',
+              previewRange: 'bg-accent/50 rounded-none',
+            }}
+            onDayMouseEnter={setHoverDate}
+            onDayMouseLeave={() => setHoverDate(undefined)}
             initialFocus
           />
         </PopoverContent>
@@ -187,10 +212,20 @@ export function AvailabilityCard({ className }: Props) {
         </PopoverContent>
       </Popover>
 
+      {checkIn && checkOut && (
+        <PriceBreakdownCard
+          quote={quote}
+          isEnglish={language === 'en'}
+          className="mt-4 shadow-none ring-1 ring-slate-100"
+        />
+      )}
+
       <Button
         onClick={handleReserve}
         disabled={!checkIn || !checkOut}
-        className="mt-4 h-12 w-full rounded-xl bg-[#174d7a] text-sm font-semibold uppercase tracking-wide text-white shadow-none hover:bg-[#0f4068]"
+        variant="brand"
+        size="lg"
+        className="mt-4 w-full text-sm font-semibold shadow-none"
       >
         {copy.reserve}
       </Button>

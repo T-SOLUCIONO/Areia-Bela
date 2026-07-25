@@ -46,7 +46,9 @@ export function HomeHero({ images }: HeroProps) {
           <Image
             key={src}
             src={src}
-            alt="Areia Bela beach stay"
+            alt={
+              language === 'en' ? 'Areia Bela beach stay' : 'Estadía frente a la playa Areia Bela'
+            }
             fill
             priority={slideIndex === 0}
             className={cn(
@@ -80,10 +82,7 @@ export function HomeHero({ images }: HeroProps) {
               <span className="mt-1 block">{copy.heroSubline}</span>
             </p>
 
-            <Button
-              asChild
-              className="h-12 rounded-md bg-[#174d7a] px-6 text-sm font-semibold uppercase tracking-wide text-white shadow-none hover:bg-[#0f4068]"
-            >
+            <Button asChild variant="brand" size="lg" className="px-6 text-sm font-semibold">
               <Link href="#reservar">
                 {copy.heroCta}
                 <ChevronRight className="h-4 w-4" />

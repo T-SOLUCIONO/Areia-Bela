@@ -2,8 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type SupportedLocale } from '@areia-bela/shared'
 
 function detectLocale(request: NextRequest): SupportedLocale {
-  const acceptLanguage = request.headers.get('accept-language') ?? ''
-  return acceptLanguage.toLowerCase().startsWith('es') ? 'es' : DEFAULT_LOCALE
+  // A previously chosen language wins over the browser header.
+  const saved = request.cookies.get('areia_bela_language')?.value
+  if (saved === 'es' || saved === 'en') return saved
+
+  const acceptLanguage = (request.headers.get('accept-language') ?? '').toLowerCase()
+  if (acceptLanguage.startsWith('es')) return 'es'
+  if (acceptLanguage.startsWith('en')) return 'en'
+  return DEFAULT_LOCALE
 }
 
 export function middleware(request: NextRequest) {

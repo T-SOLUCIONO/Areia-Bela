@@ -16,7 +16,7 @@ export function Reserve() {
           <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
             {isEnglish ? 'From' : 'Desde'}
           </div>
-          <div className="text-lg font-semibold text-[#173a57]">
+          <div className="text-lg font-semibold text-foreground">
             ${propertyData.pricing.price_per_night}{' '}
             <span className="text-sm font-normal text-slate-500">
               {isEnglish ? '/ night' : '/ noche'}
@@ -26,10 +26,7 @@ export function Reserve() {
             {isEnglish ? 'Heated Pool & Coffee Bar' : 'Piscina climatizada y coffee bar'}
           </p>
         </div>
-        <Button
-          asChild
-          className="h-11 rounded-full bg-[#174d7a] px-5 text-sm font-semibold text-white hover:bg-[#0f4068]"
-        >
+        <Button asChild variant="brand" size="lg" className="px-5 text-sm font-semibold">
           <Link href="#reservar">{isEnglish ? 'Book now' : 'Reservar'}</Link>
         </Button>
       </div>
