@@ -1,0 +1,153 @@
+// Areia Bela — whole-home rental (1 Property). See docs/domain-decisions.md.
+// Scope note: no User/Role (Fase 4 auth) or CMSPage/SiteSettings/Gallery/FAQ
+// (Fase 5 CMS) tables yet — those phases haven't started.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Property {
+  id                         String   @id @default(cuid())
+  slug                       String   @unique
+  nameEs                     String
+  nameEn                     String
+  descriptionEs              String
+  descriptionEn              String
+  maxGuests                  Int
+  additionalGuestFeePerNight Decimal  @db.Decimal(10, 2)
+  cleaningFee                Decimal  @db.Decimal(10, 2)
+  serviceFeePercent          Decimal  @db.Decimal(5, 2)
+  taxesPercent               Decimal  @db.Decimal(5, 2)
+  bedrooms                   Int
+  bathrooms                  Int
+  amenities                  String[]
+  address                    String
+  city                       String
+  state                      String
+  country                    String
+  checkInTime                String
+  checkOutTime               String
+  trashCollectionDays        String[]
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  bookings     Booking[]
+  extras       Extra[]
+  priceRules   PriceRule[]
+  blockedDates BlockedDate[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String   @unique
+  phone     String
+  country   String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings Booking[]
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  CHECKED_IN
+  CHECKED_OUT
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id])
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  checkIn         DateTime      @db.Date
+  checkOut        DateTime      @db.Date
+  adults          Int
+  children        Int
+  infants         Int
+  status          BookingStatus @default(PENDING)
+  totalPrice      Decimal       @db.Decimal(10, 2)
+  specialRequests String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  extras BookingExtra[]
+
+  @@index([propertyId, checkIn, checkOut])
+}
+
+enum ExtraPricingType {
+  PER_NIGHT
+  PER_HOUR
+  PER_STAY
+}
+
+model Extra {
+  id                  String           @id @default(cuid())
+  propertyId          String
+  property            Property         @relation(fields: [propertyId], references: [id])
+  key                 String
+  nameEs              String
+  nameEn              String
+  pricingType         ExtraPricingType
+  price               Decimal          @db.Decimal(10, 2)
+  refundable          Boolean          @default(true)
+  seasonStartMonthDay String? // "MM-DD", e.g. heated pool season start
+  seasonEndMonthDay   String?
+  requiresRequest     Boolean          @default(false)
+  active              Boolean          @default(true)
+
+  bookingExtras BookingExtra[]
+
+  @@unique([propertyId, key])
+}
+
+model BookingExtra {
+  id        String  @id @default(cuid())
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  extraId   String
+  extra     Extra   @relation(fields: [extraId], references: [id])
+  quantity  Int     @default(1)
+
+  @@unique([bookingId, extraId])
+}
+
+enum SeasonType {
+  LOW
+  HIGH
+  WEEKEND
+}
+
+model PriceRule {
+  id          String     @id @default(cuid())
+  propertyId  String
+  property    Property   @relation(fields: [propertyId], references: [id])
+  name        String
+  type        SeasonType
+  startDate   DateTime?  @db.Date // null for the recurring WEEKEND rule
+  endDate     DateTime?  @db.Date
+  nightlyRate Decimal    @db.Decimal(10, 2)
+  active      Boolean    @default(true)
+}
+
+model BlockedDate {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String?
+
+  @@index([propertyId, startDate, endDate])
+}
