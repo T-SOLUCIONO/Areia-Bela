@@ -1,7 +1,11 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
 import { PropertiesService } from './properties.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
+import { UserRole } from '@prisma/client'
 import { Public } from '../auth/decorators/public.decorator'
+import { Roles } from '../auth/decorators/roles.decorator'
+import { UpdatePropertyDto } from './dto/update-property.dto'
+import { CreateExtraDto, UpdateExtraDto } from './dto/extra.dto'
 
 // The guest-facing site calls these without signing in, so they opt out of the
 // globally registered JwtAuthGuard. Everything else defaults to protected.
@@ -19,5 +23,43 @@ export class PropertiesController {
   @Get(':slug/blocked-dates')
   getBlockedDates(@Param('slug') slug: string) {
     return this.propertiesService.getBlockedDates(slug)
+  }
+
+  @Public()
+  @Get(':slug')
+  getProperty(@Param('slug') slug: string) {
+    return this.propertiesService.getProperty(slug)
+  }
+
+  // Editing the property and its extras is the settings screen; viewers can
+  // read the panel but not change what guests are charged.
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch(':slug')
+  updateProperty(@Param('slug') slug: string, @Body() dto: UpdatePropertyDto) {
+    return this.propertiesService.updateProperty(slug, dto)
+  }
+
+  @Public()
+  @Get(':slug/extras')
+  listExtras(@Param('slug') slug: string) {
+    return this.propertiesService.listExtras(slug)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post(':slug/extras')
+  createExtra(@Param('slug') slug: string, @Body() dto: CreateExtraDto) {
+    return this.propertiesService.createExtra(slug, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('extras/:id')
+  updateExtra(@Param('id') id: string, @Body() dto: UpdateExtraDto) {
+    return this.propertiesService.updateExtra(id, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Delete('extras/:id')
+  deactivateExtra(@Param('id') id: string) {
+    return this.propertiesService.deactivateExtra(id)
   }
 }

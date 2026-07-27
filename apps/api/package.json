@@ -13,7 +13,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "seed": "ts-node prisma/seed.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "seed:cms": "ts-node prisma/seed-cms.ts"
   },
   "dependencies": {
     "@areia-bela/shared": "workspace:*",
@@ -25,6 +26,7 @@
     "@nestjs/platform-express": "^11.1.0",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.10.1",
+    "@vercel/blob": "^2.6.1",
     "argon2": "^0.45.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
@@ -42,6 +44,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22",
     "@types/qrcode": "^1.5.6",
     "eslint": "^9.18.0",

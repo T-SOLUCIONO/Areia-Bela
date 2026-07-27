@@ -1,6 +1,6 @@
 // Areia Bela — whole-home rental (1 Property). See docs/domain-decisions.md.
-// Scope note: no CMSPage/SiteSettings/Gallery/FAQ (Fase 5 CMS) tables yet —
-// that phase hasn't started. User/RefreshToken landed in Fase 4 (auth).
+// User/RefreshToken landed in Fase 4 (auth); CMSPage/SiteSettings/GalleryImage/
+// FAQ in Fase 5 (CMS).
 
 generator client {
   provider = "prisma-client-js"
@@ -232,4 +232,92 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 5 (CMS). Everything a host can edit without a developer.
+//
+// Bilingual content is stored as two columns per field (…Es/…En) rather than a
+// JSON blob, matching the Property model above: it keeps the columns typed and
+// queryable, and the product is only ever ES/EN.
+// ---------------------------------------------------------------------------
+
+enum CMSPageSlug {
+  ABOUT_SPACE
+  ACCOMMODATION
+  LIVING_AREAS
+  KITCHEN_DINING
+  BEDROOMS_BATHROOMS
+  OUTDOOR_LIFE
+  AMENITIES
+  LOCATION
+  GUEST_ACCESS
+  HOUSE_RULES
+  FAQS
+  POLICIES
+}
+
+model CMSPage {
+  id        String      @id @default(cuid())
+  slug      CMSPageSlug @unique
+  titleEs   String
+  titleEn   String
+  bodyEs    String
+  bodyEn    String
+  published Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum FAQCategory {
+  PETS
+  TRASH
+  POOL
+  PARTIES
+  GENERAL
+}
+
+model FAQ {
+  id         String      @id @default(cuid())
+  questionEs String
+  questionEn String
+  answerEs   String
+  answerEn   String
+  category   FAQCategory @default(GENERAL)
+  sortOrder  Int         @default(0)
+  published  Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([category, sortOrder])
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  altEs     String
+  altEn     String
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+// Single row, like Property. `id` is pinned to a constant so upserts can find
+// it without a lookup, and so a second row can't be created by accident.
+model SiteSettings {
+  id               String   @id @default("site")
+  contactEmail     String
+  contactPhone     String
+  whatsapp         String
+  seoTitleEs       String
+  seoTitleEn       String
+  seoDescriptionEs String
+  seoDescriptionEn String
+  instagramUrl     String?
+  facebookUrl      String?
+  airbnbUrl        String?
+  updatedAt        DateTime @updatedAt
 }
