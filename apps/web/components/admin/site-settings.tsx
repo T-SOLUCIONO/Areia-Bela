@@ -11,6 +11,7 @@ import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { cms, type SiteSettings as Settings } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { ImageField } from '@/components/admin/content/image-field'
 
 const BLANK: Settings = {
   contactEmail: '',
@@ -23,6 +24,7 @@ const BLANK: Settings = {
   instagramUrl: null,
   facebookUrl: null,
   airbnbUrl: null,
+  logoUrl: null,
 }
 
 export function SiteSettings() {
@@ -146,6 +148,16 @@ export function SiteSettings() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-serif text-base">{t.content.logo}</h3>
+        <ImageField
+          label={t.content.logo}
+          value={draft.logoUrl}
+          onChange={(logoUrl) => edit({ logoUrl })}
+        />
+        <p className="text-xs text-muted-foreground">{t.content.logoHint}</p>
       </section>
 
       <section className="space-y-3">

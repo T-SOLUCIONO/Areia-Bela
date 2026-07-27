@@ -60,6 +60,7 @@ export interface SiteSettings {
   instagramUrl: string | null
   facebookUrl: string | null
   airbnbUrl: string | null
+  logoUrl: string | null
 }
 
 export interface Extra {
@@ -204,5 +205,129 @@ export const cms = {
       throw new Error(detail?.message ?? 'Upload failed')
     }
     return (await response.json()) as GalleryImage
+  },
+}
+
+// --- Landing page ------------------------------------------------------------
+
+export type ContentSectionKey =
+  'HERO' | 'FEATURES' | 'AMENITIES' | 'REVIEWS' | 'LOCATION' | 'DIRECT_BOOKING' | 'HOST' | 'FOOTER'
+
+export type ContentItemKind =
+  'HERO_BADGE' | 'FEATURE_CARD' | 'AMENITY' | 'LOCATION_HIGHLIGHT' | 'HOST_STAT' | 'REVIEW_RATING'
+
+export interface ContentItem {
+  id: string
+  sectionId: string
+  kind: ContentItemKind
+  icon: string
+  imageUrl: string | null
+  labelEs: string
+  labelEn: string
+  bodyEs: string
+  bodyEn: string
+  value: string
+  sortOrder: number
+  published: boolean
+}
+
+export interface ContentSection {
+  id: string
+  key: ContentSectionKey
+  eyebrowEs: string
+  eyebrowEn: string
+  titleEs: string
+  titleEn: string
+  subtitleEs: string
+  subtitleEn: string
+  bodyEs: string
+  bodyEn: string
+  ctaLabelEs: string
+  ctaLabelEn: string
+  ctaHref: string
+  statValue: string
+  statLabelEs: string
+  statLabelEn: string
+  imageUrl: string | null
+  linkUrl: string | null
+  published: boolean
+  items: ContentItem[]
+}
+
+export interface Review {
+  id: string
+  authorName: string
+  authorPhotoUrl: string | null
+  rating: number
+  textEs: string
+  textEn: string
+  stayedAtEs: string
+  stayedAtEn: string
+  verified: boolean
+  featured: boolean
+  sortOrder: number
+  published: boolean
+}
+
+export type ContentSectionUpdate = Partial<Omit<ContentSection, 'id' | 'key' | 'items'>>
+export type ContentItemUpdate = Partial<
+  Omit<ContentItem, 'id' | 'sectionId' | 'kind' | 'sortOrder'>
+>
+export type ReviewUpdate = Partial<Omit<Review, 'id' | 'sortOrder'>>
+
+export const landing = {
+  sections: () => apiFetch<ContentSection[]>('/cms/admin/landing'),
+  saveSection: (key: ContentSectionKey, body: ContentSectionUpdate) =>
+    apiFetch<ContentSection>(`/cms/landing/${key}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  createItem: (
+    body: { sectionKey: ContentSectionKey; kind: ContentItemKind } & ContentItemUpdate,
+  ) => apiFetch<ContentItem>('/cms/landing/items', { method: 'POST', body: JSON.stringify(body) }),
+  updateItem: (id: string, body: ContentItemUpdate) =>
+    apiFetch<ContentItem>(`/cms/landing/items/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteItem: (id: string) => apiFetch<void>(`/cms/landing/items/${id}`, { method: 'DELETE' }),
+  reorderItems: (ids: string[]) =>
+    apiFetch<void>('/cms/landing/items/reorder', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids }),
+    }),
+
+  reviews: () => apiFetch<Review[]>('/cms/admin/reviews'),
+  createReview: (body: ReviewUpdate) =>
+    apiFetch<Review>('/cms/reviews', { method: 'POST', body: JSON.stringify(body) }),
+  updateReview: (id: string, body: ReviewUpdate) =>
+    apiFetch<Review>(`/cms/reviews/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteReview: (id: string) => apiFetch<void>(`/cms/reviews/${id}`, { method: 'DELETE' }),
+  reorderReviews: (ids: string[]) =>
+    apiFetch<void>('/cms/reviews/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
+
+  translationEnabled: () =>
+    apiFetch<{ configured: boolean }>('/cms/admin/translation-status').then((r) => r.configured),
+  translate: (text: string, from: 'es' | 'en', to: 'es' | 'en') =>
+    apiFetch<{ text: string }>('/cms/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, from, to }),
+    }).then((r) => r.text),
+
+  /** Multipart, so it can't go through apiFetch — see uploadImage above. */
+  async uploadImage(file: File): Promise<string> {
+    const form = new FormData()
+    form.append('file', file)
+    const response = await fetch(`${API_URL}/cms/landing/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    })
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as { message?: string } | null
+      throw new Error(detail?.message ?? 'Upload failed')
+    }
+    return ((await response.json()) as { url: string }).url
   },
 }

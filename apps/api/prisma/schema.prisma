@@ -319,5 +319,127 @@ model SiteSettings {
   instagramUrl     String?
   facebookUrl      String?
   airbnbUrl        String?
+  // Header and footer share one mark; null falls back to the bundled PNG.
+  logoUrl          String?
   updatedAt        DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Landing page content.
+//
+// CMSPage above holds the long prose a guest reads. These three hold the
+// landing page itself: its section headings, the repeated card/badge/stat
+// lists, and the testimonials.
+//
+// Two models instead of one per section: the page has five different lists
+// (hero badges, feature cards, amenities, nearby highlights, host stats) that
+// are all "icon + optional image + a bilingual label and body, in an order".
+// One ContentItem covers all five, so they also share one editor. Review is
+// separate because it genuinely has a different shape — a rating, an author
+// and a photo.
+// ---------------------------------------------------------------------------
+
+enum ContentSectionKey {
+  HERO
+  FEATURES
+  AMENITIES
+  REVIEWS
+  LOCATION
+  DIRECT_BOOKING
+  HOST
+  FOOTER
+}
+
+model ContentSection {
+  id  String            @id @default(cuid())
+  key ContentSectionKey @unique
+
+  // Not every section uses every slot — an empty string means "don't render".
+  // Nullable columns would say the same thing with more null checks.
+  eyebrowEs  String @default("")
+  eyebrowEn  String @default("")
+  titleEs    String @default("")
+  titleEn    String @default("")
+  subtitleEs String @default("")
+  subtitleEn String @default("")
+  bodyEs     String @default("")
+  bodyEn     String @default("")
+  ctaLabelEs String @default("")
+  ctaLabelEn String @default("")
+  ctaHref    String @default("")
+
+  // The one headline figure a section can carry: the review score, the host's
+  // years hosting. Kept as text because "5.0" and "< 1 hour" are both valid.
+  statValue   String @default("")
+  statLabelEs String @default("")
+  statLabelEn String @default("")
+
+  imageUrl String? // host portrait, section background
+  linkUrl  String? // map embed for LOCATION
+
+  // REVIEWS unpublished hides the whole block, which is what the host asked
+  // for: a section with nothing worth showing shouldn't render an empty frame.
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ContentItem[]
+}
+
+enum ContentItemKind {
+  HERO_BADGE
+  FEATURE_CARD
+  AMENITY
+  LOCATION_HIGHLIGHT
+  HOST_STAT
+  REVIEW_RATING
+}
+
+model ContentItem {
+  id        String          @id @default(cuid())
+  sectionId String
+  section   ContentSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  kind      ContentItemKind
+
+  icon     String  @default("") // lucide-react name, picked from a curated list
+  imageUrl String?
+  labelEs  String
+  labelEn  String
+  bodyEs   String  @default("")
+  bodyEn   String  @default("")
+  // Host stats ("10+", "100%") and review sub-scores ("4.9").
+  value    String  @default("")
+
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId, kind, sortOrder])
+}
+
+// Guest testimonials shown on the landing page. Editorial content, not part of
+// the booking domain: it has no relation to Booking or Customer, and deleting
+// one changes the page, never a reservation.
+model Review {
+  id             String  @id @default(cuid())
+  authorName     String
+  authorPhotoUrl String?
+  rating         Int     @default(5)
+  textEs         String
+  textEn         String
+  // Free text ("noviembre de 2025"): the source listing gives no exact dates,
+  // and inventing them would be inventing data.
+  stayedAtEs     String  @default("")
+  stayedAtEn     String  @default("")
+  verified       Boolean @default(true)
+  // The one pulled out into the large quote block at the top.
+  featured       Boolean @default(false)
+
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
 }

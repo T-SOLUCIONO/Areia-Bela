@@ -8,6 +8,7 @@ import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
+import { localized } from '@/lib/cms-public'
 import { translations } from '@/lib/i18n'
 
 export function Footer() {
@@ -17,9 +18,15 @@ export function Footer() {
 
   // Contact details are editable in /admin/settings; the bundled values are
   // the fallback when the API is unreachable.
-  const settings = useSiteContent()?.settings
+  const content = useSiteContent()
+  const settings = content?.settings
+  const logo = settings?.logoUrl ?? '/areia-bela-logo.png'
   const phone = settings?.contactPhone || propertyInfo.phone
   const email = settings?.contactEmail || propertyInfo.email
+  const footerSection = content?.sections.FOOTER
+  const description = footerSection
+    ? localized(footerSection, 'body', language) || copy.description
+    : copy.description
   const social = [
     { href: settings?.instagramUrl, label: 'Instagram' },
     { href: settings?.facebookUrl, label: 'Facebook' },
@@ -33,14 +40,14 @@ export function Footer() {
           <div className="space-y-4">
             <div>
               <Image
-                src="/areia-bela-logo.png"
+                src={logo}
                 alt="Areia Bela"
                 width={220}
                 height={72}
                 className="h-auto w-[200px]"
               />
             </div>
-            <p className="max-w-md text-sm leading-6 text-muted-foreground">{copy.description}</p>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />

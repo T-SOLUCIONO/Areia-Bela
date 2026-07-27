@@ -17,9 +17,12 @@ import {
 import { languages, type Language } from '@/lib/i18n'
 import { translations } from '@/lib/i18n'
 import { useLanguage } from '@/components/language-provider'
+import { useSiteContent } from '@/components/public/site-content-provider'
 import { publicNavItems } from '@/components/public/public-navigation'
 
 export function Header() {
+  // Editable in /admin/settings; the bundled mark is the fallback.
+  const logo = useSiteContent()?.settings?.logoUrl ?? '/areia-bela-logo.png'
   const [isOpen, setIsOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
   const router = useRouter()
@@ -46,7 +49,7 @@ export function Header() {
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/areia-bela-logo.png"
+            src={logo}
             alt="Areia Bela"
             width={170}
             height={56}
@@ -100,7 +103,7 @@ export function Header() {
             <SheetHeader className="pt-8">
               <SheetTitle className="flex justify-center">
                 <Image
-                  src="/areia-bela-logo.png"
+                  src={logo}
                   alt="Areia Bela"
                   width={220}
                   height={72}

@@ -808,3 +808,133 @@ prueba:
 - Reorden de FAQs → 200; borrado → 204.
 - `GET /es` y `GET /en` devuelven el título del CMS en `<title>` y traen las
   preguntas y las secciones **en el HTML**, no tras hidratar.
+
+## 20. La portada entera, editable desde el panel
+
+Fase 5 dejó editables el SEO, la galería, las secciones largas, las preguntas y
+el contacto. Faltaba lo más visible: la portada, con su texto incrustado en
+unas 500 líneas de objetos bilingües dentro del componente más `lib/i18n.ts`.
+Cambiar una frase del hero era editar un `.ts` y desplegar. Ya no.
+
+### Modelo de datos
+
+Tres modelos nuevos, justificados aquí porque `domain-guard` exige declarar
+toda entidad fuera de la lista canónica. Ninguno es de negocio: son contenido
+editorial, sin relación con `Booking` ni `Customer`.
+
+- **`ContentSection`** — una fila por sección de la portada (ocho claves fijas),
+  con las ranuras de texto que puede usar: antetítulo, título, subtítulo,
+  cuerpo, botón, una cifra destacada, una imagen y un enlace. Las que no usa
+  quedan en cadena vacía; columnas nulables dirían lo mismo con más
+  comprobaciones.
+- **`ContentItem`** — los cinco listados de la página (insignias del hero,
+  tarjetas, etiquetas de servicios, puntos cercanos y cifras de la anfitriona)
+  son todos "icono + imagen opcional + una etiqueta y un texto bilingües, en un
+  orden". Un solo modelo los cubre, y por eso también comparten **un solo
+  editor** en vez de cinco casi idénticos que habría que mantener sincronizados.
+- **`Review`** — aparte porque su forma sí es distinta: nota, autor y foto.
+
+`SiteSettings` gana `logoUrl`, que usan cabecera y pie.
+
+### Reglas que impone el servidor
+
+- **O los dos idiomas, o ninguno.** El DTO no puede comprobarlo (solo ve campos
+  opcionales), así que el servicio compara lo que llega contra lo guardado y
+  devuelve 400 si un campo queda cojo. Es la misma regla de las páginas, ahora
+  aplicable a un formulario donde la mayoría de las ranuras van vacías.
+- **Una sola reseña destacada.** Promover una demota a la anterior en el
+  servidor; no es algo que el navegador deba recordar hacer.
+- El orden de los ítems es **por lista, no por sección**: añadir una insignia no
+  la manda al final por culpa de las tarjetas que viven en la misma sección.
+
+### Traducción asistida
+
+Botón "traducir" en cada campo bilingüe. Llama a la API de Claude y **deja la
+propuesta en el input**; el anfitrión la lee y decide si guarda.
+
+Deliberadamente no es automático. `CLAUDE.md` prohíbe inventar traducciones, y
+una traducción automática que llega al huésped sin que nadie la lea es
+exactamente eso. Con el botón, la máquina propone y una persona responde por el
+texto. Sin `ANTHROPIC_API_KEY` el botón no aparece —un control que solo da error
+es peor que ninguno— y escribir los dos idiomas a mano sigue funcionando igual.
+
+Se usa Sonnet, no Opus: son cadenas cortas de marketing y el modelo barato y
+rápido sobra. Al modelo se le dice explícitamente que esto es una casa y no un
+hotel, para que no traduzca "habitaciones" ni "recepción".
+
+### Panel
+
+Pestaña **Portada** nueva en `/admin/content`, con las ocho secciones en una
+lista lateral y, para cada una, solo las ranuras que esa sección usa: el
+formulario se genera de una tabla de composición en vez de haber ocho
+formularios distintos.
+
+- **Selector de iconos** visual con 41 iconos elegidos para una casa de playa.
+  El anfitrión no escribe `PawPrint` a mano, y el conjunto acotado evita que la
+  portada derive en una sopa de iconos.
+- **Subida de imágenes** por campo (tarjetas, retrato de la anfitriona, foto de
+  cada huésped, logo), reutilizando el almacenamiento de la galería. Van por una
+  ruta aparte a propósito: pertenecen a un campo, no a la cuadrícula pública de
+  fotos, así que no deben aparecer en ella.
+- **Pestaña Reseñas**: alta, edición, foto, estrellas, fecha, verificada,
+  destacada, ocultar y reordenar.
+- **Ocultar secciones enteras**, que era el pedido concreto sobre las reseñas.
+- El **logo** se cambia en Ajustes → Contacto y SEO.
+
+### Sitio de huéspedes
+
+Hero, tarjetas, servicios, reseñas, ubicación (incluido el enlace del mapa),
+reserva directa, anfitriona, pie y logo salen del CMS, renderizados en el
+servidor. Todo con respaldo a la copia local si el API no responde.
+
+El título del hero se escribe como una frase y el componente le aplica la
+tipografía de marca a las últimas palabras, como hacía la versión de tres líneas
+incrustada. El anfitrión escribe texto; no tiene que pensar en saltos de línea.
+
+### Seed
+
+`pnpm --filter @areia-bela/api seed:landing` mueve a la base el texto que ya
+estaba vivo, más las cuatro reseñas reales del listing. Idempotente: las
+secciones hacen upsert y los ítems y reseñas se buscan por su clave natural
+antes de insertar, así que correrlo dos veces no duplica ni pisa una edición.
+
+**Huecos declarados**: los nombres de los servicios existen solo en español en
+el listing, y las reseñas solo en inglés. Esas filas se siembran con el texto de
+origen en ambos lados. No se rellenan con traducción automática porque nadie la
+habría leído; para eso está el botón, que deja a una persona en medio.
+
+### Diferido
+
+- **El cotizador sigue calculando en el navegador.** `lib/booking.ts:32` usa el
+  `datos.json` estático y nadie llama a `POST /properties/:slug/quote`, que ya
+  existe. Rompe la regla de precio autoritativo en el servidor y hace que lo que
+  se edita en Ajustes no le llegue al huésped. Es Fase 6 y merece su propio
+  cambio; se deja anotado, no tapado.
+- Optimización de imágenes (`images.unoptimized` sigue puesto): Fase 8.
+- El editor de textos sigue sin vista previa ni autoguardado.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (95 tests, 10 nuevos)
+```
+
+Contra el API levantado, con un superadmin temporal creado y borrado para la
+prueba:
+
+- Escrituras de secciones, ítems y reseñas → 200/204; como `VIEWER` → **403**;
+  sin sesión → **401**. Las lecturas de editor como `VIEWER` → 200.
+- `PATCH` de una sección con un solo idioma → **400** con el campo que falta.
+- Promover una segunda reseña destacada deja **exactamente una** destacada.
+- Sin `ANTHROPIC_API_KEY`: `translation-status` responde `configured: false` y
+  `POST /cms/translate` → **503** con el motivo.
+- Correr el seed dos veces: `0 elementos nuevos, 0 reseñas nuevas`.
+- `GET /es` y `GET /en` traen las insignias, las tarjetas, el desglose de notas,
+  las cifras de la anfitriona y el texto del pie **en el HTML**.
+
+Una nota de método: la primera verificación dio media pantalla en blanco y el
+motivo no era el código sino un `next-server` viejo sirviendo el bundle
+anterior. Reiniciarlo lo arregló. Es la segunda vez que pasa en este repo.

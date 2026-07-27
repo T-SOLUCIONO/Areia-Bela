@@ -14,7 +14,8 @@
     "seed": "ts-node prisma/seed.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "seed:cms": "ts-node prisma/seed-cms.ts"
+    "seed:cms": "ts-node prisma/seed-cms.ts",
+    "seed:landing": "ts-node prisma/seed-landing.ts"
   },
   "dependencies": {
     "@areia-bela/shared": "workspace:*",

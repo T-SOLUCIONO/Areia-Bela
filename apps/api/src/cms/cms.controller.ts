@@ -12,15 +12,22 @@ import {
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { CMSPageSlug, UserRole } from '@prisma/client'
+import { CMSPageSlug, ContentSectionKey, UserRole } from '@prisma/client'
 import { CmsService } from './cms.service'
 import { StorageService } from './storage.service'
+import { TranslationService } from './translation.service'
 import {
+  CreateContentItemDto,
   CreateFAQDto,
+  CreateReviewDto,
   ReorderDto,
+  TranslateDto,
   UpdateCMSPageDto,
+  UpdateContentItemDto,
+  UpdateContentSectionDto,
   UpdateFAQDto,
   UpdateGalleryImageDto,
+  UpdateReviewDto,
   UpdateSiteSettingsDto,
 } from './dto/cms.dto'
 import { Public } from '../auth/decorators/public.decorator'
@@ -36,6 +43,7 @@ export class CmsController {
   constructor(
     private readonly cms: CmsService,
     private readonly storage: StorageService,
+    private readonly translation: TranslationService,
   ) {}
 
   // --- Public reads --------------------------------------------------------
@@ -65,6 +73,18 @@ export class CmsController {
   }
 
   @Public()
+  @Get('landing')
+  getPublicLanding() {
+    return this.cms.listSections(true)
+  }
+
+  @Public()
+  @Get('reviews')
+  listPublicReviews() {
+    return this.cms.listReviews(true)
+  }
+
+  @Public()
   @Get('settings')
   getSettings() {
     return this.cms.getSettings()
@@ -88,6 +108,22 @@ export class CmsController {
   @Get('admin/gallery')
   listAllImages() {
     return this.cms.listImages()
+  }
+
+  @Get('admin/landing')
+  listAllSections() {
+    return this.cms.listSections()
+  }
+
+  @Get('admin/reviews')
+  listAllReviews() {
+    return this.cms.listReviews()
+  }
+
+  /** Lets the admin hide the translate button instead of offering a 503. */
+  @Get('admin/translation-status')
+  translationStatus() {
+    return { configured: this.translation.isConfigured }
   }
 
   // --- Writes --------------------------------------------------------------
@@ -170,5 +206,100 @@ export class CmsController {
   @Patch('settings')
   updateSettings(@Body() dto: UpdateSiteSettingsDto) {
     return this.cms.updateSettings(dto)
+  }
+
+  // --- Landing page --------------------------------------------------------
+
+  // Reorder routes are declared before the ':id' ones: Nest matches in order,
+  // and otherwise "reorder" would be read as an id.
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('landing/items/reorder')
+  @HttpCode(204)
+  async reorderItems(@Body() dto: ReorderDto) {
+    await this.cms.reorderItems(dto.ids)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post('landing/items')
+  createItem(@Body() dto: CreateContentItemDto) {
+    return this.cms.createItem(dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('landing/items/:id')
+  updateItem(@Param('id') id: string, @Body() dto: UpdateContentItemDto) {
+    return this.cms.updateItem(id, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Delete('landing/items/:id')
+  @HttpCode(204)
+  async deleteItem(@Param('id') id: string) {
+    await this.cms.deleteItem(id)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('landing/:key')
+  updateSection(
+    @Param('key', new ParseEnumPipe(ContentSectionKey)) key: ContentSectionKey,
+    @Body() dto: UpdateContentSectionDto,
+  ) {
+    return this.cms.updateSection(key, dto)
+  }
+
+  // --- Reviews -------------------------------------------------------------
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('reviews/reorder')
+  @HttpCode(204)
+  async reorderReviews(@Body() dto: ReorderDto) {
+    await this.cms.reorderReviews(dto.ids)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post('reviews')
+  createReview(@Body() dto: CreateReviewDto) {
+    return this.cms.createReview(dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('reviews/:id')
+  updateReview(@Param('id') id: string, @Body() dto: UpdateReviewDto) {
+    return this.cms.updateReview(id, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Delete('reviews/:id')
+  @HttpCode(204)
+  async deleteReview(@Param('id') id: string) {
+    await this.cms.deleteReview(id)
+  }
+
+  // --- Images for landing content ------------------------------------------
+
+  /**
+   * Uploads a card, host or reviewer photo and returns its URL. Separate from
+   * the gallery: these belong to one field, not to the public photo grid, so
+   * they must not show up in it.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post('landing/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadContentImage(@UploadedFile() file: Express.Multer.File) {
+    this.storage.assertValidImage(file)
+    return { url: await this.storage.upload(file) }
+  }
+
+  // --- Translation ---------------------------------------------------------
+
+  /**
+   * Returns a suggestion for the editor to review. It is never saved from
+   * here: the host reads it and decides, which is what keeps a machine
+   * translation from reaching guests unread.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post('translate')
+  async translate(@Body() dto: TranslateDto) {
+    return { text: await this.translation.translate(dto.text, dto.from, dto.to) }
   }
 }

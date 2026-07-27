@@ -1,4 +1,15 @@
-import type { CMSPage, CMSPageSlug, FAQ, GalleryImage, SiteSettings } from '@/lib/cms-client'
+import type {
+  CMSPage,
+  CMSPageSlug,
+  ContentItem,
+  ContentItemKind,
+  ContentSection,
+  ContentSectionKey,
+  FAQ,
+  GalleryImage,
+  Review,
+  SiteSettings,
+} from '@/lib/cms-client'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -27,14 +38,18 @@ async function read<T>(path: string): Promise<T | null> {
 
 export interface SiteContent {
   pages: Partial<Record<CMSPageSlug, CMSPage>>
+  sections: Partial<Record<ContentSectionKey, ContentSection>>
+  reviews: Review[]
   faqs: FAQ[]
   images: GalleryImage[]
   settings: SiteSettings | null
 }
 
 export async function getSiteContent(): Promise<SiteContent> {
-  const [pages, faqs, images, settings] = await Promise.all([
+  const [pages, sections, reviews, faqs, images, settings] = await Promise.all([
     read<CMSPage[]>('/cms/pages'),
+    read<ContentSection[]>('/cms/landing'),
+    read<Review[]>('/cms/reviews'),
     read<FAQ[]>('/cms/faqs'),
     read<GalleryImage[]>('/cms/gallery'),
     read<SiteSettings>('/cms/settings'),
@@ -42,10 +57,17 @@ export async function getSiteContent(): Promise<SiteContent> {
 
   return {
     pages: Object.fromEntries((pages ?? []).map((page) => [page.slug, page])),
+    sections: Object.fromEntries((sections ?? []).map((section) => [section.key, section])),
+    reviews: reviews ?? [],
     faqs: faqs ?? [],
     images: images ?? [],
     settings,
   }
+}
+
+/** The items of one list within a section, already ordered by the API. */
+export function itemsOf(section: ContentSection | undefined, kind: ContentItemKind): ContentItem[] {
+  return section?.items.filter((item) => item.kind === kind) ?? []
 }
 
 /**

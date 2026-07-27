@@ -1,11 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
-import { CMSPageSlug, type Prisma } from '@prisma/client'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import {
+  CMSPageSlug,
+  type ContentItemKind,
+  type ContentSectionKey,
+  type Prisma,
+} from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import {
+  CreateContentItemDto,
   CreateFAQDto,
+  CreateReviewDto,
   UpdateCMSPageDto,
+  UpdateContentItemDto,
+  UpdateContentSectionDto,
   UpdateFAQDto,
   UpdateGalleryImageDto,
+  UpdateReviewDto,
   UpdateSiteSettingsDto,
 } from './dto/cms.dto'
 
@@ -130,9 +140,165 @@ export class CmsService {
     })
   }
 
+  // --- Landing page sections -----------------------------------------------
+
+  /**
+   * All eight sections with their items. The guest site asks for one snapshot
+   * of the page rather than eight round trips, so this is a single query.
+   */
+  listSections(onlyPublished = false) {
+    return this.prisma.contentSection.findMany({
+      where: onlyPublished ? { published: true } : undefined,
+      include: {
+        items: {
+          where: onlyPublished ? { published: true } : undefined,
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+      orderBy: { key: 'asc' },
+    })
+  }
+
+  /**
+   * Upsert, like pages: the eight keys are fixed, so a section the seed never
+   * wrote is created on first save instead of erroring.
+   *
+   * Rejects a lone language. The DTO can't check this — it only sees optional
+   * fields — but writing a Spanish title with no English one is exactly the
+   * half-translated page CLAUDE.md forbids, so it has to be caught somewhere.
+   */
+  async updateSection(key: ContentSectionKey, dto: UpdateContentSectionDto) {
+    const existing = await this.prisma.contentSection.findUnique({ where: { key } })
+    this.assertLanguagePairs(dto, existing)
+
+    return this.prisma.contentSection.upsert({
+      where: { key },
+      update: dto,
+      create: { key, ...dto },
+    })
+  }
+
+  // --- Landing page items --------------------------------------------------
+
+  async createItem(dto: CreateContentItemDto) {
+    const { sectionKey, ...data } = dto
+    const section = await this.requireSection(sectionKey)
+    const sortOrder = await this.nextItemSortOrder(section.id, dto.kind)
+
+    return this.prisma.contentItem.create({
+      data: { ...data, sectionId: section.id, sortOrder },
+    })
+  }
+
+  async updateItem(id: string, dto: UpdateContentItemDto) {
+    await this.requireItem(id)
+    return this.prisma.contentItem.update({ where: { id }, data: dto })
+  }
+
+  async deleteItem(id: string) {
+    await this.requireItem(id)
+    await this.prisma.contentItem.delete({ where: { id } })
+  }
+
+  async reorderItems(ids: string[]) {
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.contentItem.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    )
+  }
+
+  // --- Reviews -------------------------------------------------------------
+
+  listReviews(onlyPublished = false) {
+    return this.prisma.review.findMany({
+      where: onlyPublished ? { published: true } : undefined,
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    })
+  }
+
+  async createReview(dto: CreateReviewDto) {
+    const sortOrder = await this.nextSortOrder('review')
+    const review = await this.prisma.review.create({ data: { ...dto, sortOrder } })
+    if (review.featured) await this.demoteOtherFeatured(review.id)
+    return review
+  }
+
+  async updateReview(id: string, dto: UpdateReviewDto) {
+    await this.requireReview(id)
+    const review = await this.prisma.review.update({ where: { id }, data: dto })
+    if (review.featured) await this.demoteOtherFeatured(review.id)
+    return review
+  }
+
+  async deleteReview(id: string) {
+    await this.requireReview(id)
+    await this.prisma.review.delete({ where: { id } })
+  }
+
+  async reorderReviews(ids: string[]) {
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.review.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    )
+  }
+
+  /** Only one review can sit in the big quote block, so promoting demotes. */
+  private demoteOtherFeatured(keepId: string) {
+    return this.prisma.review.updateMany({
+      where: { featured: true, id: { not: keepId } },
+      data: { featured: false },
+    })
+  }
+
   // --- helpers -------------------------------------------------------------
 
-  private async nextSortOrder(model: 'fAQ' | 'galleryImage'): Promise<number> {
+  /** `titleEs` filled with `titleEn` empty, and the reverse, are both rejected. */
+  private assertLanguagePairs(
+    dto: UpdateContentSectionDto,
+    existing: { [key: string]: unknown } | null,
+  ) {
+    const pairs = ['eyebrow', 'title', 'subtitle', 'body', 'ctaLabel', 'statLabel'] as const
+
+    for (const field of pairs) {
+      const es = dto[`${field}Es`] ?? (existing?.[`${field}Es`] as string | undefined) ?? ''
+      const en = dto[`${field}En`] ?? (existing?.[`${field}En`] as string | undefined) ?? ''
+      if (Boolean(es.trim()) !== Boolean(en.trim())) {
+        throw new BadRequestException(`"${field}" needs both languages or neither`)
+      }
+    }
+  }
+
+  private async requireSection(key: ContentSectionKey) {
+    const section = await this.prisma.contentSection.findUnique({ where: { key } })
+    if (!section) throw new NotFoundException(`Section "${key}" not found`)
+    return section
+  }
+
+  private async requireItem(id: string) {
+    const item = await this.prisma.contentItem.findUnique({ where: { id } })
+    if (!item) throw new NotFoundException('Content item not found')
+    return item
+  }
+
+  private async requireReview(id: string) {
+    const review = await this.prisma.review.findUnique({ where: { id } })
+    if (!review) throw new NotFoundException('Review not found')
+    return review
+  }
+
+  /** Ordering is per list, not per section: badges and cards count separately. */
+  private async nextItemSortOrder(sectionId: string, kind: ContentItemKind): Promise<number> {
+    const last = await this.prisma.contentItem.findFirst({
+      where: { sectionId, kind },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    })
+    return last ? last.sortOrder + 1 : 0
+  }
+
+  private async nextSortOrder(model: 'fAQ' | 'galleryImage' | 'review'): Promise<number> {
     const delegate = this.prisma[model] as {
       findFirst: (args: unknown) => Promise<{ sortOrder: number } | null>
     }

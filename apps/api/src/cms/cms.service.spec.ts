@@ -1,5 +1,5 @@
-import { NotFoundException } from '@nestjs/common'
-import { CMSPageSlug } from '@prisma/client'
+import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { CMSPageSlug, ContentItemKind, ContentSectionKey } from '@prisma/client'
 import { CmsService } from './cms.service'
 import type { PrismaService } from '../prisma/prisma.service'
 
@@ -23,6 +23,9 @@ type PrismaMock = {
   fAQ: Delegate
   galleryImage: Delegate
   siteSettings: Delegate
+  contentSection: Delegate
+  contentItem: Delegate
+  review: Delegate & { updateMany: jest.Mock }
   $transaction: jest.Mock
 }
 
@@ -46,6 +49,9 @@ describe('CmsService', () => {
       fAQ: delegate(),
       galleryImage: delegate(),
       siteSettings: delegate(),
+      contentSection: delegate(),
+      contentItem: delegate(),
+      review: { ...delegate(), updateMany: jest.fn() },
       $transaction: jest.fn(async (operations: unknown[]) => operations),
     }
     service = new CmsService(prisma as unknown as PrismaService)
@@ -172,6 +178,118 @@ describe('CmsService', () => {
         update: dto,
         create: { id: 'site', ...dto },
       })
+    })
+  })
+
+  describe('landing sections', () => {
+    it('creates the row when a section is saved for the first time', async () => {
+      prisma.contentSection.findUnique.mockResolvedValue(null)
+      const dto = { titleEs: 'Hola', titleEn: 'Hello' }
+
+      await service.updateSection(ContentSectionKey.HERO, dto)
+
+      expect(prisma.contentSection.upsert).toHaveBeenCalledWith({
+        where: { key: ContentSectionKey.HERO },
+        update: dto,
+        create: { key: ContentSectionKey.HERO, ...dto },
+      })
+    })
+
+    it('refuses a field filled in one language only', async () => {
+      prisma.contentSection.findUnique.mockResolvedValue(null)
+
+      await expect(
+        service.updateSection(ContentSectionKey.HERO, { titleEs: 'Solo español' }),
+      ).rejects.toThrow(BadRequestException)
+      expect(prisma.contentSection.upsert).not.toHaveBeenCalled()
+    })
+
+    it('accepts one language when the other is already stored', async () => {
+      // Editing just the Spanish side of an already-bilingual field is fine.
+      prisma.contentSection.findUnique.mockResolvedValue({ titleEs: 'Viejo', titleEn: 'Old' })
+
+      await service.updateSection(ContentSectionKey.HERO, { titleEs: 'Nuevo' })
+      expect(prisma.contentSection.upsert).toHaveBeenCalled()
+    })
+
+    it('accepts a field left empty in both languages', async () => {
+      prisma.contentSection.findUnique.mockResolvedValue(null)
+
+      await service.updateSection(ContentSectionKey.FOOTER, { titleEs: '', titleEn: '' })
+      expect(prisma.contentSection.upsert).toHaveBeenCalled()
+    })
+  })
+
+  describe('landing items', () => {
+    it('numbers a new item per list, not per section', async () => {
+      // Two lists live in the same section; adding a badge must not be pushed
+      // to the end by the cards that came before it.
+      prisma.contentSection.findUnique.mockResolvedValue({ id: 's1' })
+      prisma.contentItem.findFirst.mockResolvedValue({ sortOrder: 2 })
+
+      await service.createItem({
+        sectionKey: ContentSectionKey.HERO,
+        kind: ContentItemKind.HERO_BADGE,
+        labelEs: 'a',
+        labelEn: 'a',
+      })
+
+      expect(prisma.contentItem.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sectionId: 's1', kind: ContentItemKind.HERO_BADGE } }),
+      )
+      expect(prisma.contentItem.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ sectionId: 's1', sortOrder: 3 }),
+      })
+    })
+
+    it('404s when the section does not exist', async () => {
+      prisma.contentSection.findUnique.mockResolvedValue(null)
+
+      await expect(
+        service.createItem({
+          sectionKey: ContentSectionKey.HERO,
+          kind: ContentItemKind.HERO_BADGE,
+          labelEs: 'a',
+          labelEn: 'a',
+        }),
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('renumbers in one transaction', async () => {
+      await service.reorderItems(['b', 'a'])
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+      expect(prisma.contentItem.update).toHaveBeenNthCalledWith(1, {
+        where: { id: 'b' },
+        data: { sortOrder: 0 },
+      })
+    })
+  })
+
+  describe('reviews', () => {
+    it('demotes the previous highlight when another is promoted', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r2' })
+      prisma.review.update.mockResolvedValue({ id: 'r2', featured: true })
+
+      await service.updateReview('r2', { featured: true })
+
+      expect(prisma.review.updateMany).toHaveBeenCalledWith({
+        where: { featured: true, id: { not: 'r2' } },
+        data: { featured: false },
+      })
+    })
+
+    it('leaves the others alone when the saved review is not highlighted', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r3' })
+      prisma.review.update.mockResolvedValue({ id: 'r3', featured: false })
+
+      await service.updateReview('r3', { textEs: 'x', textEn: 'x' })
+      expect(prisma.review.updateMany).not.toHaveBeenCalled()
+    })
+
+    it('refuses to delete one that does not exist', async () => {
+      prisma.review.findUnique.mockResolvedValue(null)
+      await expect(service.deleteReview('nope')).rejects.toThrow(NotFoundException)
+      expect(prisma.review.delete).not.toHaveBeenCalled()
     })
   })
 })

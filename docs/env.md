@@ -22,6 +22,7 @@ cp apps/web/.env.example apps/web/.env
 | `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
 | `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
 | `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
+| `ANTHROPIC_API_KEY`     | no              | Habilita el botón "traducir" del panel (API de Claude). Sin ella el botón no aparece y todo lo demás sigue igual: escribir los dos idiomas a mano nunca deja de ser posible.                                                              |
 
 ### Almacenamiento de imágenes (Vercel Blob)
 
@@ -34,6 +35,18 @@ La galería del panel sube archivos a Vercel Blob. Para activarlo:
 Sin token no hace falta cuenta para trabajar en local; la carpeta
 `apps/web/public/uploads/` está en `.gitignore` para que esas pruebas no se
 commiteen.
+
+### Traducción asistida (opcional)
+
+El panel puede proponer la traducción de un campo al otro idioma. Es una
+**propuesta**, no un guardado: el texto aparece en el input y el anfitrión
+decide. `CLAUDE.md` prohíbe inventar traducciones, y una traducción automática
+que llega al huésped sin que nadie la lea es exactamente eso.
+
+Para activarla, una clave de la API de Claude en `ANTHROPIC_API_KEY`
+(console.anthropic.com → API Keys). Sin clave, `GET /cms/admin/translation-status`
+responde `{"configured": false}` y el panel oculta el botón en vez de ofrecer
+uno que solo da error.
 
 ### Correo (Brevo)
 
