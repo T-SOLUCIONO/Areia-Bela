@@ -1,6 +1,6 @@
 // Areia Bela — whole-home rental (1 Property). See docs/domain-decisions.md.
-// Scope note: no User/Role (Fase 4 auth) or CMSPage/SiteSettings/Gallery/FAQ
-// (Fase 5 CMS) tables yet — those phases haven't started.
+// Scope note: no CMSPage/SiteSettings/Gallery/FAQ (Fase 5 CMS) tables yet —
+// that phase hasn't started. User/RefreshToken landed in Fase 4 (auth).
 
 generator client {
   provider = "prisma-client-js"
@@ -150,4 +150,64 @@ model BlockedDate {
   reason     String?
 
   @@index([propertyId, startDate, endDate])
+}
+
+// Fase 4 (auth). Staff accounts for /admin — distinct from Customer, which is
+// a booking guest and never signs in. Roles are a fixed enum rather than
+// Role/Permission tables: docs/domain-decisions.md pins them to these three.
+enum UserRole {
+  SUPERADMIN
+  MANAGER
+  VIEWER
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                UserRole
+  active              Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime? // set by the brute-force lockout, cleared on success
+  lastLoginAt         DateTime?
+  // TOTP second factor. The secret is encrypted at rest (AES-256-GCM, key from
+  // TOTP_ENCRYPTION_KEY) because unlike a password hash it must be recoverable
+  // to verify codes — storing it in plaintext would make a DB leak enough to
+  // mint valid codes. totpEnabledAt is null until the user confirms setup.
+  totpSecret          String?
+  totpEnabledAt       DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  refreshTokens  RefreshToken[]
+  recoveryCodes  RecoveryCode[]
+}
+
+// Refresh tokens are opaque (not JWTs) and stored hashed, so a database leak
+// can't be replayed. Rotated on every use: the previous row is revoked.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Single-use fallback codes so losing the authenticator device doesn't mean
+// losing the account. Hashed, like refresh tokens — the plaintext is shown to
+// the user exactly once, at setup.
+model RecoveryCode {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash String    @unique
+  usedAt   DateTime?
+
+  @@index([userId])
 }

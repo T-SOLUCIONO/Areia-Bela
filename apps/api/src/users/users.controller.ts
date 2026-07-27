@@ -1,0 +1,45 @@
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
+import { UserRole } from '@prisma/client'
+import { UsersService } from './users.service'
+import { CreateUserDto } from './dto/create-user.dto'
+import { UpdateUserDto } from './dto/update-user.dto'
+import { Roles } from '../auth/decorators/roles.decorator'
+import { CurrentUser } from '../auth/decorators/current-user.decorator'
+import type { AuthenticatedUser } from '../auth/auth.types'
+
+// Staff administration is superadmin-only; managers and viewers have no
+// business creating accounts or changing roles.
+@Controller('users')
+@Roles(UserRole.SUPERADMIN)
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  findAll() {
+    return this.usersService.findAll()
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id)
+  }
+
+  @Post()
+  create(@Body() dto: CreateUserDto) {
+    return this.usersService.create(dto)
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() current: AuthenticatedUser,
+  ) {
+    return this.usersService.update(id, dto, current.id)
+  }
+
+  @Delete(':id')
+  deactivate(@Param('id') id: string, @CurrentUser() current: AuthenticatedUser) {
+    return this.usersService.deactivate(id, current.id)
+  }
+}
