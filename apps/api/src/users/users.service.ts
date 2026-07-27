@@ -109,6 +109,18 @@ export class UsersService {
     return user
   }
 
+  /** Delegates to AuthService so both entry points share one reset flow. */
+  async sendPasswordReset(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } })
+    if (!user) throw new NotFoundException('User not found')
+    if (!user.active) {
+      throw new BadRequestException('Reactivate the account before sending a reset link')
+    }
+
+    await this.authService.sendPasswordResetEmail(user.email, true)
+    return { message: `Reset link sent to ${user.email}` }
+  }
+
   /**
    * Guards against the two ways an admin can lose access to the panel with no
    * way back in through the UI: locking themselves out, or removing the last

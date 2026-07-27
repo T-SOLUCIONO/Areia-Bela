@@ -208,6 +208,15 @@ function LoginForm() {
                 >
                   {isLoading ? 'Signing in...' : 'Sign in'}
                 </Button>
+
+                <p className="text-center text-sm">
+                  <Link
+                    href="/admin/forgot-password"
+                    className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                  >
+                    Forgot your password?
+                  </Link>
+                </p>
               </form>
             )}
           </CardContent>

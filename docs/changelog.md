@@ -427,3 +427,77 @@ Verificado además contra Postgres y el API reales:
   públicos vía `@Public()`.
 
 Rama `fase-4-auth`, nada pusheado.
+
+## 16. Cuenta propia, gestión de equipo y restablecimiento por correo
+
+Ajustes pedidos tras usar el panel de Fase 4.
+
+### Separación de "mi cuenta" y "administrar a otros"
+
+La pestaña Team mezclaba dos cosas de naturaleza distinta: tu 2FA personal y
+el alta/baja de usuarios. Ahora son dos pestañas:
+
+- **Security**: contraseña propia y 2FA. La ve cualquier rol.
+- **Team**: solo el CRUD de usuarios, y la pestaña ni siquiera aparece si no
+  eres `SUPERADMIN` — antes mostraba un aviso de permisos, que es peor UX que
+  no ofrecer la puerta.
+
+### Cambio de contraseña propia
+
+`POST /auth/change-password`. Faltaba por completo: solo un superadmin podía
+cambiarle la contraseña a otro, lo que obligaba a pedir por favor algo que
+debería ser autoservicio y, de paso, hacía que esa persona conociera la
+contraseña nueva.
+
+- Exige la contraseña actual aunque ya haya sesión: una sesión olvidada
+  abierta no debe bastar para tomar la cuenta.
+- Rechaza reutilizar la misma contraseña.
+- Revoca las demás sesiones, porque si la anterior se había filtrado, cambiarla
+  tiene que echar al intruso. La sesión que hace el cambio recibe cookies
+  nuevas para no autodesconectarse.
+
+### Restablecimiento por correo (Brevo)
+
+Dos entradas al mismo flujo: "¿Olvidaste tu contraseña?" en el login, y un
+botón en Team para que el superadmin dispare el correo sin llegar a conocer la
+contraseña nueva.
+
+- Modelo `PasswordResetToken`: hasheado, de un solo uso, válido 1 hora. Pedir
+  un enlace nuevo invalida el anterior.
+- `POST /auth/forgot-password` **siempre responde 200**, exista o no la cuenta.
+  Si respondiera distinto sería un enumerador de correos, justo lo que el login
+  evita. Por el mismo motivo, un fallo del proveedor se registra en el log pero
+  no cambia la respuesta.
+- Al restablecer se revocan todas las sesiones y se limpia el lockout — un
+  reset es también la vía de vuelta si te bloqueaste.
+- **El reset no desactiva el 2FA**: recuperar la contraseña no puede saltarse
+  el segundo factor. Quien resetee seguirá necesitando su autenticador o un
+  código de recuperación.
+- Las rutas `/admin/forgot-password` y `/admin/reset-password` se añadieron a
+  la lista de rutas admin públicas del middleware; si no, quedarían tras el
+  muro de sesión, inservibles para quien justamente no puede entrar.
+
+**Proveedor: Brevo**, vía su API HTTP transaccional (no SMTP: así no hace falta
+ninguna dependencia nueva, basta `fetch`). Sin `BREVO_API_KEY` no se envía
+nada y el enlace se escribe en el log con un `WARN` — el flujo entero se puede
+probar en local sin credenciales ni dominio verificado, y el aviso es ruidoso a
+propósito para que no parezca que funciona cuando no.
+
+Pendiente fuera del código, documentado en `docs/env.md`: crear la cuenta de
+Brevo, generar la API key y **verificar el dominio** (SPF/DKIM). Sin ese último
+paso los correos salen pero acaban en spam.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (67 tests, +14 sobre Fase 4)
+```
+
+Contra el API real: respuesta idéntica para cuenta existente e inexistente;
+token de un solo uso (el segundo intento falla); la contraseña nueva funciona
+y la vieja no; la sesión sobrevive al cambio propio; un `MANAGER` recibe 403 al
+intentar disparar un reset ajeno. En el navegador: las páginas de recuperación
+son accesibles sin sesión y el resto de `/admin` sigue redirigiendo.

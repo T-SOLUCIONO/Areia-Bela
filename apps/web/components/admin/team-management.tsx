@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, ShieldOff, UserPlus } from 'lucide-react'
+import { Loader2, MailCheck, Send, ShieldOff, UserPlus } from 'lucide-react'
 import type { UserRole } from '@areia-bela/types'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
@@ -49,6 +49,7 @@ export function TeamManagement() {
   const [draft, setDraft] = useState(emptyDraft)
   const [isCreating, setIsCreating] = useState(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [resetSentTo, setResetSentTo] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -100,6 +101,24 @@ export function TeamManagement() {
     }
   }
 
+  /**
+   * Emails the member a reset link rather than letting an admin type a new
+   * password: this way nobody but the account owner ever knows it.
+   */
+  const sendPasswordReset = async (member: TeamMember) => {
+    setPendingId(member.id)
+    setError('')
+    setResetSentTo(null)
+    try {
+      await apiFetch(`/users/${member.id}/send-password-reset`, { method: 'POST' })
+      setResetSentTo(member.email)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not send the reset link.')
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
@@ -114,6 +133,13 @@ export function TeamManagement() {
       {error && (
         <div role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {resetSentTo && (
+        <div className="flex items-start gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+          <MailCheck className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Reset link sent to {resetSentTo}.</span>
         </div>
       )}
 
@@ -174,7 +200,17 @@ export function TeamManagement() {
                       <Badge variant="outline">Deactivated</Badge>
                     )}
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy || !member.active}
+                      onClick={() => sendPasswordReset(member)}
+                      title="Email this person a password reset link"
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      Reset password
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

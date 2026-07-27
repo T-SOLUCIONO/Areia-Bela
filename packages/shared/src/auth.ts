@@ -30,4 +30,24 @@ export const TOTP_CHALLENGE_TTL_SECONDS = 5 * 60
 /** How many single-use recovery codes are generated when 2FA is enabled. */
 export const RECOVERY_CODE_COUNT = 10
 
+/**
+ * Lifetime of an emailed password-reset link. Short because the link travels
+ * through email, a channel we don't control.
+ */
+export const PASSWORD_RESET_TTL_MINUTES = 60
+
+/** Minimum length for any password the app accepts. */
+export const MIN_PASSWORD_LENGTH = 12
+
 export const ADMIN_LOGIN_PATH = '/admin/login'
+
+/**
+ * Admin routes reachable without a session. Anything under /admin not listed
+ * here is gated by the middleware — password recovery has to be usable by
+ * someone who, by definition, can't sign in.
+ */
+export const PUBLIC_ADMIN_PATHS = [
+  ADMIN_LOGIN_PATH,
+  '/admin/forgot-password',
+  '/admin/reset-password',
+] as const

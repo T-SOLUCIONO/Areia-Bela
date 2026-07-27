@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import {
   ACCESS_TOKEN_COOKIE,
   ADMIN_LOGIN_PATH,
+  PUBLIC_ADMIN_PATHS,
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
   type SupportedLocale,
@@ -31,8 +32,12 @@ function detectLocale(request: NextRequest): SupportedLocale {
 function guardAdmin(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl
 
-  // The login page must stay reachable or the redirect loops.
-  if (pathname === ADMIN_LOGIN_PATH || pathname.startsWith(`${ADMIN_LOGIN_PATH}/`)) {
+  // Login and password recovery must stay reachable: the first would loop
+  // redirects, and the others are for people who cannot sign in by definition.
+  const isPublicAdminPath = PUBLIC_ADMIN_PATHS.some(
+    (publicPath) => pathname === publicPath || pathname.startsWith(`${publicPath}/`),
+  )
+  if (isPublicAdminPath) {
     return NextResponse.next()
   }
 

@@ -9,6 +9,7 @@ import {
   Bell,
   Shield,
   ShieldCheck,
+  KeyRound,
   CreditCard,
   Users,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@areia-bela/ui/tabs'
 import { Separator } from '@areia-bela/ui/separator'
 import { TeamManagement } from '@/components/admin/team-management'
 import { TwoFactorSettings } from '@/components/admin/two-factor-settings'
+import { ChangePassword } from '@/components/admin/change-password'
 import { useHasRole } from '@/components/admin/admin-session-provider'
 
 export default function SettingsPage() {
@@ -60,7 +62,10 @@ export default function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="booking">Booking</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          {/* Managing other people is superadmin-only, so the tab isn't shown
+              to roles that would only find a permission notice behind it. */}
+          {isSuperadmin && <TabsTrigger value="team">Team</TabsTrigger>}
           <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
@@ -393,21 +398,37 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Team */}
-        <TabsContent value="team" className="space-y-6">
+        {/* Security — your own account, any role */}
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Password
+              </CardTitle>
+              <CardDescription>Change the password for your own account</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChangePassword />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5" />
-                Your security
+                Two-factor authentication
               </CardTitle>
-              <CardDescription>Protect your own account with a second step</CardDescription>
+              <CardDescription>Add a second step when you sign in</CardDescription>
             </CardHeader>
             <CardContent>
               <TwoFactorSettings />
             </CardContent>
           </Card>
+        </TabsContent>
 
+        {/* Team — managing other people, superadmin only */}
+        <TabsContent value="team">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -417,6 +438,9 @@ export default function SettingsPage() {
               <CardDescription>Manage staff access and permissions</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* The tab is hidden for other roles, but the guard stays: the
+                  API rejects them anyway and this avoids a confusing empty UI
+                  if the tab is ever reached directly. */}
               {isSuperadmin ? (
                 <TeamManagement />
               ) : (
