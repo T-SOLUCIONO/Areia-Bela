@@ -1,99 +1,227 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, Lock, Mail, ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Building2, KeyRound, Lock, Mail } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
+import { apiFetch, ApiError } from '@/lib/api-client'
 
-export default function AdminLoginPage() {
-  const router = useRouter()
+interface LoginResponse {
+  requiresTotp: boolean
+  challengeToken?: string
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const destination = searchParams.get('from') ?? '/admin'
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [challengeToken, setChallengeToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handlePasswordStep = async (event: React.FormEvent) => {
+    event.preventDefault()
     setIsLoading(true)
     setError('')
 
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const result = await apiFetch<LoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
 
-    // For demo, always succeed
-    router.push('/admin')
+      if (result.requiresTotp && result.challengeToken) {
+        setChallengeToken(result.challengeToken)
+        return
+      }
+
+      // Full navigation, not router.push: the server-side admin layout has to
+      // re-run to pick up the new session cookie.
+      window.location.assign(destination)
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? 'Too many attempts. Wait a minute and try again.'
+          : 'Incorrect email or password.',
+      )
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  const handleTotpStep = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setIsLoading(true)
+    setError('')
+
+    try {
+      await apiFetch('/auth/login/totp', {
+        method: 'POST',
+        body: JSON.stringify({ challengeToken, code }),
+      })
+      window.location.assign(destination)
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? 'Too many attempts. Wait a minute and try again.'
+          : 'That code is not valid. Try again, or use a recovery code.',
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const isTotpStep = challengeToken !== null
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md">
         <Link
           href="/"
-          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          className="mb-8 inline-flex items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Website
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to website
         </Link>
 
         <Card>
           <CardHeader className="text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Building2 className="h-8 w-8 text-primary" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              {isTotpStep ? (
+                <KeyRound className="h-8 w-8 text-primary" />
+              ) : (
+                <Building2 className="h-8 w-8 text-primary" />
+              )}
             </div>
-            <CardTitle className="text-2xl">Admin Portal</CardTitle>
-            <CardDescription>Sign in to access the hotel management system</CardDescription>
+            <CardTitle className="font-serif text-2xl">
+              {isTotpStep ? 'Two-step verification' : 'Admin portal'}
+            </CardTitle>
+            <CardDescription>
+              {isTotpStep
+                ? 'Enter the 6-digit code from your authenticator app.'
+                : 'Sign in to manage bookings for Areia Bela.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@areiabela.com"
-                    className="pl-10"
-                    defaultValue="admin@areiabela.com"
-                    required
-                  />
-                </div>
+            {error && (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                {error}
               </div>
+            )}
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {isTotpStep ? (
+              <form onSubmit={handleTotpStep} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="code">Verification code</Label>
                   <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    className="pl-10"
-                    defaultValue="password"
+                    id="code"
+                    name="code"
+                    inputMode="text"
+                    autoComplete="one-time-code"
+                    autoFocus
                     required
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                    placeholder="123456"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Lost your device? Enter one of your recovery codes instead.
+                  </p>
                 </div>
-              </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </Button>
+                <Button
+                  type="submit"
+                  variant="brand"
+                  size="lg"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Verifying...' : 'Verify and sign in'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setChallengeToken(null)
+                    setCode('')
+                    setError('')
+                  }}
+                >
+                  Start over
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handlePasswordStep} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="username"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className="pl-10"
+                      placeholder="you@areiabela.com"
+                    />
+                  </div>
+                </div>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Demo credentials are pre-filled. Click Sign In to continue.
-              </p>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="pl-10"
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="brand"
+                  size="lg"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Signing in...' : 'Sign in'}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function AdminLoginPage() {
+  // useSearchParams needs a Suspense boundary in the App Router.
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

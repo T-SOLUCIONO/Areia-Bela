@@ -1,7 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Save, Building, Mail, Globe, Bell, Shield, CreditCard, Users } from 'lucide-react'
+import {
+  Save,
+  Building,
+  Mail,
+  Globe,
+  Bell,
+  Shield,
+  ShieldCheck,
+  CreditCard,
+  Users,
+} from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Badge } from '@areia-bela/ui/badge'
 import { Input } from '@areia-bela/ui/input'
@@ -18,9 +28,13 @@ import {
 } from '@areia-bela/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@areia-bela/ui/tabs'
 import { Separator } from '@areia-bela/ui/separator'
+import { TeamManagement } from '@/components/admin/team-management'
+import { TwoFactorSettings } from '@/components/admin/two-factor-settings'
+import { useHasRole } from '@/components/admin/admin-session-provider'
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
+  const isSuperadmin = useHasRole('superadmin')
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -380,7 +394,20 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Team */}
-        <TabsContent value="team">
+        <TabsContent value="team" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" />
+                Your security
+              </CardTitle>
+              <CardDescription>Protect your own account with a second step</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TwoFactorSettings />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -390,9 +417,13 @@ export default function SettingsPage() {
               <CardDescription>Manage staff access and permissions</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                Team management features coming soon.
-              </p>
+              {isSuperadmin ? (
+                <TeamManagement />
+              ) : (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  Only a superadmin can manage team members.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
