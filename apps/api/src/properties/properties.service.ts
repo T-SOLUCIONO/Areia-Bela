@@ -55,11 +55,17 @@ export class PropertiesService {
     })
   }
 
-  /** The single property row, with its extras. Public: the guest site reads it. */
+  /**
+   * The single property row, with its extras and price rules. Public: the
+   * guest site reads it, and every figure here is already quoted to guests.
+   */
   async getProperty(slug: string) {
     const property = await this.prisma.property.findUnique({
       where: { slug },
-      include: { extras: { orderBy: { key: 'asc' } } },
+      include: {
+        extras: { orderBy: { key: 'asc' } },
+        priceRules: { orderBy: { type: 'asc' } },
+      },
     })
     if (!property) throw new NotFoundException(`Property "${slug}" not found`)
     return property

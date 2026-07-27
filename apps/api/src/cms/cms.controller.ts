@@ -71,20 +71,20 @@ export class CmsController {
   }
 
   // --- Editor reads (include unpublished drafts) ---------------------------
+  // Any signed-in role, viewers included: seeing the panel is what the viewer
+  // role is for, and unpublished copy is not a secret from the team. Only the
+  // writes below are narrowed.
 
-  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Get('admin/pages')
   listAllPages() {
     return this.cms.listPages()
   }
 
-  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Get('admin/faqs')
   listAllFaqs() {
     return this.cms.listFaqs()
   }
 
-  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Get('admin/gallery')
   listAllImages() {
     return this.cms.listImages()

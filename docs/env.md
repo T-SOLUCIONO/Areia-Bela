@@ -12,15 +12,28 @@ cp apps/web/.env.example apps/web/.env
 
 ## apps/api
 
-| Variable              | Requerida       | Propósito                                                                                                                                                                                                                    |
-| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`        | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                    |
-| `PORT`                | no              | Puerto del API. Default `3001`.                                                                                                                                                                                              |
-| `JWT_ACCESS_SECRET`   | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                 |
-| `TOTP_ENCRYPTION_KEY` | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación. |
-| `CORS_ORIGINS`        | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                           |
-| `ADMIN_SEED_PASSWORD` | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                               |
-| `NODE_ENV`            | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                          |
+| Variable                | Requerida       | Propósito                                                                                                                                                                                                                                 |
+| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                                 |
+| `PORT`                  | no              | Puerto del API. Default `3001`.                                                                                                                                                                                                           |
+| `JWT_ACCESS_SECRET`     | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                              |
+| `TOTP_ENCRYPTION_KEY`   | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación.              |
+| `CORS_ORIGINS`          | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
+| `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
+| `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
+| `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
+
+### Almacenamiento de imágenes (Vercel Blob)
+
+La galería del panel sube archivos a Vercel Blob. Para activarlo:
+
+1. En el proyecto de Vercel, Storage → Create → Blob.
+2. Copiar el token de lectura/escritura que genera y ponerlo en
+   `BLOB_READ_WRITE_TOKEN` del API (no del frontend: la subida es server-side).
+
+Sin token no hace falta cuenta para trabajar en local; la carpeta
+`apps/web/public/uploads/` está en `.gitignore` para que esas pruebas no se
+commiteen.
 
 ### Correo (Brevo)
 

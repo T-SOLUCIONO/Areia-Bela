@@ -1,57 +1,54 @@
 'use client'
 
+import { useCallback, useEffect, useState } from 'react'
 import { CalendarRange, DollarSign, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@areia-bela/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
-import {
-  ADDITIONAL_GUEST_FEE_PER_NIGHT,
-  HEATED_POOL_SEASON,
-  NANNY_PRICE_PER_HOUR,
-  PET_FEE_PER_STAY,
-} from '@areia-bela/shared'
-import { propertyData } from '@/lib/property-data'
-import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { Skeleton } from '@areia-bela/ui/skeleton'
+import { ApiError } from '@/lib/api-client'
+import { cms, type PropertySettings } from '@/lib/cms-client'
+import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useHasRole } from '@/components/admin/admin-session-provider'
+import { ExtrasManager } from '@/components/admin/extras-manager'
 
 /**
  * Priced per night for the whole house, not per room type — there is one unit.
- * The base rate, cleaning fee and extras are the property's real figures
- * (datos.json and docs/domain-decisions.md); only the season rules are still
- * unbuilt, and the page says so rather than inventing rates.
+ * Every figure comes from the database, which is also what the server quotes
+ * from: the browser never computes a total (CLAUDE.md).
  */
 export default function PricingPage() {
-  const { language, t } = useAdminLanguage()
-  const isEnglish = language === 'en'
+  const t = useAdminCopy()
+  const canEdit = useHasRole('superadmin', 'manager')
+  const [property, setProperty] = useState<PropertySettings | null>(null)
 
-  const { price_per_night: baseRate, cleaning_fee: cleaningFee } = propertyData.pricing
+  const load = useCallback(async () => {
+    try {
+      setProperty(await cms.property())
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t.property.loadFailed)
+    }
+  }, [t.property.loadFailed])
 
-  const extras = [
-    {
-      name: isEnglish ? 'Heated pool' : 'Piscina climatizada',
-      amount: `$${HEATED_POOL_SEASON.pricePerNight}`,
-      unit: t.pricing.perNight,
-      note: `${t.pricing.seasonal} · ${HEATED_POOL_SEASON.startMonthDay} → ${HEATED_POOL_SEASON.endMonthDay}`,
-    },
-    {
-      name: isEnglish ? 'Extra guest' : 'Huésped adicional',
-      amount: `$${ADDITIONAL_GUEST_FEE_PER_NIGHT}`,
-      unit: t.pricing.perNight,
-      note: isEnglish
-        ? `Above ${propertyData.capacity} guests`
-        : `A partir de ${propertyData.capacity} huéspedes`,
-    },
-    {
-      name: isEnglish ? 'Pet' : 'Mascota',
-      amount: `$${PET_FEE_PER_STAY}`,
-      unit: t.pricing.perStay,
-      note: t.pricing.nonRefundable,
-    },
-    {
-      name: isEnglish ? 'Certified nanny' : 'Niñera certificada',
-      amount: `$${NANNY_PRICE_PER_HOUR}`,
-      unit: t.pricing.perHour,
-      note: t.pricing.onRequest,
-    },
-  ]
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load()
+  }, [load])
+
+  if (!property) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    )
+  }
+
+  const baseRule = property.priceRules.find((rule) => rule.type === 'LOW' && rule.active)
+  const seasonRules = property.priceRules.filter((rule) => rule.type !== 'LOW')
 
   return (
     <div className="space-y-6">
@@ -59,7 +56,9 @@ export default function PricingPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>{t.pricing.baseTitle}</CardDescription>
-            <CardTitle className="font-serif text-4xl tabular-nums">${baseRate}</CardTitle>
+            <CardTitle className="font-serif text-4xl tabular-nums">
+              {baseRule ? `$${Number(baseRule.nightlyRate).toFixed(0)}` : '—'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -71,7 +70,9 @@ export default function PricingPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>{t.pricing.cleaningFee}</CardDescription>
-            <CardTitle className="font-serif text-4xl tabular-nums">${cleaningFee}</CardTitle>
+            <CardTitle className="font-serif text-4xl tabular-nums">
+              ${Number(property.cleaningFee).toFixed(0)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">{t.pricing.perStay}</p>
@@ -88,22 +89,7 @@ export default function PricingPage() {
           <CardDescription>{t.pricing.extrasSubtitle}</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y divide-border">
-            {extras.map((extra) => (
-              <li key={extra.name} className="flex items-center justify-between gap-4 py-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">{extra.name}</p>
-                  <p className="text-sm text-muted-foreground">{extra.note}</p>
-                </div>
-                <p className="shrink-0 text-right">
-                  <span className="font-serif text-xl tabular-nums text-foreground">
-                    {extra.amount}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">{extra.unit}</span>
-                </p>
-              </li>
-            ))}
-          </ul>
+          <ExtrasManager extras={property.extras} canEdit={canEdit} onChanged={load} />
         </CardContent>
       </Card>
 
@@ -116,19 +102,40 @@ export default function PricingPage() {
           <CardDescription>{t.pricing.seasonsSubtitle}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* No invented rates: docs/domain-decisions.md has no real seasonal
-              figures, and making some up would be worse than showing none. */}
-          <div className="flex items-start gap-3 rounded-xl border border-dashed border-border p-6">
-            <DollarSign className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-foreground">{t.pricing.noSeasonRules}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="secondary">{t.pricing.seasonLow}</Badge>
-                <Badge variant="outline">{t.pricing.seasonHigh}</Badge>
-                <Badge variant="outline">{t.pricing.seasonWeekend}</Badge>
+          {seasonRules.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {seasonRules.map((rule) => (
+                <li key={rule.id} className="flex items-center justify-between gap-4 py-3">
+                  <div>
+                    <p className="font-medium">{rule.name}</p>
+                    {rule.startDate && rule.endDate && (
+                      <p className="text-sm text-muted-foreground">
+                        {rule.startDate.slice(0, 10)} → {rule.endDate.slice(0, 10)}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-serif text-xl tabular-nums">
+                    ${Number(rule.nightlyRate).toFixed(0)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            /* No invented rates: docs/domain-decisions.md has no real seasonal
+               figures, and making some up would be worse than showing none.
+               Season rules are applied to quotes in Fase 6. */
+            <div className="flex items-start gap-3 rounded-xl border border-dashed border-border p-6">
+              <DollarSign className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-foreground">{t.pricing.noSeasonRules}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="secondary">{t.pricing.seasonLow}</Badge>
+                  <Badge variant="outline">{t.pricing.seasonHigh}</Badge>
+                  <Badge variant="outline">{t.pricing.seasonWeekend}</Badge>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

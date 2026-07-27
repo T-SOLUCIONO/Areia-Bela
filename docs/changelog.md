@@ -655,3 +655,156 @@ pnpm test      ✅ (73 tests)
 Las tres pantallas responden 200 y **cero coincidencias** de "Room", "piso" o
 "habitación" en todo `/admin`. Precios muestra las cifras reales; mantenimiento
 lista las zonas; el calendario abre en el mes actual con sus controles.
+
+## 19. Fase 5 — CMS: el sitio se edita desde el panel
+
+Antes de esta fase, cambiar una frase del sitio de huéspedes era editar un
+`.ts` y desplegar. Ahora el contenido vive en la base de datos y se edita desde
+`/admin`.
+
+### Backend (commit `c234298`)
+
+Cuatro modelos nuevos, justificados aquí porque `domain-guard` exige declarar
+toda entidad fuera de la lista canónica:
+
+- `CMSPage` — los doce slugs que `packages/types` ya fijaba. Contenido
+  bilingüe en dos columnas por campo (`titleEs`/`titleEn`, `bodyEs`/`bodyEn`)
+  en vez de un JSON: mantiene las columnas tipadas y consultables, y el
+  producto solo va a ser ES/EN.
+- `FAQ` — pregunta, respuesta, tema y orden.
+- `GalleryImage` — URL, texto alternativo bilingüe y orden.
+- `SiteSettings` — fila única con `id` fijo `"site"`, igual que `Property`.
+
+Ninguno es una entidad de negocio: son contenido editorial del sitio. No
+introducen inventario, ni habitaciones, ni multi-propiedad.
+
+Reglas de acceso:
+
+- **Lectura pública, escritura autenticada.** El sitio de huéspedes lee este
+  contenido sin sesión; editarlo exige superadmin o manager.
+- Las lecturas de editor (`/cms/admin/*`, que incluyen borradores) las puede
+  hacer **cualquier rol con sesión, viewer incluido**: ver el panel es
+  justamente para lo que existe ese rol, y un texto sin publicar no es un
+  secreto frente al equipo. Solo se estrechan las escrituras.
+- Reordenar galería y FAQs recibe la lista completa y la escribe en una
+  transacción: un fallo a medias no deja la numeración rota.
+- Los extras **se desactivan, no se borran**: las reservas pasadas los
+  referencian por `BookingExtra` y eliminarlos reescribiría el historial.
+- `PATCH /properties/:slug` es el endpoint que faltaba para devolver las
+  pestañas de ajustes que se quitaron en la fase anterior por no tener dónde
+  guardar.
+
+Galería: subida a Vercel Blob, con escritura en disco local cuando no hay
+`BLOB_READ_WRITE_TOKEN` (para poder trabajar sin cuenta) y aviso por log,
+porque en un host efímero esos archivos desaparecen en cada despliegue. Valida
+tipo y tamaño, y renombra con un prefijo aleatorio. Al borrar, primero la fila
+y luego el archivo: un blob huérfano es más barato que una fila rota.
+`apps/web/public/uploads/` quedó en `.gitignore`.
+
+**Hueco declarado, no tapado**: el listing scrapeado solo existe en inglés, así
+que el seed pone ese mismo texto en las columnas en español y el editor lo
+marca como pendiente de traducir. Inventar copy de marketing en español sería
+peor que enseñarle al anfitrión exactamente qué le falta.
+
+### Panel
+
+- **Sitio web** (`/admin/content`), sección nueva del menú:
+  - **Textos**: los doce slugs en una lista con marca de traducido/pendiente,
+    y el editor en dos columnas — español a la izquierda, inglés a la derecha.
+    Se editan en paralelo porque traducir es leer una columna mientras se
+    escribe la otra. No deja guardar con un idioma vacío: publicar media
+    traducción es justo el fallo que esta pantalla existe para evitar.
+  - **Preguntas**: alta, edición, borrado y reorden.
+  - **Fotos**: subida múltiple, texto alternativo en los dos idiomas,
+    publicar/ocultar, borrar con confirmación y reorden por arrastre **o** por
+    flechas (arrastrar solo no es accesible con teclado). La primera foto es la
+    portada, y lo dice.
+- **Ajustes** recupera dos pestañas, ahora sí conectadas: **La casa**
+  (capacidad, cargos, horarios, días de basura, dirección) y **Contacto y SEO**
+  (correo, teléfono, WhatsApp, títulos y descripciones para buscadores,
+  enlaces a redes). Cada campo llega a la base de datos; era exactamente lo que
+  faltaba cuando se borraron los 26 campos que no guardaban nada.
+- **Precios** deja de leer cifras del `datos.json` y lee la propiedad real,
+  incluida la tarifa base desde `PriceRule`. Los extras se editan en un modal
+  (precio, unidad de cobro, temporada, reembolsable, a pedido) y se pueden
+  dejar de ofrecer.
+
+### Sitio de huéspedes
+
+De poco sirve un editor cuyo texto no ve nadie, así que el sitio ya consume el
+CMS:
+
+- `generateMetadata` toma título y descripción de `SiteSettings`, por idioma.
+- La galería usa las fotos de `GalleryImage` cuando las hay.
+- Sección nueva "Todo sobre la casa" con las páginas publicadas y las preguntas
+  frecuentes, renderizada **en el servidor**: un texto que aparece después de
+  la hidratación es invisible para los buscadores.
+- Teléfono, correo y redes del pie salen de `SiteSettings`.
+
+Todo con respaldo: si el API no responde, el sitio cae a la copia de
+`lib/property-data.ts` en vez de romperse. Una página de reservas que devuelve
+500 porque parpadeó un servicio de textos es peor que una con palabras algo
+viejas.
+
+### Dashboard e informes, sin cifras inventadas
+
+El panel abría con cuatro tarjetas y tres gráficas de series inventadas. No hay
+`Booking` en la base todavía, así que no había nada que medir.
+
+- El dashboard ahora muestra cuatro cifras **reales** (noches libres en 30
+  días, tarifa base, fotos publicadas, secciones por traducir), cada una
+  enlazada a la pantalla donde se cambia, y un estado vacío honesto donde
+  estaban las gráficas.
+- **Informes** eran 339 líneas de ficción: $752.000 de ingresos, comisiones de
+  Expedia y rendimiento por "Presidential Suite" en el panel de una casa de
+  tres dormitorios que no está en ninguno de esos canales. Además de falso, el
+  desglose por cuarto y la mezcla de canales son el modelo de hotel que
+  `CLAUDE.md` prohíbe. Sustituido por un estado vacío que dice cuándo llegan
+  las cifras (Fase 6, con reservas reales).
+
+Limpieza asociada: se fueron `revenue-chart`, `occupancy-chart` y
+`channel-chart` (sin consumidor y con la forma de los datos falsos),
+`services/reservations.ts` (una API simulada con `roomId`/`roomType`/`channel`)
+y los últimos exports huérfanos de `lib/mock-data.ts` — `rooms`, `channels`,
+`seasonalPricing`, `dailyStats`, `channelStats`, `generateAvailability`,
+`reservations`, `guests`, `coupons` y `reviews`. El archivo pasa de 637 a 155
+líneas y ya solo conserva lo que alguien lee.
+
+Además: `hsl(var(--primary))` quedaba de la paleta anterior en informes y en
+`packages/ui/src/sidebar.tsx`. Con los tokens en hexadecimal esa función es
+inválida, así que esas gráficas y ese borde se dibujaban sin color. Corregido a
+`var(--primary)`.
+
+### Diferido
+
+- **La copia de marketing de la portada** (hero, tarjetas de comodidades,
+  reseñas, sección de la anfitriona) sigue en `lib/i18n.ts`. Llevarla al CMS es
+  rediseñar esa página, no conectar un campo; el contenido largo, las preguntas
+  y el SEO —que es lo que el anfitrión cambia— ya se editan.
+- **Optimización de imágenes**: `next.config.mjs` tiene `images.unoptimized`,
+  así que las fotos se sirven tal cual se suben. Queda para Fase 8, con el
+  resto del trabajo de rendimiento.
+- **Tarifas por temporada**: se muestran si existen, pero crearlas y aplicarlas
+  a una cotización es Fase 6.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (85 tests, 12 nuevos de CmsService)
+```
+
+Contra el API levantado, con un superadmin temporal creado y borrado para la
+prueba:
+
+- Escrituras de páginas, FAQs, ajustes, propiedad y extras → 200; las mismas
+  como `VIEWER` → **403**; sin sesión → **401**.
+- Lecturas de editor como `VIEWER` → 200 (es lo que se corrigió al detectar
+  que el dashboard le quedaba en blanco a ese rol).
+- Subida de imagen real → 200 y archivo en disco; borrado → 204 y archivo
+  eliminado; subir un `.txt` → **400** con el motivo.
+- Reorden de FAQs → 200; borrado → 204.
+- `GET /es` y `GET /en` devuelven el título del CMS en `<title>` y traen las
+  preguntas y las secciones **en el HTML**, no tras hidratar.

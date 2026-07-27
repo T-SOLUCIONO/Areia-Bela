@@ -54,6 +54,17 @@ auditoría del checklist de seguridad.
 - CRUD de Extras/Servicios (piscina, niñera, mascota, huésped extra).
 - Dashboard con datos reales.
 
+**Criterio de salida**: el contenido del sitio (secciones, FAQs, fotos, SEO,
+contacto) se edita desde `/admin` sin desplegar y el sitio de huéspedes lo
+renderiza en el servidor; los ajustes de la casa y los extras se guardan de
+verdad; ninguna pantalla del panel muestra cifras inventadas —lo que no tiene
+datos lo dice; `pnpm build/lint/typecheck/test` en verde.
+
+**Estado: completada** (ver `docs/changelog.md` §19). Diferido y declarado: la
+copia de marketing de la portada sigue en `lib/i18n.ts`, la optimización de
+imágenes pasa a Fase 8 y aplicar tarifas por temporada a una cotización es
+Fase 6.
+
 ## Fase 6 — Sistema de reservas
 
 - Calendario tipo Airbnb (2 meses, hover range, fechas bloqueadas desde API) para **una sola propiedad**.

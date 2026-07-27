@@ -3,6 +3,7 @@ import {
   Calendar,
   ClipboardList,
   DollarSign,
+  Globe,
   LayoutDashboard,
   Settings,
   Ticket,
@@ -36,6 +37,7 @@ export const adminNavigation: AdminNavItem[] = [
   { key: 'coupons', href: '/admin/coupons', icon: Ticket, roles: ['superadmin', 'manager'] },
   { key: 'maintenance', href: '/admin/maintenance', icon: Wrench },
   { key: 'reports', href: '/admin/reports', icon: BarChart3, roles: ['superadmin', 'manager'] },
+  { key: 'content', href: '/admin/content', icon: Globe, roles: ['superadmin', 'manager'] },
   { key: 'settings', href: '/admin/settings', icon: Settings },
 ]
 

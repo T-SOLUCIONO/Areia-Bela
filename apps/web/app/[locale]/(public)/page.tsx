@@ -17,17 +17,27 @@ import { Button } from '@areia-bela/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@areia-bela/ui/dialog'
 import { HomeHero } from '@/components/public/home-hero'
 import { PhotoGallery } from '@/components/public/photo-gallery'
+import { HouseDetails } from '@/components/public/house-details'
 import { ContactSection } from '@/components/ContactSection'
 import { ChatAssistant } from '@/components/chat/chat-assistant'
 import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
 import { RESPONSE_TIME_COMPACT } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
+import { useSiteContent } from '@/components/public/site-content-provider'
 
-const galleryImages = propertyData.photos?.map((photo) => photo.large) ?? propertyInfo.images
+const bundledImages = propertyData.photos?.map((photo) => photo.large) ?? propertyInfo.images
 
 export default function HomePage() {
   const { language } = useLanguage()
+  const siteContent = useSiteContent()
+
+  // The gallery the host curates in /admin/content wins; the images bundled
+  // from the original listing are the fallback for a cold or offline API.
+  const galleryImages =
+    siteContent && siteContent.images.length > 0
+      ? siteContent.images.map((image) => image.url)
+      : bundledImages
   const guest = propertyData.reviews[0]
   const featuredReviews = propertyData.reviews.slice(1, 4)
   const home =
@@ -344,6 +354,9 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Everything below the reviews is editable from /admin/content. */}
+      <HouseDetails />
 
       <section id="location" className="mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16">
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
