@@ -427,3 +427,231 @@ Verificado además contra Postgres y el API reales:
   públicos vía `@Public()`.
 
 Rama `fase-4-auth`, nada pusheado.
+
+## 16. Cuenta propia, gestión de equipo y restablecimiento por correo
+
+Ajustes pedidos tras usar el panel de Fase 4.
+
+### Separación de "mi cuenta" y "administrar a otros"
+
+La pestaña Team mezclaba dos cosas de naturaleza distinta: tu 2FA personal y
+el alta/baja de usuarios. Ahora son dos pestañas:
+
+- **Security**: contraseña propia y 2FA. La ve cualquier rol.
+- **Team**: solo el CRUD de usuarios, y la pestaña ni siquiera aparece si no
+  eres `SUPERADMIN` — antes mostraba un aviso de permisos, que es peor UX que
+  no ofrecer la puerta.
+
+### Cambio de contraseña propia
+
+`POST /auth/change-password`. Faltaba por completo: solo un superadmin podía
+cambiarle la contraseña a otro, lo que obligaba a pedir por favor algo que
+debería ser autoservicio y, de paso, hacía que esa persona conociera la
+contraseña nueva.
+
+- Exige la contraseña actual aunque ya haya sesión: una sesión olvidada
+  abierta no debe bastar para tomar la cuenta.
+- Rechaza reutilizar la misma contraseña.
+- Revoca las demás sesiones, porque si la anterior se había filtrado, cambiarla
+  tiene que echar al intruso. La sesión que hace el cambio recibe cookies
+  nuevas para no autodesconectarse.
+
+### Restablecimiento por correo (Brevo)
+
+Dos entradas al mismo flujo: "¿Olvidaste tu contraseña?" en el login, y un
+botón en Team para que el superadmin dispare el correo sin llegar a conocer la
+contraseña nueva.
+
+- Modelo `PasswordResetToken`: hasheado, de un solo uso, válido 1 hora. Pedir
+  un enlace nuevo invalida el anterior.
+- `POST /auth/forgot-password` **siempre responde 200**, exista o no la cuenta.
+  Si respondiera distinto sería un enumerador de correos, justo lo que el login
+  evita. Por el mismo motivo, un fallo del proveedor se registra en el log pero
+  no cambia la respuesta.
+- Al restablecer se revocan todas las sesiones y se limpia el lockout — un
+  reset es también la vía de vuelta si te bloqueaste.
+- **El reset no desactiva el 2FA**: recuperar la contraseña no puede saltarse
+  el segundo factor. Quien resetee seguirá necesitando su autenticador o un
+  código de recuperación.
+- Las rutas `/admin/forgot-password` y `/admin/reset-password` se añadieron a
+  la lista de rutas admin públicas del middleware; si no, quedarían tras el
+  muro de sesión, inservibles para quien justamente no puede entrar.
+
+**Proveedor: Brevo**, vía su API HTTP transaccional (no SMTP: así no hace falta
+ninguna dependencia nueva, basta `fetch`). Sin `BREVO_API_KEY` no se envía
+nada y el enlace se escribe en el log con un `WARN` — el flujo entero se puede
+probar en local sin credenciales ni dominio verificado, y el aviso es ruidoso a
+propósito para que no parezca que funciona cuando no.
+
+Pendiente fuera del código, documentado en `docs/env.md`: crear la cuenta de
+Brevo, generar la API key y **verificar el dominio** (SPF/DKIM). Sin ese último
+paso los correos salen pero acaban en spam.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (67 tests, +14 sobre Fase 4)
+```
+
+Contra el API real: respuesta idéntica para cuenta existente e inexistente;
+token de un solo uso (el segundo intento falla); la contraseña nueva funciona
+y la vieja no; la sesión sobrevive al cambio propio; un `MANAGER` recibe 403 al
+intentar disparar un reset ajeno. En el navegador: las páginas de recuperación
+son accesibles sin sesión y el resto de `/admin` sigue redirigiendo.
+
+## 17. Panel de administración — traducción, invitaciones y pase visual
+
+Pedido tras usar el panel de Fase 4. Alcance acordado: solo `/admin`.
+
+### Bugs encontrados de paso
+
+- **Los tres gráficos no tenían color.** Usaban `hsl(var(--primary))`, pero al
+  retokenizar la marca (sección 15) `--primary` pasó a ser un hex, y
+  `hsl(#174d7a)` es CSS inválido. Lo introduje yo en esa pasada.
+- **Seis de las nueve pantallas no tenían navegación en móvil.** El botón del
+  menú vive dentro de `AdminHeader`, y solo tres páginas lo renderizaban. Era
+  un fallo funcional, no estético.
+- **La barra lateral seguía con la paleta de shadcn.** En la retokenización
+  excluí los tokens `--sidebar-*` porque el alcance era el sitio público, así
+  que el elemento más visible del panel usaba un coral ajeno a la marca.
+- **Una constante importada desde un módulo `'use client'` llegaba `undefined`
+  al servidor.** El layout leía `LANGUAGE_COOKIE` desde el provider del sitio
+  público; en un server component eso resuelve a `undefined`, y el idioma se
+  quedaba fijo en español pese a la cookie. Movida a `@areia-bela/shared`.
+
+### Traducción
+
+- `AdminLanguageProvider` propio, separado del público: aquel deriva el idioma
+  del segmento `[locale]` y navega al cambiarlo, pero `/admin` está excluido
+  de esa reescritura, así que reutilizarlo habría empujado a `/es/admin` y 404.
+  El admin usa estado más la **misma cookie**, así que cambiar el idioma en el
+  panel también cambia el sitio de huéspedes.
+- El idioma se lee en el servidor, de modo que el primer render ya sale bien.
+- Diccionario en `lib/admin-i18n.ts`, y la navegación pasó a indexarse por
+  clave en `admin-navigation.ts` para no traducir la misma etiqueta dos veces.
+
+### Invitaciones en lugar de contraseñas por correo
+
+Se pidió generar la contraseña y enviarla por correo. Se implementó **enlace de
+invitación**: el correo no es un canal seguro — la contraseña quedaría en el
+buzón para siempre y quien lo abriera entraría a la cuenta.
+
+- `POST /users` ya no acepta `password`; el campo desapareció también de
+  `UpdateUserDto`, porque un admin no debe fijar la contraseña de nadie.
+- Al crear la cuenta se guarda un hash aleatorio inservible: existe pero no se
+  puede entrar hasta seguir el enlace. Mantener `passwordHash` no nulo evita
+  añadir guardas de null en cuatro llamadas a `argon2.verify`.
+- `invitedAt` / `passwordSetAt` distinguen "invitado, nunca entró" de activo, y
+  la tabla de equipo lo muestra como "invitación pendiente" con opción de
+  reenviar.
+- Reutiliza el token de restablecimiento (mismo modelo, mismo endpoint), con
+  vida más larga (72 h frente a 1 h): una invitación llega sin avisar y puede
+  esperar en la bandeja. La página de reset cambia el texto con `?invite=1` en
+  vez de duplicarse.
+
+### Interfaz
+
+- El alta de miembros pasó de un formulario siempre visible al pie de la tabla
+  a un **botón que abre un modal**, sin campo de contraseña.
+- **Sonner montado** por fin: había dos sistemas de avisos en `packages/ui` y
+  ninguno conectado, así que cada mensaje era un div a mano. Ahora son toasts.
+- El encabezado se renderiza **una vez en el layout** y deriva su título de la
+  ruta: ninguna pantalla puede volver a olvidarlo. Se quitaron de paso las tres
+  notificaciones falsas ("Emily Johnson booked Luxury Suite") que llevaba.
+- **Settings perdió cuatro pestañas** (General, Booking, Notifications,
+  Billing): 26 campos que no guardaban nada tras un botón "Save changes" que
+  era un `setTimeout` de un segundo. No hay endpoint al que conectarlos —
+  llegan con el CMS en Fase 5. Un control que aparenta guardar es peor que
+  ningún control.
+- `guests` y `reservations` dejaron de decir "under construction" y usan el
+  componente `Empty`, que existía sin usar, explicando qué los llenará.
+- Las cinco pantallas con cifras inventadas llevan un aviso visible y fijo de
+  datos de ejemplo, para que nadie decida sobre ellas.
+
+### Diseño
+
+- La barra lateral pasa a **navy profundo con el elemento activo en crema**: es
+  la apuesta visual de esta pasada. Separa navegación de contenido mucho mejor
+  que el casi-blanco de shadcn y pone el color de marca a liderar.
+- El panel abre con **la casa en las próximas tres semanas**, no con cuatro
+  tarjetas genéricas: hay una sola unidad, así que el tiempo es el único eje
+  que importa. Y usa **datos reales** — las fechas bloqueadas del API son la
+  única información viva que el panel tiene hoy.
+- Paleta de gráficos **validada con el checker de la skill de dataviz** (banda
+  de luminosidad, croma, separación para daltonismo y contraste) en claro y
+  oscuro. El navy de marca falló la prueba por oscuro y grisáceo, así que la
+  primera serie es un pariente más claro y saturado. Los cinco hex sueltos de
+  informes pasaron a tokens.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores; 0 warnings en los archivos tocados)
+pnpm typecheck ✅
+pnpm test      ✅ (73 tests, +6 de invitaciones)
+```
+
+Contra el API real: crear un miembro sin contraseña devuelve 201 y deja
+`passwordSetAt` en null; enviar `password` en el cuerpo da 400; el invitado no
+puede entrar hasta usar el enlace; tras fijarla, entra y deja de figurar como
+pendiente. En el navegador: las nueve pantallas responden 200 y **todas** tienen
+el menú móvil, el panel cambia de idioma con la cookie en ambos sentidos, y el
+sitio público sigue intacto.
+
+Pendiente en su momento, **resuelto en la sección 18**: calendario, precios y
+mantenimiento seguían modelados como hotel.
+
+## 18. Las tres pantallas de hotel, rehechas como casa única
+
+Cierra el pendiente declarado en la sección 17. `CLAUDE.md` prohíbe
+reintroducir `Room`, y estas tres pantallas eran exactamente eso: una matriz de
+habitaciones × fechas, tarifas por tipo de cuarto y tareas por número de
+habitación. Restilizarlas habría conservado el modelo equivocado.
+
+- **Calendario**: una sola línea de tiempo. Hay una unidad reservable, así que
+  no existe una segunda fila que poner — un mes en rejilla donde cada noche
+  está libre o no. Se fueron el filtro por piso y el selector de vista.
+  Las fechas bloqueadas salen del **API real**, lo que convierte esta en la
+  única pantalla del panel completamente viva.
+- **Precios**: por noche para la casa entera. Tarifa base ($300), limpieza
+  ($120) y los cuatro extras son las **cifras reales** del listing y de
+  `docs/domain-decisions.md`, así que esta pantalla **perdió el aviso de datos
+  de ejemplo**: mantenerlo habría sido mentir al revés. Las temporadas dicen
+  abiertamente que aún no existen en vez de inventar tarifas, porque no hay
+  cifras reales para ellas.
+- **Mantenimiento**: agrupado por zona de la casa — piscina, cocina, baños,
+  exterior — en vez de por número de cuarto y piso. Son tres dormitorios y dos
+  baños, no un plano de unidades numeradas. Las tareas siguen siendo de
+  ejemplo, y lo dice.
+
+Limpieza asociada:
+
+- `recent-reservations.tsx` y `upcoming-activity.tsx` quedaron huérfanos al
+  rediseñar el panel y ambos imprimían "Room N": eliminados.
+- La pestaña "Room Type Performance" de informes, que es literalmente el
+  reporte de ocupación por tipo de cuarto que el dominio prohíbe: eliminada.
+- `mockRooms`, `mockStaff`, `mockReservations`, `mockPricingRules`,
+  `mockMaintenanceTasks` y `roomStats` quedan sin un solo consumidor. Se dejan
+  en `lib/mock-data.ts` por ahora: borrarlos es una limpieza aparte y este
+  cambio ya es grande.
+
+Un `useMemo` del calendario impedía que el React Compiler optimizara el
+componente (error de lint, no advertencia). Eliminado: son 42 fechas y el
+compilador lo hace mejor solo.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (73 tests)
+```
+
+Las tres pantallas responden 200 y **cero coincidencias** de "Room", "piso" o
+"habitación" en todo `/admin`. Precios muestra las cifras reales; mantenimiento
+lista las zonas; el calendario abre en el mes actual con sus controles.

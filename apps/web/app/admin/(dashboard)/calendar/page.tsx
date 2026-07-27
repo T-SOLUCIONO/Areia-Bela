@@ -1,270 +1,184 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
   format,
-  addDays,
-  startOfWeek,
-  addWeeks,
+  isBefore,
   isSameDay,
+  isSameMonth,
   isWithinInterval,
-  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
 } from 'date-fns'
-import { ChevronLeft, ChevronRight, Plus, Filter } from 'lucide-react'
+import { enUS, es as esLocale } from 'date-fns/locale'
+import { CalendarPlus, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@areia-bela/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@areia-bela/ui/select'
-import { Badge } from '@areia-bela/ui/badge'
+import { getBlockedDateRanges } from '@/lib/booking'
+import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { fill } from '@/lib/admin-i18n'
 import { cn } from '@/lib/utils'
-import { mockRooms, mockReservations } from '@/lib/mock-data'
 
+/**
+ * One reservable unit, so availability is a single line through time — not the
+ * rooms × dates matrix this page used to be. There is nothing to put on a
+ * second row.
+ *
+ * Blocked dates come from the real API, which makes this the only fully live
+ * screen in the panel.
+ */
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState<Date | null>(null)
-  const [viewType, setViewType] = useState<'week' | '2weeks' | 'month'>('2weeks')
-  const [floorFilter, setFloorFilter] = useState<string>('all')
+  const { language, t } = useAdminLanguage()
+  const locale = language === 'en' ? enUS : esLocale
+
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [ranges, setRanges] = useState<Array<{ from: Date; to: Date }>>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setCurrentDate(new Date())
-  }, [])
+    getBlockedDateRanges()
+      .then(setRanges)
+      .catch(() => toast.error(t.calendar.loadFailed))
+      .finally(() => setLoading(false))
+  }, [t.calendar.loadFailed])
 
-  if (!currentDate) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">Loading calendar...</div>
-      </div>
-    )
-  }
+  const today = startOfDay(new Date())
+  const month = addMonths(startOfMonth(today), monthOffset)
 
-  const daysToShow = viewType === 'week' ? 7 : viewType === '2weeks' ? 14 : 30
-  const startDate = startOfWeek(currentDate, { weekStartsOn: 1 })
-  const dates = Array.from({ length: daysToShow }, (_, i) => addDays(startDate, i))
+  // Padded to whole weeks so the columns always line up. Not memoized: it is
+  // 42 dates, and a manual useMemo here stops the React Compiler optimizing
+  // the component at all.
+  const grid = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
+  })
 
-  const floors = [...new Set(mockRooms.map((r) => r.floor))].sort((a, b) => a - b)
-  const filteredRooms =
-    floorFilter === 'all' ? mockRooms : mockRooms.filter((r) => r.floor.toString() === floorFilter)
+  const isBlocked = (day: Date) =>
+    ranges.some((r) => isWithinInterval(day, { start: startOfDay(r.from), end: startOfDay(r.to) }))
 
-  const getReservationForRoomAndDate = (roomNumber: string, date: Date) => {
-    return mockReservations.find((res) => {
-      if (res.roomNumber !== roomNumber) return false
-      const checkIn = parseISO(res.checkIn)
-      const checkOut = parseISO(res.checkOut)
-      return isWithinInterval(date, { start: checkIn, end: addDays(checkOut, -1) })
-    })
-  }
+  const monthDays = grid.filter((d) => isSameMonth(d, month))
+  const blockedCount = monthDays.filter(isBlocked).length
+  const freeCount = monthDays.length - blockedCount
 
-  const isCheckIn = (roomNumber: string, date: Date) => {
-    return mockReservations.some((res) => {
-      if (res.roomNumber !== roomNumber) return false
-      return isSameDay(parseISO(res.checkIn), date)
-    })
-  }
-
-  const isCheckOut = (roomNumber: string, date: Date) => {
-    return mockReservations.some((res) => {
-      if (res.roomNumber !== roomNumber) return false
-      return isSameDay(parseISO(res.checkOut), date)
-    })
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'bg-blue-500'
-      case 'checked-in':
-        return 'bg-emerald-500'
-      case 'pending':
-        return 'bg-amber-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
+  const weekdayLabels = eachDayOfInterval({
+    start: startOfWeek(today, { weekStartsOn: 1 }),
+    end: endOfWeek(today, { weekStartsOn: 1 }),
+  }).map((day) => format(day, 'EEEEEE', { locale }))
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Availability Calendar</h1>
-          <p className="text-muted-foreground">Visual overview of room availability and bookings</p>
+          <CardTitle className="font-serif text-xl capitalize">
+            {format(month, 'LLLL yyyy', { locale })}
+          </CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {loading
+              ? t.common.loading
+              : `${fill(t.calendar.nightsFree, { count: String(freeCount) })} · ${fill(
+                  t.calendar.nightsBlocked,
+                  { count: String(blockedCount) },
+                )}`}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Filter className="mr-2 h-4 w-4" />
-            Filters
-          </Button>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Block Dates
-          </Button>
-        </div>
-      </div>
 
-      {/* Controls */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentDate(addWeeks(currentDate, -1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-lg font-semibold min-w-[200px] text-center">
-                {format(startDate, 'MMM d')} -{' '}
-                {format(addDays(startDate, daysToShow - 1), 'MMM d, yyyy')}
-              </h2>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
-                Today
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select
-                value={viewType}
-                onValueChange={(v: 'week' | '2weeks' | 'month') => setViewType(v)}
-              >
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="week">1 Week</SelectItem>
-                  <SelectItem value="2weeks">2 Weeks</SelectItem>
-                  <SelectItem value="month">Month</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={floorFilter} onValueChange={setFloorFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="All Floors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Floors</SelectItem>
-                  {floors.map((floor) => (
-                    <SelectItem key={floor} value={floor.toString()}>
-                      Floor {floor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={language === 'en' ? 'Previous month' : 'Mes anterior'}
+            onClick={() => setMonthOffset((o) => o - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setMonthOffset(0)}>
+            {t.calendar.today}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={language === 'en' ? 'Next month' : 'Mes siguiente'}
+            onClick={() => setMonthOffset((o) => o + 1)}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          {/* Honest about not being built: says so instead of pretending. */}
+          <Button variant="brand" size="sm" onClick={() => toast.info(t.calendar.comingSoon)}>
+            <CalendarPlus className="h-4 w-4" />
+            {t.calendar.blockDates}
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        {loading ? (
+          <div className="flex h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t.common.loading}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-emerald-500" />
-          <span>Checked In</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-blue-500" />
-          <span>Confirmed</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-amber-500" />
-          <span>Pending</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-gray-200" />
-          <span>Available</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-red-200" />
-          <span>Blocked</span>
-        </div>
-      </div>
-
-      {/* Calendar Grid */}
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <div className="min-w-[900px]">
-            {/* Header */}
-            <div className="flex border-b sticky top-0 bg-card z-10">
-              <div className="w-40 shrink-0 p-3 font-medium border-r bg-muted/50">Room</div>
-              {dates.map((date) => (
+        ) : (
+          <>
+            <div className="grid grid-cols-7 gap-1 text-center sm:gap-2">
+              {weekdayLabels.map((label) => (
                 <div
-                  key={date.toISOString()}
-                  className={cn(
-                    'flex-1 min-w-[60px] p-2 text-center border-r last:border-r-0',
-                    isSameDay(date, new Date()) && 'bg-primary/10',
-                    (date.getDay() === 0 || date.getDay() === 6) && 'bg-muted/30',
-                  )}
+                  key={label}
+                  className="pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
-                  <div className="text-xs text-muted-foreground">{format(date, 'EEE')}</div>
-                  <div
-                    className={cn(
-                      'text-sm font-medium',
-                      isSameDay(date, new Date()) && 'text-primary',
-                    )}
-                  >
-                    {format(date, 'd')}
-                  </div>
+                  {label}
                 </div>
               ))}
+
+              {grid.map((day) => {
+                const outside = !isSameMonth(day, month)
+                const blocked = isBlocked(day)
+                const past = isBefore(day, today)
+                const isToday = isSameDay(day, today)
+
+                return (
+                  <div
+                    key={day.toISOString()}
+                    title={format(day, 'PPPP', { locale })}
+                    className={cn(
+                      'flex aspect-square items-start justify-end rounded-lg border p-1.5 text-sm transition-colors sm:p-2',
+                      outside && 'opacity-30',
+                      blocked
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-secondary/30 text-foreground',
+                      past && !blocked && 'border-dashed bg-transparent text-muted-foreground',
+                      isToday && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
+                    )}
+                  >
+                    <span className="tabular-nums">{format(day, 'd')}</span>
+                  </div>
+                )
+              })}
             </div>
 
-            {/* Rooms */}
-            {filteredRooms.map((room) => (
-              <div key={room.id} className="flex border-b last:border-b-0 hover:bg-muted/30">
-                <div className="w-40 shrink-0 p-3 border-r bg-muted/20">
-                  <div className="font-medium text-sm">{room.roomNumber}</div>
-                  <div className="text-xs text-muted-foreground truncate">{room.name}</div>
-                </div>
-                {dates.map((date) => {
-                  const reservation = getReservationForRoomAndDate(room.roomNumber, date)
-                  const isCheckInDay = isCheckIn(room.roomNumber, date)
-                  const isCheckOutDay = isCheckOut(room.roomNumber, date)
-
-                  return (
-                    <div
-                      key={date.toISOString()}
-                      className={cn(
-                        'flex-1 min-w-[60px] p-1 border-r last:border-r-0 relative',
-                        isSameDay(date, new Date()) && 'bg-primary/5',
-                        (date.getDay() === 0 || date.getDay() === 6) && 'bg-muted/20',
-                      )}
-                    >
-                      {reservation ? (
-                        <div
-                          className={cn(
-                            'h-8 rounded-sm flex items-center justify-center text-xs text-white font-medium cursor-pointer hover:opacity-90 transition-opacity',
-                            getStatusColor(reservation.status),
-                            isCheckInDay && 'rounded-l-md ml-1',
-                            isCheckOutDay && 'rounded-r-md mr-1',
-                            !isCheckInDay && !isCheckOutDay && 'rounded-none',
-                          )}
-                          title={`${reservation.guestName} - ${reservation.status}`}
-                        >
-                          {isCheckInDay && (
-                            <span className="truncate px-1">
-                              {reservation.guestName.split(' ')[0]}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="h-8 rounded-sm bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors" />
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            {/* Identity is never colour alone. */}
+            <div className="mt-5 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded border border-border bg-secondary/30" />
+                {t.calendar.free}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded bg-primary" />
+                {t.calendar.blocked}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded border border-dashed border-border" />
+                {t.calendar.pastDay}
+              </span>
+              <span className="hidden italic sm:ml-auto sm:inline">{t.calendar.legendNote}</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

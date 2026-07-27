@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common'
 import { UserRole } from '@prisma/client'
 import { UsersService } from './users.service'
 import { CreateUserDto } from './dto/create-user.dto'
@@ -25,8 +25,15 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto)
+  create(@Body() dto: CreateUserDto, @CurrentUser() current: AuthenticatedUser) {
+    return this.usersService.create(dto, current.id)
+  }
+
+  /** For someone who was invited but never followed the link. */
+  @Post(':id/resend-invitation')
+  @HttpCode(202)
+  resendInvitation(@Param('id') id: string, @CurrentUser() current: AuthenticatedUser) {
+    return this.usersService.resendInvitation(id, current.id)
   }
 
   @Patch(':id')
@@ -41,5 +48,15 @@ export class UsersController {
   @Delete(':id')
   deactivate(@Param('id') id: string, @CurrentUser() current: AuthenticatedUser) {
     return this.usersService.deactivate(id, current.id)
+  }
+
+  /**
+   * Emails a reset link instead of letting the admin pick the password: this
+   * way nobody but the account owner ever knows it.
+   */
+  @Post(':id/send-password-reset')
+  @HttpCode(202)
+  sendPasswordReset(@Param('id') id: string) {
+    return this.usersService.sendPasswordReset(id)
   }
 }

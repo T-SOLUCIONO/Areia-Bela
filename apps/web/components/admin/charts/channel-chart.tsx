@@ -7,12 +7,14 @@ interface ChannelChartProps {
   data: ChannelStats[]
 }
 
+// Fixed order, never cycled: a channel keeps its colour even when the list
+// changes length, so the eye can carry meaning between renders.
 const COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--accent))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ]
 
 export function ChannelChart({ data }: ChannelChartProps) {
@@ -41,8 +43,8 @@ export function ChannelChart({ data }: ChannelChartProps) {
           <Tooltip
             formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
             contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
+              backgroundColor: 'var(--card)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
             }}
           />

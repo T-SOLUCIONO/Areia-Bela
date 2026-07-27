@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { PrismaModule } from './prisma/prisma.module'
+import { MailModule } from './mail/mail.module'
 import { PropertiesModule } from './properties/properties.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
@@ -14,6 +15,7 @@ import { UsersModule } from './users/users.module'
     // with their own @Throttle decorators.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
+    MailModule,
     PropertiesModule,
     AuthModule,
     UsersModule,

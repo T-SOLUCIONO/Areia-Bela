@@ -12,6 +12,13 @@ export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60
 export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60
 
 export const ACCESS_TOKEN_COOKIE = 'areia_bela_access'
+
+/**
+ * Language preference, shared by the guest site and the admin. Lives here
+ * rather than in a component module because server components read it too,
+ * and a value imported from a 'use client' file resolves to undefined there.
+ */
+export const LANGUAGE_COOKIE = 'areia_bela_language'
 export const REFRESH_TOKEN_COOKIE = 'areia_bela_refresh'
 
 /** Path the refresh cookie is scoped to, so it isn't sent on every request. */
@@ -30,4 +37,31 @@ export const TOTP_CHALLENGE_TTL_SECONDS = 5 * 60
 /** How many single-use recovery codes are generated when 2FA is enabled. */
 export const RECOVERY_CODE_COUNT = 10
 
+/**
+ * Lifetime of an emailed password-reset link. Short because the link travels
+ * through email, a channel we don't control.
+ */
+export const PASSWORD_RESET_TTL_MINUTES = 60
+
+/** Minimum length for any password the app accepts. */
+export const MIN_PASSWORD_LENGTH = 12
+
+/**
+ * How long an invitation link stays valid. Longer than a password reset:
+ * a reset is a deliberate act you follow up on immediately, while an
+ * invitation lands unannounced and may sit in an inbox for a day or two.
+ */
+export const INVITATION_TTL_HOURS = 72
+
 export const ADMIN_LOGIN_PATH = '/admin/login'
+
+/**
+ * Admin routes reachable without a session. Anything under /admin not listed
+ * here is gated by the middleware — password recovery has to be usable by
+ * someone who, by definition, can't sign in.
+ */
+export const PUBLIC_ADMIN_PATHS = [
+  ADMIN_LOGIN_PATH,
+  '/admin/forgot-password',
+  '/admin/reset-password',
+] as const

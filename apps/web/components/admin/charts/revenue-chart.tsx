@@ -43,18 +43,18 @@ export function RevenueChart({ data }: RevenueChartProps) {
           <Tooltip
             formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
             contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
+              backgroundColor: 'var(--card)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
             }}
           />
           <Line
             type="monotone"
             dataKey="revenue"
-            stroke="hsl(var(--primary))"
+            stroke="var(--primary)"
             strokeWidth={2}
             dot={false}
-            activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
+            activeDot={{ r: 4, fill: 'var(--primary)' }}
           />
         </LineChart>
       </ResponsiveContainer>

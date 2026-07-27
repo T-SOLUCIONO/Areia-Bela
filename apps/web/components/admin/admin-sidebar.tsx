@@ -3,68 +3,31 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard,
-  Calendar,
-  Users,
-  ClipboardList,
-  DollarSign,
-  Ticket,
-  BarChart3,
-  Settings,
-  Wrench,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
-import type { UserRole } from '@areia-bela/types'
-import { cn } from '@/lib/utils'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
-import { Separator } from '@areia-bela/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@areia-bela/ui/tooltip'
+import { cn } from '@/lib/utils'
 import { AdminUserFooter } from '@/components/admin/admin-user-footer'
 import { useAdminSession } from '@/components/admin/admin-session-provider'
-
-/**
- * `roles` omitted means every signed-in role may see the item. Hiding a link is
- * only a convenience — the API enforces the same rules on every request.
- */
-export const adminNavigation: Array<{
-  name: string
-  href: string
-  icon: typeof LayoutDashboard
-  roles?: UserRole[]
-}> = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Reservations', href: '/admin/reservations', icon: ClipboardList },
-  { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
-  { name: 'Guests', href: '/admin/guests', icon: Users },
-  { name: 'Pricing', href: '/admin/pricing', icon: DollarSign, roles: ['superadmin', 'manager'] },
-  { name: 'Coupons', href: '/admin/coupons', icon: Ticket, roles: ['superadmin', 'manager'] },
-  { name: 'Maintenance', href: '/admin/maintenance', icon: Wrench },
-  { name: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['superadmin', 'manager'] },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
-]
-
-export function visibleNavigation(role: UserRole) {
-  return adminNavigation.filter((item) => !item.roles || item.roles.includes(role))
-}
+import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { visibleNavigation } from '@/components/admin/admin-navigation'
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const { role } = useAdminSession()
+  const t = useAdminCopy()
   const navigation = visibleNavigation(role)
 
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 hidden md:flex flex-col',
+          'fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300 md:flex',
           collapsed ? 'w-16' : 'w-64',
         )}
       >
-        <div className="flex h-full flex-col w-full">
-          {/* Logo */}
+        <div className="flex h-full w-full flex-col">
           <div
             className={cn(
               'flex h-16 items-center border-b border-sidebar-border px-4',
@@ -73,18 +36,17 @@ export function AdminSidebar() {
           >
             {!collapsed && (
               <Link href="/admin" className="flex flex-col">
-                <span className="font-serif text-lg font-semibold text-sidebar-foreground">
-                  Areia Bela
-                </span>
-                <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
-                  Admin Portal
+                <span className="font-serif text-lg text-sidebar-foreground">Areia Bela</span>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
+                  {t.header.brandSubtitle}
                 </span>
               </Link>
             )}
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-sidebar-foreground"
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               onClick={() => setCollapsed(!collapsed)}
             >
               {collapsed ? (
@@ -95,7 +57,6 @@ export function AdminSidebar() {
             </Button>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4">
             <ul className="space-y-1 px-2">
               {navigation.map((item) => {
@@ -106,6 +67,7 @@ export function AdminSidebar() {
                 const link = (
                   <Link
                     href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                       isActive
@@ -114,17 +76,17 @@ export function AdminSidebar() {
                       collapsed && 'justify-center',
                     )}
                   >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span>{item.name}</span>}
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && <span>{t.nav[item.key]}</span>}
                   </Link>
                 )
 
                 return (
-                  <li key={item.name}>
+                  <li key={item.key}>
                     {collapsed ? (
                       <Tooltip>
                         <TooltipTrigger asChild>{link}</TooltipTrigger>
-                        <TooltipContent side="right">{item.name}</TooltipContent>
+                        <TooltipContent side="right">{t.nav[item.key]}</TooltipContent>
                       </Tooltip>
                     ) : (
                       link
@@ -135,7 +97,6 @@ export function AdminSidebar() {
             </ul>
           </nav>
 
-          {/* Footer */}
           <div className="border-t border-sidebar-border p-4">
             <AdminUserFooter collapsed={collapsed} />
           </div>

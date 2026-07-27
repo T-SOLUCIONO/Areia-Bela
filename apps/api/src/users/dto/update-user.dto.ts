@@ -20,10 +20,6 @@ export class UpdateUserDto {
   @IsBoolean()
   active?: boolean
 
-  // Optional so an admin can reset someone's password without a separate
-  // endpoint. Same minimum as creation.
-  @IsOptional()
-  @IsString()
-  @MinLength(12)
-  password?: string
+  // No password field: an admin never sets someone else's password. Use
+  // POST /users/:id/send-password-reset instead.
 }

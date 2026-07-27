@@ -22,6 +22,20 @@ cp apps/web/.env.example apps/web/.env
 | `ADMIN_SEED_PASSWORD` | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                               |
 | `NODE_ENV`            | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                          |
 
+### Correo (Brevo)
+
+El restablecimiento de contraseña usa la API transaccional de Brevo. Para que
+funcione de verdad hacen falta tres pasos fuera del código:
+
+1. Crear la cuenta en brevo.com y generar una **API key transaccional**
+   (Settings → SMTP & API → API Keys).
+2. **Verificar el dominio** `areiabela.com` en Brevo (registros SPF/DKIM). Sin
+   esto los correos salen, pero acaban en spam.
+3. Poner `EMAIL_FROM_ADDRESS` con una dirección de ese dominio.
+
+Mientras tanto, sin `BREVO_API_KEY` el flujo completo se puede probar en local:
+el enlace aparece en el log del API.
+
 ## apps/web
 
 | Variable                             | Requerida | Propósito                                                                                                                          |

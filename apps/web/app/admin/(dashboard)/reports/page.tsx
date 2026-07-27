@@ -37,6 +37,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
+import { DemoDataNotice } from '@/components/admin/demo-data-notice'
 
 const revenueData = [
   { month: 'Jan', revenue: 45000, occupancy: 65 },
@@ -54,11 +55,11 @@ const revenueData = [
 ]
 
 const channelData = [
-  { name: 'Direct', value: 35, color: '#0ea5e9' },
-  { name: 'Booking.com', value: 28, color: '#f59e0b' },
-  { name: 'Expedia', value: 18, color: '#8b5cf6' },
-  { name: 'Airbnb', value: 12, color: '#ef4444' },
-  { name: 'Other', value: 7, color: '#6b7280' },
+  { name: 'Direct', value: 35, color: 'var(--chart-1)' },
+  { name: 'Booking.com', value: 28, color: 'var(--chart-2)' },
+  { name: 'Expedia', value: 18, color: 'var(--chart-3)' },
+  { name: 'Airbnb', value: 12, color: 'var(--chart-4)' },
+  { name: 'Other', value: 7, color: 'var(--chart-5)' },
 ]
 
 const roomPerformance = [
@@ -75,13 +76,9 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      <DemoDataNotice />
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-          <p className="text-muted-foreground">
-            Comprehensive insights into your property performance
-          </p>
-        </div>
         <div className="flex gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[180px]">
@@ -171,7 +168,6 @@ export default function ReportsPage() {
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
-          <TabsTrigger value="rooms">Room Performance</TabsTrigger>
         </TabsList>
 
         {/* Revenue Tab */}
@@ -336,44 +332,6 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        {/* Room Performance Tab */}
-        <TabsContent value="rooms" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Room Type Performance</CardTitle>
-              <CardDescription>Detailed metrics by room category</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Room Type</TableHead>
-                    <TableHead className="text-right">Bookings</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">ADR</TableHead>
-                    <TableHead className="text-right">Occupancy</TableHead>
-                    <TableHead className="text-right">RevPAR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roomPerformance.map((room) => (
-                    <TableRow key={room.room}>
-                      <TableCell className="font-medium">{room.room}</TableCell>
-                      <TableCell className="text-right">{room.bookings}</TableCell>
-                      <TableCell className="text-right">${room.revenue.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">${room.adr}</TableCell>
-                      <TableCell className="text-right">{room.occupancy}%</TableCell>
-                      <TableCell className="text-right">
-                        ${Math.round(room.adr * (room.occupancy / 100))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

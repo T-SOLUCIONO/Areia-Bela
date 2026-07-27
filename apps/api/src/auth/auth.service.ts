@@ -7,12 +7,17 @@ import { createHash, randomBytes } from 'node:crypto'
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   ACCOUNT_LOCKOUT_MINUTES,
+  INVITATION_TTL_HOURS,
   MAX_FAILED_LOGIN_ATTEMPTS,
+  PASSWORD_RESET_TTL_MINUTES,
   RECOVERY_CODE_COUNT,
   REFRESH_TOKEN_TTL_SECONDS,
   TOTP_CHALLENGE_TTL_SECONDS,
 } from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
+import { MailService } from '../mail/mail.service'
+import { passwordResetEmail } from '../mail/templates/password-reset'
+import { invitationEmail } from '../mail/templates/invitation'
 import { TotpService } from './totp.service'
 import {
   TOTP_CHALLENGE_PURPOSE,
@@ -49,6 +54,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly totpService: TotpService,
+    private readonly mailService: MailService,
   ) {}
 
   static hashPassword(password: string): Promise<string> {
@@ -301,6 +307,164 @@ export class AuthService {
       }),
       this.prisma.recoveryCode.deleteMany({ where: { userId: user.id } }),
     ])
+  }
+
+  /**
+   * Self-service password change. Requires the current password even though
+   * the caller is already authenticated: an unattended open session should not
+   * be enough to take over the account.
+   *
+   * Returns a fresh token pair because every other session is revoked — if the
+   * old password had leaked, changing it has to log the thief out. The caller
+   * keeps working with the new cookies.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<AuthResult> {
+    const user = await this.requireActiveUser(userId)
+
+    if (!(await argon2.verify(user.passwordHash, currentPassword))) {
+      throw new UnauthorizedException('Current password is incorrect')
+    }
+
+    if (await argon2.verify(user.passwordHash, newPassword)) {
+      throw new BadRequestException('The new password must be different from the current one')
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await AuthService.hashPassword(newPassword) },
+    })
+
+    await this.revokeAllForUser(user.id)
+
+    const tokens = await this.issueTokens(user)
+    return { ...tokens, user: AuthService.toPublicUser(user) }
+  }
+
+  /**
+   * Emails a reset link. Deliberately silent about whether the address exists:
+   * the caller always gets the same answer, so this can't be used to discover
+   * which emails have accounts.
+   *
+   * `requestedByAdmin` only changes the wording of the email.
+   */
+  async sendPasswordResetEmail(email: string, requestedByAdmin = false): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } })
+    if (!user || !user.active) {
+      this.logger.log(`Password reset requested for unknown or inactive account: ${email}`)
+      return
+    }
+
+    const token = await this.issueResetToken(user.id, PASSWORD_RESET_TTL_MINUTES)
+    await this.mailService.send(
+      passwordResetEmail({
+        to: user.email,
+        firstName: user.firstName,
+        resetUrl: this.buildResetUrl(token),
+        requestedByAdmin,
+      }),
+    )
+  }
+
+  /**
+   * Invitation email for a freshly created account. Same single-use token as a
+   * reset — the invitee sets their own password, so no credential ever travels
+   * by email and nobody but them ever knows it. Longer-lived than a reset:
+   * people don't always act on an invitation the same hour.
+   */
+  async sendInvitationEmail(userId: string, invitedByName: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user || !user.active) return
+
+    const token = await this.issueResetToken(userId, INVITATION_TTL_HOURS * 60)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { invitedAt: new Date() },
+    })
+
+    await this.mailService.send(
+      invitationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        invitedByName,
+        // `invite=1` only swaps the wording on the page; the form, validation
+        // and endpoint are identical, so there is no second page to maintain.
+        acceptUrl: `${this.buildResetUrl(token)}&invite=1`,
+      }),
+    )
+  }
+
+  /**
+   * Mints a single-use token, invalidating any outstanding one for that user
+   * so a re-sent email makes the previous link dead.
+   */
+  private async issueResetToken(userId: string, ttlMinutes: number): Promise<string> {
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: new Date() },
+    })
+
+    const token = randomBytes(32).toString('base64url')
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId,
+        tokenHash: AuthService.hashResetToken(token),
+        expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+      },
+    })
+    return token
+  }
+
+  private buildResetUrl(token: string): string {
+    const baseUrl = this.config.get<string>('WEB_APP_URL') ?? 'http://localhost:3000'
+    return `${baseUrl}/admin/reset-password?token=${token}`
+  }
+
+  /**
+   * Consumes a reset token and sets the new password. Every session is revoked:
+   * if the account was compromised, resetting has to lock the intruder out.
+   *
+   * 2FA is deliberately left untouched — recovering a password must not bypass
+   * the second factor.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const stored = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash: AuthService.hashResetToken(token) },
+      include: { user: true },
+    })
+
+    if (!stored || stored.usedAt || stored.expiresAt < new Date() || !stored.user.active) {
+      throw new UnauthorizedException('This reset link is invalid or has expired')
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.update({
+        where: { id: stored.id },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.user.update({
+        where: { id: stored.userId },
+        data: {
+          passwordHash: await AuthService.hashPassword(newPassword),
+          // Marks the invitation as accepted; also how the UI stops showing
+          // "invitation pending" for this person.
+          passwordSetAt: new Date(),
+          // A reset is also the way back in from a lockout.
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      }),
+    ])
+
+    await this.revokeAllForUser(stored.userId)
+  }
+
+  /** Same reasoning as refresh tokens: high-entropy input, so a digest is enough. */
+  private static hashResetToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex')
   }
 
   async countUnusedRecoveryCodes(userId: string): Promise<number> {

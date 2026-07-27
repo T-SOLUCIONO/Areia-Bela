@@ -178,11 +178,19 @@ model User {
   // mint valid codes. totpEnabledAt is null until the user confirms setup.
   totpSecret          String?
   totpEnabledAt       DateTime?
+  // Invitation state. passwordHash is filled with an unguessable random value
+  // when someone is invited, so the account exists but cannot be signed into
+  // until they follow the emailed link. passwordSetAt is what distinguishes
+  // "invited, never signed in" from "active" — keeping passwordHash non-null
+  // avoids null-guarding argon2.verify in four call sites.
+  invitedAt           DateTime?
+  passwordSetAt       DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  refreshTokens  RefreshToken[]
-  recoveryCodes  RecoveryCode[]
+  refreshTokens       RefreshToken[]
+  recoveryCodes       RecoveryCode[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 // Refresh tokens are opaque (not JWTs) and stored hashed, so a database leak
@@ -208,6 +216,20 @@ model RecoveryCode {
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   codeHash String    @unique
   usedAt   DateTime?
+
+  @@index([userId])
+}
+
+// Emailed password-reset links. Hashed and single-use like the tokens above,
+// and short-lived: the link travels through email, which we don't control.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }

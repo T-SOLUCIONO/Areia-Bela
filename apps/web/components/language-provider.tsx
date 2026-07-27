@@ -2,13 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { SUPPORTED_LOCALES } from '@areia-bela/shared'
+import { LANGUAGE_COOKIE, SUPPORTED_LOCALES } from '@areia-bela/shared'
 import type { Language } from '@/lib/i18n'
 
-// Read by middleware.ts to honor a returning visitor's choice when they land
-// on a path with no locale prefix. A cookie (not localStorage) because the
-// middleware runs on the server and can only see cookies.
-export const LANGUAGE_COOKIE = 'areia_bela_language'
+// Re-exported for convenience; defined in @areia-bela/shared because server
+// components need it too and can't read a constant out of a client module.
+export { LANGUAGE_COOKIE }
 
 type LanguageContextValue = {
   language: Language

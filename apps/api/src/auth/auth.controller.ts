@@ -21,6 +21,8 @@ import {
 import { AuthService, type IssuedTokens } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { DisableTotpDto, TotpCodeDto, VerifyTotpDto } from './dto/totp.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto'
 import { Public } from './decorators/public.decorator'
 import { CurrentUser } from './decorators/current-user.decorator'
 import type { AuthenticatedUser } from './auth.types'
@@ -62,6 +64,47 @@ export class AuthController {
   @HttpCode(200)
   async loginTotp(@Body() dto: VerifyTotpDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.verifyTotpChallenge(dto.challengeToken, dto.code)
+    this.setAuthCookies(res, result)
+    return { user: result.user }
+  }
+
+  /**
+   * Always answers 200, whether or not the address has an account: a different
+   * response would turn this into an account enumerator.
+   */
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post('forgot-password')
+  @HttpCode(200)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.sendPasswordResetEmail(dto.email)
+    return { message: 'If that email has an account, a reset link is on its way.' }
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('reset-password')
+  @HttpCode(204)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.token, dto.newPassword)
+  }
+
+  // Verifies a password, so it is guessable the same way login is.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('change-password')
+  @HttpCode(200)
+  async changePassword(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.changePassword(
+      current.id,
+      dto.currentPassword,
+      dto.newPassword,
+    )
+    // Other sessions were revoked; refresh this one's cookies so the caller
+    // isn't logged out by their own password change.
     this.setAuthCookies(res, result)
     return { user: result.user }
   }
