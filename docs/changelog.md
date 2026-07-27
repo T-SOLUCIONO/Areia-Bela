@@ -296,3 +296,134 @@ pnpm typecheck ✅ (0 errores en ambas apps)
 
 Rama `fase-2-monorepo`, nada pusheado. Historial local reescrito (sección 11),
 `origin` sin tocar todavía.
+
+## 14. Fase 4 — Autenticación
+
+Punto de partida: `/admin` estaba **completamente abierto**. El login era un
+mock con las credenciales prellenadas (`defaultValue="admin@areiabela.com"` /
+`defaultValue="password"`), un `// For demo, always succeed` y un
+`router.push('/admin')` tras un delay falso — nunca llamaba a ningún API. El
+"logout" del sidebar y del header era un `<Link href="/">` al sitio público.
+No existía nada de auth: ni dependencias, ni modelos, ni tipos.
+
+### Alcance y decisiones
+
+- **Rol como enum**, no tablas `Role`/`Permission`: `docs/domain-decisions.md`
+  ya fija tres roles (`superadmin`, `manager`, `viewer`) y no hay requisito de
+  asignar permisos uno por uno en runtime. Menos superficie que mantener.
+- **2FA (TOTP) añadido a pedido del usuario**, no estaba en el alcance original
+  de la Fase 4 del plan. Con app autenticadora, **no SMS** (vulnerable a SIM
+  swapping y requeriría un proveedor de pago).
+- **Tests**: primer setup de pruebas del repo. Es un adelanto acotado y
+  declarado de Fase 8, limitado al núcleo de auth. Sin E2E ni integración.
+- **Justificación de entidades nuevas** (lo exige `CLAUDE.md`): `User`,
+  `RefreshToken` y `RecoveryCode` no están en la lista canónica del dominio.
+  Son infraestructura de acceso al panel, no del dominio de reservas —
+  `Customer` sigue siendo el huésped y nunca inicia sesión.
+
+### Backend
+
+- `apps/api/src/auth/`: Argon2id para contraseñas, access token JWT de 15 min,
+  refresh token **opaco** (no JWT) de 7 días guardado **hasheado** y **rotado
+  en cada uso**. Reusar un refresh ya revocado se trata como posible robo y
+  revoca todas las sesiones de ese usuario.
+- Lockout por cuenta (5 intentos → 15 min) además del rate limiting por IP.
+  Los códigos 2FA fallidos cuentan para el mismo lockout, porque 6 dígitos son
+  adivinables si no se limita.
+- `JwtAuthGuard` **global**: un endpoint nuevo queda protegido salvo que use
+  `@Public()`. Falla cerrado, no abierto. `RolesGuard` para `@Roles(...)`.
+- `apps/api/src/users/`: CRUD solo para `SUPERADMIN`, baja lógica. Bloquea
+  desactivarse o degradarse a uno mismo **y** quitar al último superadmin
+  activo — sin eso era posible quedarse fuera del panel sin vuelta atrás
+  desde la UI.
+- TOTP: secreto cifrado en reposo con AES-256-GCM (`TOTP_ENCRYPTION_KEY`), no
+  hasheado, porque verificar un código exige el secreto original. 10 códigos de
+  recuperación de un solo uso, hasheados, mostrados una única vez.
+- `main.ts`: `helmet`, `cookie-parser` y **CORS corregido** — era
+  `enableCors()` sin opciones, que no permite credenciales, así que las cookies
+  no habrían funcionado nunca. Ahora origen explícito + `credentials: true`.
+  `ValidationPipe` con `forbidNonWhitelisted`.
+
+### Frontend
+
+- Protección en dos capas: el middleware comprueba que exista la cookie
+  (barato, sin round trip) y el layout server-side de `/admin` verifica de
+  verdad contra `GET /auth/me`. **El secreto JWT no vive en el frontend** —
+  una cookie forjada pasa el middleware y muere en el layout.
+- Login real de dos pasos (contraseña → código si hay 2FA), logout real,
+  usuario y rol visibles, navegación filtrada por rol.
+- Gestión de equipo y panel de 2FA (con QR generado en el servidor) en la
+  pestaña "Team" de settings, que decía "coming soon".
+- `lib/api-client.ts`: `credentials: 'include'` y **un** reintento silencioso
+  contra `/auth/refresh` ante un 401, para que un access token expirando a
+  mitad de sesión no eche al usuario.
+
+### Auditoría del checklist de seguridad
+
+`.claude/skills/domain-guard/security-checklist/SKILL.md`, ítem por ítem:
+
+| Ítem                                        | Estado                               |
+| ------------------------------------------- | ------------------------------------ |
+| Contraseñas con Argon2                      | ✅ Argon2id                          |
+| Access tokens de vida corta; refresh rotado | ✅ 15 min / rotación verificada      |
+| Cookies `HttpOnly`, `Secure`, `SameSite`    | ✅ (`Secure` solo en producción)     |
+| Rate limiting / lockout en login            | ✅ por IP y por cuenta               |
+| `/admin/*` con middleware/guards reales     | ✅ middleware + layout + guards      |
+| Sin login prellenado ni "always succeed"    | ✅ eliminado                         |
+| Helmet, CORS y rate limiting en NestJS      | ✅                                   |
+| Variables documentadas en `docs/env.md`     | ✅ creado                            |
+| Rate limiting en reset de contraseña        | ⏸️ no aplica: no hay reset por email |
+
+**Diferido a propósito** (no silenciado): recuperación de contraseña por email
+y verificación de email (necesitan proveedor de correo, no están en Fase 4);
+OAuth/SSO; tests E2E y de integración (Fase 8).
+
+### Documentación
+
+- `docs/env.md` **nuevo** (lo exigía el checklist y no existía): variables por
+  nombre, cómo generar los secretos, y el caveat de cookies cross-site en
+  producción — si web y API quedan en dominios distintos, `SameSite=Lax` deja
+  de enviar la cookie. Documentado antes de descubrirlo en producción.
+- `CLAUDE.md` **nuevo**: `docs/migration-plan.md` lo citaba como "reglas
+  generales" pero el archivo no existía — puntero roto desde Fase 1.
+- `AGENTS.md` actualizado: describía la app Next.js pre-monorepo, sin NestJS,
+  Prisma ni `apps/*`. Ahora refleja el monorepo real y las convenciones de
+  NestJS/Prisma.
+- Fase 4 en `docs/migration-plan.md` **no tenía criterio de salida** (Fase 2 y
+  3 sí). Se le añadió uno.
+
+### Hallazgo durante la verificación
+
+El rate limiting por IP (5/min en login) **es más estricto** que el lockout por
+cuenta (5 intentos), así que desde una sola IP el 429 salta antes de que el
+lockout llegue a contar. No es un bug: son capas distintas — el lockout protege
+contra un atacante que rota IPs. Efecto práctico: el lockout no se puede
+verificar por curl desde una sola máquina, y por eso se cubre en los tests
+unitarios, que son deterministas.
+
+## 15. Verificación — criterio de salida (Fase 4)
+
+```
+pnpm build     ✅ (next build + nest build)
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅ (0 errores en ambas apps)
+pnpm test      ✅ (53 tests, primer setup de pruebas del repo)
+```
+
+Verificado además contra Postgres y el API reales:
+
+- Seed idempotente (dos corridas → 1 usuario) y falla ruidosamente sin
+  `ADMIN_SEED_PASSWORD` o con una contraseña de menos de 12 caracteres.
+- `/auth/me` y `/users` sin sesión → 401. `/users` como `VIEWER` → 403.
+- Refresh rota el token; **reusar el anterior → 401**.
+- 2FA completo: setup → enable con código real → login en dos pasos → sesión.
+  Código de recuperación funciona una vez y a la segunda falla.
+- El **challenge token de 2FA no sirve como access token** (agujero detectado y
+  cerrado durante la implementación: ambos se firman con la misma clave).
+- `/admin` sin sesión redirige a `/admin/login?from=...`; el login sigue
+  accesible sin bucle de redirección.
+- El sitio público **no cambió**: `/`, `/es`, `/en` y el rewrite de locale
+  siguen funcionando; los endpoints de quote y fechas bloqueadas siguen
+  públicos vía `@Public()`.
+
+Rama `fase-4-auth`, nada pusheado.

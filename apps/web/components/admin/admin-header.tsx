@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Search, User, ExternalLink, Menu, LogOut } from 'lucide-react'
+import { Bell, Search, User, ExternalLink, Menu } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@areia-bela/ui/button'
@@ -21,8 +21,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@areia-bela/ui/sheet'
+import { ADMIN_LOGIN_PATH } from '@areia-bela/shared'
 import { cn } from '@/lib/utils'
-import { adminNavigation } from '@/components/admin/admin-sidebar'
+import { visibleNavigation } from '@/components/admin/admin-sidebar'
+import { AdminUserFooter } from '@/components/admin/admin-user-footer'
+import { useAdminSession } from '@/components/admin/admin-session-provider'
+import { apiFetch } from '@/lib/api-client'
 
 interface AdminHeaderProps {
   title: string
@@ -31,6 +35,16 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ title, description }: AdminHeaderProps) {
   const pathname = usePathname()
+  const session = useAdminSession()
+  const navigation = visibleNavigation(session.role)
+
+  const signOut = async () => {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' })
+    } finally {
+      window.location.assign(ADMIN_LOGIN_PATH)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-4 md:px-6">
@@ -67,7 +81,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
               {/* Navigation */}
               <nav className="flex-1 overflow-y-auto py-4">
                 <ul className="space-y-1 px-2">
-                  {adminNavigation.map((item) => {
+                  {navigation.map((item) => {
                     const isActive =
                       pathname === item.href ||
                       (item.href !== '/admin' && pathname.startsWith(item.href))
@@ -94,13 +108,7 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
 
               {/* Footer */}
               <div className="border-t border-sidebar-border p-4">
-                <Link
-                  href="/"
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span>Exit Admin</span>
-                </Link>
+                <AdminUserFooter />
               </div>
             </div>
           </SheetContent>
@@ -177,17 +185,19 @@ export function AdminHeader({ title, description }: AdminHeaderProps) {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>
               <div>
-                <p className="font-medium">Admin User</p>
-                <p className="text-sm text-muted-foreground">admin@areiabela.com</p>
+                <p className="font-medium">
+                  {session.firstName} {session.lastName}
+                </p>
+                <p className="text-sm text-muted-foreground">{session.email}</p>
+                <p className="mt-1 text-xs capitalize text-muted-foreground">{session.role}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-            <DropdownMenuItem>Preferences</DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/">Sign Out</Link>
+              <Link href="/admin/settings">Security &amp; 2FA</Link>
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={signOut}>Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

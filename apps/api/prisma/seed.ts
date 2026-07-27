@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import * as argon2 from 'argon2'
 import propertyListing from '../../web/datos.json'
 
 /**
@@ -155,7 +156,40 @@ async function main() {
     },
   })
 
+  // Fase 4: the admin account. Email is fixed by docs/domain-decisions.md;
+  // the password is not documented anywhere, so it comes from the environment
+  // rather than being invented here. Failing loudly is deliberate — a silent
+  // fallback would be exactly the weak default this phase exists to remove.
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD
+  if (!adminPassword) {
+    throw new Error(
+      'ADMIN_SEED_PASSWORD is not set. Set it (see docs/env.md) before seeding; ' +
+        'the admin user is not created with a default password.',
+    )
+  }
+  if (adminPassword.length < 12) {
+    throw new Error('ADMIN_SEED_PASSWORD must be at least 12 characters.')
+  }
+
+  const adminEmail = 'admin@areiabela.com'
+  const passwordHash = await argon2.hash(adminPassword, { type: argon2.argon2id })
+
+  // Only the hash is updated on re-run, so the seed stays idempotent without
+  // resetting role/active state an operator may have changed since.
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { passwordHash },
+    create: {
+      email: adminEmail,
+      passwordHash,
+      firstName: 'Areia Bela',
+      lastName: 'Admin',
+      role: 'SUPERADMIN',
+    },
+  })
+
   console.log(`Seed OK — property "${property.slug}" (${property.id})`)
+  console.log(`Seed OK — admin user "${admin.email}" (${admin.role})`)
 }
 
 main()

@@ -31,11 +31,21 @@ Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bili
 
 **Criterio de salida:** el quote server-side coincide con la UI actual; seed corre limpio desde cero.
 
-## Fase 4 — Autenticación
+## Fase 4 — Autenticación ✅ completada
 
 - JWT + refresh tokens + Argon2 + RBAC.
 - Proteger `/admin/*` con middleware Next.js + guards NestJS.
 - CRUD usuarios/roles/permisos, protección contra fuerza bruta.
+- **2FA (TOTP)** con códigos de recuperación — añadido a pedido del usuario,
+  no estaba en el alcance original de esta fase.
+- Decisión: rol como enum (`SUPERADMIN`/`MANAGER`/`VIEWER`) en vez de tablas
+  `Role`/`Permission`, ya que `docs/domain-decisions.md` fija esos tres roles.
+
+**Criterio de salida:** login real contra Postgres; `/admin/*` inaccesible sin
+sesión válida; refresh rotado (reusar el anterior falla) y 2FA verificable de
+punta a punta; cero credenciales demo en el código; `pnpm build`, `pnpm lint`,
+`pnpm typecheck` y `pnpm test` en verde. Ver `docs/changelog.md` §14 para la
+auditoría del checklist de seguridad.
 
 ## Fase 5 — CMS / Admin
 

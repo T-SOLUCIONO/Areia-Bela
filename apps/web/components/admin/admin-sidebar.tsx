@@ -12,31 +12,48 @@ import {
   Ticket,
   BarChart3,
   Settings,
-  LogOut,
   Wrench,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import type { UserRole } from '@areia-bela/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@areia-bela/ui/button'
 import { Separator } from '@areia-bela/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@areia-bela/ui/tooltip'
+import { AdminUserFooter } from '@/components/admin/admin-user-footer'
+import { useAdminSession } from '@/components/admin/admin-session-provider'
 
-export const adminNavigation = [
+/**
+ * `roles` omitted means every signed-in role may see the item. Hiding a link is
+ * only a convenience — the API enforces the same rules on every request.
+ */
+export const adminNavigation: Array<{
+  name: string
+  href: string
+  icon: typeof LayoutDashboard
+  roles?: UserRole[]
+}> = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Reservations', href: '/admin/reservations', icon: ClipboardList },
   { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
   { name: 'Guests', href: '/admin/guests', icon: Users },
-  { name: 'Pricing', href: '/admin/pricing', icon: DollarSign },
-  { name: 'Coupons', href: '/admin/coupons', icon: Ticket },
+  { name: 'Pricing', href: '/admin/pricing', icon: DollarSign, roles: ['superadmin', 'manager'] },
+  { name: 'Coupons', href: '/admin/coupons', icon: Ticket, roles: ['superadmin', 'manager'] },
   { name: 'Maintenance', href: '/admin/maintenance', icon: Wrench },
-  { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
+  { name: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['superadmin', 'manager'] },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
+
+export function visibleNavigation(role: UserRole) {
+  return adminNavigation.filter((item) => !item.roles || item.roles.includes(role))
+}
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const { role } = useAdminSession()
+  const navigation = visibleNavigation(role)
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -81,7 +98,7 @@ export function AdminSidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4">
             <ul className="space-y-1 px-2">
-              {adminNavigation.map((item) => {
+              {navigation.map((item) => {
                 const isActive =
                   pathname === item.href ||
                   (item.href !== '/admin' && pathname.startsWith(item.href))
@@ -120,21 +137,7 @@ export function AdminSidebar() {
 
           {/* Footer */}
           <div className="border-t border-sidebar-border p-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/"
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors',
-                    collapsed && 'justify-center',
-                  )}
-                >
-                  <LogOut className="h-5 w-5" />
-                  {!collapsed && <span>Exit Admin</span>}
-                </Link>
-              </TooltipTrigger>
-              {collapsed && <TooltipContent side="right">Exit Admin</TooltipContent>}
-            </Tooltip>
+            <AdminUserFooter collapsed={collapsed} />
           </div>
         </div>
       </aside>
