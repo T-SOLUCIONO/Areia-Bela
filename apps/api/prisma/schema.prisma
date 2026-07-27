@@ -178,6 +178,13 @@ model User {
   // mint valid codes. totpEnabledAt is null until the user confirms setup.
   totpSecret          String?
   totpEnabledAt       DateTime?
+  // Invitation state. passwordHash is filled with an unguessable random value
+  // when someone is invited, so the account exists but cannot be signed into
+  // until they follow the emailed link. passwordSetAt is what distinguishes
+  // "invited, never signed in" from "active" — keeping passwordHash non-null
+  // avoids null-guarding argon2.verify in four call sites.
+  invitedAt           DateTime?
+  passwordSetAt       DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

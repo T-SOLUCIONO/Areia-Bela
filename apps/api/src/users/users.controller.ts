@@ -25,8 +25,15 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto)
+  create(@Body() dto: CreateUserDto, @CurrentUser() current: AuthenticatedUser) {
+    return this.usersService.create(dto, current.id)
+  }
+
+  /** For someone who was invited but never followed the link. */
+  @Post(':id/resend-invitation')
+  @HttpCode(202)
+  resendInvitation(@Param('id') id: string, @CurrentUser() current: AuthenticatedUser) {
+    return this.usersService.resendInvitation(id, current.id)
   }
 
   @Patch(':id')

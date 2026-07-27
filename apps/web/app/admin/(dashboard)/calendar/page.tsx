@@ -23,6 +23,7 @@ import {
 import { Badge } from '@areia-bela/ui/badge'
 import { cn } from '@/lib/utils'
 import { mockRooms, mockReservations } from '@/lib/mock-data'
+import { DemoDataNotice } from '@/components/admin/demo-data-notice'
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null)
@@ -87,11 +88,9 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
+      <DemoDataNotice />
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Availability Calendar</h1>
-          <p className="text-muted-foreground">Visual overview of room availability and bookings</p>
-        </div>
         <div className="flex gap-2">
           <Button variant="outline">
             <Filter className="mr-2 h-4 w-4" />

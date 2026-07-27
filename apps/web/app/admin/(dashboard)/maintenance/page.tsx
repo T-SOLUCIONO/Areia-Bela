@@ -48,6 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@areia-bela/ui/tabs'
 import { mockMaintenanceTasks, mockStaff, mockRooms } from '@/lib/mock-data'
 import type { AdminMaintenanceTask } from '@/types'
 import { cn } from '@/lib/utils'
+import { DemoDataNotice } from '@/components/admin/demo-data-notice'
 
 export default function MaintenancePage() {
   const [tasks] = useState<AdminMaintenanceTask[]>(mockMaintenanceTasks)
@@ -119,11 +120,9 @@ export default function MaintenancePage() {
 
   return (
     <div className="space-y-6">
+      <DemoDataNotice />
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Maintenance</h1>
-          <p className="text-muted-foreground">Track and manage maintenance requests</p>
-        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>

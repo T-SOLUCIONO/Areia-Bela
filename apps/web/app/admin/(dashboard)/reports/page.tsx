@@ -37,6 +37,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
+import { DemoDataNotice } from '@/components/admin/demo-data-notice'
 
 const revenueData = [
   { month: 'Jan', revenue: 45000, occupancy: 65 },
@@ -54,11 +55,11 @@ const revenueData = [
 ]
 
 const channelData = [
-  { name: 'Direct', value: 35, color: '#0ea5e9' },
-  { name: 'Booking.com', value: 28, color: '#f59e0b' },
-  { name: 'Expedia', value: 18, color: '#8b5cf6' },
-  { name: 'Airbnb', value: 12, color: '#ef4444' },
-  { name: 'Other', value: 7, color: '#6b7280' },
+  { name: 'Direct', value: 35, color: 'var(--chart-1)' },
+  { name: 'Booking.com', value: 28, color: 'var(--chart-2)' },
+  { name: 'Expedia', value: 18, color: 'var(--chart-3)' },
+  { name: 'Airbnb', value: 12, color: 'var(--chart-4)' },
+  { name: 'Other', value: 7, color: 'var(--chart-5)' },
 ]
 
 const roomPerformance = [
@@ -75,13 +76,9 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      <DemoDataNotice />
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-          <p className="text-muted-foreground">
-            Comprehensive insights into your property performance
-          </p>
-        </div>
         <div className="flex gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[180px]">

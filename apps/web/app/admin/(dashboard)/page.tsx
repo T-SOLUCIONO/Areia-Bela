@@ -1,27 +1,18 @@
-import {
-  CalendarDays,
-  DollarSign,
-  Percent,
-  BedDouble,
-  ArrowUp,
-  ArrowDown,
-  Users,
-  Clock,
-} from 'lucide-react'
+'use client'
+
+import { CalendarDays, DollarSign, Percent, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
-import { AdminHeader } from '@/components/admin/admin-header'
-import { reservations, dailyStats, roomStats, channelStats } from '@/lib/mock-data'
+import { dailyStats, reservations, channelStats } from '@/lib/mock-data'
 import { RevenueChart } from '@/components/admin/charts/revenue-chart'
 import { OccupancyChart } from '@/components/admin/charts/occupancy-chart'
 import { ChannelChart } from '@/components/admin/charts/channel-chart'
-import { RecentReservations } from '@/components/admin/recent-reservations'
-import { UpcomingActivity } from '@/components/admin/upcoming-activity'
+import { HouseTimeline } from '@/components/admin/house-timeline'
+import { DemoDataNotice } from '@/components/admin/demo-data-notice'
+import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 
 export default function AdminDashboardPage() {
-  // Calculate stats
-  const today = new Date().toISOString().split('T')[0]
-  const todayStats = dailyStats[dailyStats.length - 1]
-  const yesterdayStats = dailyStats[dailyStats.length - 2]
+  const { language } = useAdminLanguage()
+  const isEnglish = language === 'en'
 
   const totalRevenue = dailyStats.reduce((sum, d) => sum + d.revenue, 0)
   const avgOccupancy = Math.round(
@@ -32,158 +23,96 @@ export default function AdminDashboardPage() {
   )
   const totalReservations = reservations.filter((r) => r.status !== 'cancelled').length
 
-  const todayCheckIns = reservations.filter(
-    (r) => r.checkIn === today && r.status === 'confirmed',
-  ).length
-  const todayCheckOuts = reservations.filter(
-    (r) => r.checkOut === today && r.status === 'checked-in',
-  ).length
-
   const stats = [
     {
-      title: 'Total Reservations',
+      label: isEnglish ? 'Nights booked' : 'Noches reservadas',
       value: totalReservations.toString(),
-      change: '+12%',
-      trend: 'up',
       icon: CalendarDays,
     },
     {
-      title: 'Monthly Revenue',
-      value: `$${totalRevenue.toLocaleString()}`,
-      change: '+8.2%',
-      trend: 'up',
+      label: isEnglish ? 'Revenue, 30 days' : 'Ingresos, 30 días',
+      value: `$${totalRevenue.toLocaleString('en-US')}`,
       icon: DollarSign,
     },
     {
-      title: 'Avg. Occupancy',
+      label: isEnglish ? 'Occupancy' : 'Ocupación',
       value: `${avgOccupancy}%`,
-      change: '+5%',
-      trend: 'up',
       icon: Percent,
     },
     {
-      title: 'Avg. Nightly Rate',
+      label: isEnglish ? 'Average night' : 'Noche promedio',
       value: `$${avgNightlyRate}`,
-      change: '-2%',
-      trend: 'down',
-      icon: BedDouble,
+      icon: TrendingUp,
     },
   ]
 
   return (
-    <>
-      <AdminHeader title="Dashboard" description="Overview of your property's performance" />
+    <div className="space-y-6">
+      {/* Leads with the one thing this business has that a hotel doesn't: a
+          single unit, so time is the axis. Real data — the rest is not. */}
+      <HouseTimeline />
 
-      <main className="p-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-semibold text-foreground mt-1">{stat.value}</p>
-                    <div
-                      className={`flex items-center gap-1 mt-1 text-sm ${
-                        stat.trend === 'up' ? 'text-success' : 'text-destructive'
-                      }`}
-                    >
-                      {stat.trend === 'up' ? (
-                        <ArrowUp className="h-4 w-4" />
-                      ) : (
-                        <ArrowDown className="h-4 w-4" />
-                      )}
-                      <span>{stat.change} from last month</span>
-                    </div>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <stat.icon className="h-6 w-6 text-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <DemoDataNotice />
 
-        {/* Today's Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Today&apos;s Check-ins</p>
-                  <p className="text-3xl font-semibold text-foreground">{todayCheckIns}</p>
-                </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label}>
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary">
+                <stat.icon className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm text-muted-foreground">{stat.label}</p>
+                {/* Serif for the figure: it is the one number per tile that
+                    matters, and it ties the panel to the brand's display face. */}
+                <p className="font-serif text-2xl text-foreground tabular-nums">{stat.value}</p>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Today&apos;s Check-outs</p>
-                  <p className="text-3xl font-semibold text-foreground">{todayCheckOuts}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        ))}
+      </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trend</CardTitle>
-              <CardDescription>Daily revenue over the last 30 days</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RevenueChart data={dailyStats} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Occupancy Rate</CardTitle>
-              <CardDescription>Daily occupancy percentage</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <OccupancyChart data={dailyStats} />
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">
+              {isEnglish ? 'Revenue' : 'Ingresos'}
+            </CardTitle>
+            <CardDescription>{isEnglish ? 'Last 30 days' : 'Últimos 30 días'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart data={dailyStats} />
+          </CardContent>
+        </Card>
 
-        {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Reservations</CardTitle>
-                <CardDescription>Latest booking activity</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RecentReservations reservations={reservations.slice(0, 5)} />
-              </CardContent>
-            </Card>
-          </div>
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Bookings by Channel</CardTitle>
-                <CardDescription>Revenue distribution</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChannelChart data={channelStats} />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-    </>
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">
+              {isEnglish ? 'Occupancy' : 'Ocupación'}
+            </CardTitle>
+            <CardDescription>
+              {isEnglish ? 'Share of nights booked' : 'Porcentaje de noches reservadas'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OccupancyChart data={dailyStats} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">
+            {isEnglish ? 'Where bookings come from' : 'De dónde vienen las reservas'}
+          </CardTitle>
+          <CardDescription>
+            {isEnglish ? 'Share of revenue by channel' : 'Ingresos por canal'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="max-w-md">
+          <ChannelChart data={channelStats} />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

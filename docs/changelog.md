@@ -501,3 +501,108 @@ token de un solo uso (el segundo intento falla); la contraseña nueva funciona
 y la vieja no; la sesión sobrevive al cambio propio; un `MANAGER` recibe 403 al
 intentar disparar un reset ajeno. En el navegador: las páginas de recuperación
 son accesibles sin sesión y el resto de `/admin` sigue redirigiendo.
+
+## 17. Panel de administración — traducción, invitaciones y pase visual
+
+Pedido tras usar el panel de Fase 4. Alcance acordado: solo `/admin`.
+
+### Bugs encontrados de paso
+
+- **Los tres gráficos no tenían color.** Usaban `hsl(var(--primary))`, pero al
+  retokenizar la marca (sección 15) `--primary` pasó a ser un hex, y
+  `hsl(#174d7a)` es CSS inválido. Lo introduje yo en esa pasada.
+- **Seis de las nueve pantallas no tenían navegación en móvil.** El botón del
+  menú vive dentro de `AdminHeader`, y solo tres páginas lo renderizaban. Era
+  un fallo funcional, no estético.
+- **La barra lateral seguía con la paleta de shadcn.** En la retokenización
+  excluí los tokens `--sidebar-*` porque el alcance era el sitio público, así
+  que el elemento más visible del panel usaba un coral ajeno a la marca.
+- **Una constante importada desde un módulo `'use client'` llegaba `undefined`
+  al servidor.** El layout leía `LANGUAGE_COOKIE` desde el provider del sitio
+  público; en un server component eso resuelve a `undefined`, y el idioma se
+  quedaba fijo en español pese a la cookie. Movida a `@areia-bela/shared`.
+
+### Traducción
+
+- `AdminLanguageProvider` propio, separado del público: aquel deriva el idioma
+  del segmento `[locale]` y navega al cambiarlo, pero `/admin` está excluido
+  de esa reescritura, así que reutilizarlo habría empujado a `/es/admin` y 404.
+  El admin usa estado más la **misma cookie**, así que cambiar el idioma en el
+  panel también cambia el sitio de huéspedes.
+- El idioma se lee en el servidor, de modo que el primer render ya sale bien.
+- Diccionario en `lib/admin-i18n.ts`, y la navegación pasó a indexarse por
+  clave en `admin-navigation.ts` para no traducir la misma etiqueta dos veces.
+
+### Invitaciones en lugar de contraseñas por correo
+
+Se pidió generar la contraseña y enviarla por correo. Se implementó **enlace de
+invitación**: el correo no es un canal seguro — la contraseña quedaría en el
+buzón para siempre y quien lo abriera entraría a la cuenta.
+
+- `POST /users` ya no acepta `password`; el campo desapareció también de
+  `UpdateUserDto`, porque un admin no debe fijar la contraseña de nadie.
+- Al crear la cuenta se guarda un hash aleatorio inservible: existe pero no se
+  puede entrar hasta seguir el enlace. Mantener `passwordHash` no nulo evita
+  añadir guardas de null en cuatro llamadas a `argon2.verify`.
+- `invitedAt` / `passwordSetAt` distinguen "invitado, nunca entró" de activo, y
+  la tabla de equipo lo muestra como "invitación pendiente" con opción de
+  reenviar.
+- Reutiliza el token de restablecimiento (mismo modelo, mismo endpoint), con
+  vida más larga (72 h frente a 1 h): una invitación llega sin avisar y puede
+  esperar en la bandeja. La página de reset cambia el texto con `?invite=1` en
+  vez de duplicarse.
+
+### Interfaz
+
+- El alta de miembros pasó de un formulario siempre visible al pie de la tabla
+  a un **botón que abre un modal**, sin campo de contraseña.
+- **Sonner montado** por fin: había dos sistemas de avisos en `packages/ui` y
+  ninguno conectado, así que cada mensaje era un div a mano. Ahora son toasts.
+- El encabezado se renderiza **una vez en el layout** y deriva su título de la
+  ruta: ninguna pantalla puede volver a olvidarlo. Se quitaron de paso las tres
+  notificaciones falsas ("Emily Johnson booked Luxury Suite") que llevaba.
+- **Settings perdió cuatro pestañas** (General, Booking, Notifications,
+  Billing): 26 campos que no guardaban nada tras un botón "Save changes" que
+  era un `setTimeout` de un segundo. No hay endpoint al que conectarlos —
+  llegan con el CMS en Fase 5. Un control que aparenta guardar es peor que
+  ningún control.
+- `guests` y `reservations` dejaron de decir "under construction" y usan el
+  componente `Empty`, que existía sin usar, explicando qué los llenará.
+- Las cinco pantallas con cifras inventadas llevan un aviso visible y fijo de
+  datos de ejemplo, para que nadie decida sobre ellas.
+
+### Diseño
+
+- La barra lateral pasa a **navy profundo con el elemento activo en crema**: es
+  la apuesta visual de esta pasada. Separa navegación de contenido mucho mejor
+  que el casi-blanco de shadcn y pone el color de marca a liderar.
+- El panel abre con **la casa en las próximas tres semanas**, no con cuatro
+  tarjetas genéricas: hay una sola unidad, así que el tiempo es el único eje
+  que importa. Y usa **datos reales** — las fechas bloqueadas del API son la
+  única información viva que el panel tiene hoy.
+- Paleta de gráficos **validada con el checker de la skill de dataviz** (banda
+  de luminosidad, croma, separación para daltonismo y contraste) en claro y
+  oscuro. El navy de marca falló la prueba por oscuro y grisáceo, así que la
+  primera serie es un pariente más claro y saturado. Los cinco hex sueltos de
+  informes pasaron a tokens.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores; 0 warnings en los archivos tocados)
+pnpm typecheck ✅
+pnpm test      ✅ (73 tests, +6 de invitaciones)
+```
+
+Contra el API real: crear un miembro sin contraseña devuelve 201 y deja
+`passwordSetAt` en null; enviar `password` en el cuerpo da 400; el invitado no
+puede entrar hasta usar el enlace; tras fijarla, entra y deja de figurar como
+pendiente. En el navegador: las nueve pantallas responden 200 y **todas** tienen
+el menú móvil, el panel cambia de idioma con la cookie en ambos sentidos, y el
+sitio público sigue intacto.
+
+Pendiente declarado: calendario, precios y mantenimiento **siguen modelados
+como hotel** (matriz de habitaciones, filtros por piso). Se acordó rehacerlos
+con forma de casa única y no alcanzó en esta pasada; quedan con el aviso de
+datos de ejemplo y su rediseño va a la siguiente.

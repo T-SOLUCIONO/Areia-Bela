@@ -44,6 +44,8 @@ const buildUser = (overrides: Partial<User> = {}): User =>
     lastLoginAt: null,
     totpSecret: null,
     totpEnabledAt: null,
+    invitedAt: null,
+    passwordSetAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -524,6 +526,79 @@ describe('AuthService', () => {
       const data = prisma.user.update.mock.calls[0][0].data
       expect(data).not.toHaveProperty('totpSecret')
       expect(data).not.toHaveProperty('totpEnabledAt')
+    })
+  })
+
+  describe('invitations', () => {
+    it('emails a link, never a password', async () => {
+      const user = buildUser({ passwordHash, passwordSetAt: null })
+      prisma.user.findUnique.mockResolvedValue(user)
+
+      await service.sendInvitationEmail(user.id, 'Ana Verifica')
+
+      const sent = (mail.send as jest.Mock).mock.calls[0][0]
+      expect(sent.to).toBe(user.email)
+      expect(sent.text).toContain('/admin/reset-password?token=')
+      expect(sent.text).toContain('&invite=1')
+      // The whole point of the flow: no credential travels by email.
+      expect(sent.text).not.toContain(passwordHash)
+      expect(sent.text.toLowerCase()).not.toMatch(/your password is|temporary password/)
+      expect(sent.text).toContain('Ana Verifica')
+    })
+
+    it('stores the invite token hashed and stamps invitedAt', async () => {
+      prisma.user.findUnique.mockResolvedValue(buildUser({ passwordHash, passwordSetAt: null }))
+
+      await service.sendInvitationEmail('user-1', 'Ana')
+
+      const stored = prisma.passwordResetToken.create.mock.calls[0][0].data.tokenHash
+      expect(stored).toMatch(/^[0-9a-f]{64}$/)
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { invitedAt: expect.any(Date) } }),
+      )
+    })
+
+    it('gives the invitation a longer life than a password reset', async () => {
+      prisma.user.findUnique.mockResolvedValue(buildUser({ passwordHash }))
+      await service.sendInvitationEmail('user-1', 'Ana')
+      const inviteExpiry = prisma.passwordResetToken.create.mock.calls[0][0].data.expiresAt
+
+      prisma.passwordResetToken.create.mockClear()
+      await service.sendPasswordResetEmail('admin@areiabela.com')
+      const resetExpiry = prisma.passwordResetToken.create.mock.calls[0][0].data.expiresAt
+
+      expect(inviteExpiry.getTime()).toBeGreaterThan(resetExpiry.getTime())
+    })
+
+    it('invalidates any earlier link when re-invited', async () => {
+      prisma.user.findUnique.mockResolvedValue(buildUser({ passwordHash, passwordSetAt: null }))
+      await service.sendInvitationEmail('user-1', 'Ana')
+      expect(prisma.passwordResetToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1', usedAt: null } }),
+      )
+    })
+
+    it('does not invite a deactivated account', async () => {
+      prisma.user.findUnique.mockResolvedValue(buildUser({ passwordHash, active: false }))
+      await service.sendInvitationEmail('user-1', 'Ana')
+      expect(mail.send).not.toHaveBeenCalled()
+    })
+
+    it('accepting the invitation records passwordSetAt', async () => {
+      prisma.passwordResetToken.findUnique.mockResolvedValue({
+        id: 'prt-1',
+        userId: 'user-1',
+        tokenHash: 'hash',
+        expiresAt: new Date(Date.now() + 60_000),
+        usedAt: null,
+        createdAt: new Date(),
+        user: buildUser({ passwordHash, passwordSetAt: null }),
+      })
+
+      await service.resetPassword('raw', 'ChosenByThem2026')
+
+      // This is what flips the UI from "invitation pending" to active.
+      expect(prisma.user.update.mock.calls[0][0].data.passwordSetAt).toBeInstanceOf(Date)
     })
   })
 

@@ -12,7 +12,11 @@ import { MIN_PASSWORD_LENGTH } from '@areia-bela/shared'
 import { apiFetch, ApiError } from '@/lib/api-client'
 
 function ResetForm() {
-  const token = useSearchParams().get('token')
+  const params = useSearchParams()
+  const token = params.get('token')
+  // Same token, same endpoint, same form — only the wording differs, so an
+  // invitation doesn't need a second page to maintain.
+  const isInvite = params.get('invite') === '1'
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -39,7 +43,9 @@ function ResetForm() {
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 401
-          ? 'This link is invalid or has expired. Request a new one.'
+          ? isInvite
+            ? 'This invitation link is invalid or has expired. Ask for a new one.'
+            : 'This link is invalid or has expired. Request a new one.'
           : 'Could not set your new password. Try again.',
       )
     } finally {
@@ -75,9 +81,13 @@ function ResetForm() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
             <Check className="h-8 w-8 text-emerald-600" />
           </div>
-          <CardTitle className="font-serif text-2xl">Password updated</CardTitle>
+          <CardTitle className="font-serif text-2xl">
+            {isInvite ? 'Your account is ready' : 'Password updated'}
+          </CardTitle>
           <CardDescription>
-            You can sign in with your new password. Any other devices have been signed out.
+            {isInvite
+              ? 'Sign in with the password you just chose.'
+              : 'You can sign in with your new password. Any other devices have been signed out.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -95,8 +105,14 @@ function ResetForm() {
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
           <KeyRound className="h-8 w-8 text-primary" />
         </div>
-        <CardTitle className="font-serif text-2xl">Set a new password</CardTitle>
-        <CardDescription>Choose something you don&apos;t use anywhere else.</CardDescription>
+        <CardTitle className="font-serif text-2xl">
+          {isInvite ? 'Welcome to Areia Bela' : 'Set a new password'}
+        </CardTitle>
+        <CardDescription>
+          {isInvite
+            ? 'Choose a password to finish setting up your account.'
+            : "Choose something you don't use anywhere else."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-4">
@@ -107,7 +123,7 @@ function ResetForm() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="new-password">New password</Label>
+            <Label htmlFor="new-password">{isInvite ? 'Password' : 'New password'}</Label>
             <Input
               id="new-password"
               type="password"
@@ -124,7 +140,9 @@ function ResetForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm new password</Label>
+            <Label htmlFor="confirm-password">
+              {isInvite ? 'Confirm password' : 'Confirm new password'}
+            </Label>
             <Input
               id="confirm-password"
               type="password"
@@ -137,7 +155,7 @@ function ResetForm() {
           </div>
 
           <Button type="submit" variant="brand" size="lg" className="w-full" disabled={busy}>
-            {busy ? 'Saving...' : 'Set new password'}
+            {busy ? 'Saving...' : isInvite ? 'Create my account' : 'Set new password'}
           </Button>
         </form>
       </CardContent>

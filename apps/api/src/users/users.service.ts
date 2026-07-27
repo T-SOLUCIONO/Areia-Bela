@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { UserRole, type User } from '@prisma/client'
+import { randomBytes } from 'node:crypto'
 import { PrismaService } from '../prisma/prisma.service'
 import { AuthService } from '../auth/auth.service'
 import { CreateUserDto } from './dto/create-user.dto'
@@ -22,6 +23,8 @@ const PUBLIC_FIELDS = {
   createdAt: true,
   updatedAt: true,
   totpEnabledAt: true,
+  invitedAt: true,
+  passwordSetAt: true,
 } as const
 
 @Injectable()
@@ -44,22 +47,52 @@ export class UsersService {
     return user
   }
 
-  async create(dto: CreateUserDto) {
+  /**
+   * Creates the account and emails an invitation. The stored hash is random
+   * and unguessable, so the account exists but cannot be signed into until the
+   * invitee follows the link and picks their own password. Nobody — not even
+   * the superadmin who invited them — ever knows that password.
+   */
+  async create(dto: CreateUserDto, invitedByUserId: string) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } })
     if (existing) {
       throw new ConflictException('A user with that email already exists')
     }
 
-    return this.prisma.user.create({
+    const unusablePassword = randomBytes(32).toString('base64url')
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email,
-        passwordHash: await AuthService.hashPassword(dto.password),
+        passwordHash: await AuthService.hashPassword(unusablePassword),
         firstName: dto.firstName,
         lastName: dto.lastName,
         role: dto.role,
       },
       select: PUBLIC_FIELDS,
     })
+
+    await this.authService.sendInvitationEmail(user.id, await this.displayName(invitedByUserId))
+
+    // Re-read: sendInvitationEmail stamps invitedAt, and the caller needs the
+    // row as it now stands so the UI can show "invitation pending".
+    return this.findOne(user.id)
+  }
+
+  /** Re-sends the invitation to someone who hasn't set a password yet. */
+  async resendInvitation(id: string, invitedByUserId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } })
+    if (!user) throw new NotFoundException('User not found')
+    if (!user.active) {
+      throw new BadRequestException('Reactivate the account before re-sending the invitation')
+    }
+    if (user.passwordSetAt) {
+      throw new BadRequestException(
+        'This person already set a password. Send a password reset instead.',
+      )
+    }
+
+    await this.authService.sendInvitationEmail(user.id, await this.displayName(invitedByUserId))
+    return { message: `Invitation re-sent to ${user.email}` }
   }
 
   async update(id: string, dto: UpdateUserDto, actingUserId: string) {
@@ -68,8 +101,6 @@ export class UsersService {
 
     await this.assertNotLockingEveryoneOut(target, dto, actingUserId)
 
-    const passwordHash = dto.password ? await AuthService.hashPassword(dto.password) : undefined
-
     const user = await this.prisma.user.update({
       where: { id },
       data: {
@@ -77,15 +108,13 @@ export class UsersService {
         lastName: dto.lastName,
         role: dto.role,
         active: dto.active,
-        ...(passwordHash ? { passwordHash } : {}),
       },
       select: PUBLIC_FIELDS,
     })
 
-    // Any of these invalidate existing sessions: a deactivated or demoted user
-    // must not keep browsing on an access token issued before the change, and
-    // a password change should log other devices out.
-    const revokes = dto.active === false || dto.role !== undefined || dto.password !== undefined
+    // Both invalidate existing sessions: a deactivated or demoted user must
+    // not keep browsing on an access token issued before the change.
+    const revokes = dto.active === false || dto.role !== undefined
     if (revokes) {
       await this.authService.revokeAllForUser(id)
     }
@@ -119,6 +148,18 @@ export class UsersService {
 
     await this.authService.sendPasswordResetEmail(user.email, true)
     return { message: `Reset link sent to ${user.email}` }
+  }
+
+  /**
+   * The access token deliberately carries no name, so the inviter's is read
+   * here rather than widening the JWT payload with more personal data.
+   */
+  private async displayName(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    })
+    return user ? `${user.firstName} ${user.lastName}`.trim() : 'An administrator'
   }
 
   /**

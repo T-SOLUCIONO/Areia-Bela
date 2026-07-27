@@ -7,6 +7,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   ACCOUNT_LOCKOUT_MINUTES,
+  INVITATION_TTL_HOURS,
   MAX_FAILED_LOGIN_ATTEMPTS,
   PASSWORD_RESET_TTL_MINUTES,
   RECOVERY_CODE_COUNT,
@@ -16,6 +17,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service'
 import { MailService } from '../mail/mail.service'
 import { passwordResetEmail } from '../mail/templates/password-reset'
+import { invitationEmail } from '../mail/templates/invitation'
 import { TotpService } from './totp.service'
 import {
   TOTP_CHALLENGE_PURPOSE,
@@ -356,31 +358,69 @@ export class AuthService {
       return
     }
 
-    // Invalidate any outstanding link, so requesting a new one makes the
-    // previous email useless.
+    const token = await this.issueResetToken(user.id, PASSWORD_RESET_TTL_MINUTES)
+    await this.mailService.send(
+      passwordResetEmail({
+        to: user.email,
+        firstName: user.firstName,
+        resetUrl: this.buildResetUrl(token),
+        requestedByAdmin,
+      }),
+    )
+  }
+
+  /**
+   * Invitation email for a freshly created account. Same single-use token as a
+   * reset — the invitee sets their own password, so no credential ever travels
+   * by email and nobody but them ever knows it. Longer-lived than a reset:
+   * people don't always act on an invitation the same hour.
+   */
+  async sendInvitationEmail(userId: string, invitedByName: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user || !user.active) return
+
+    const token = await this.issueResetToken(userId, INVITATION_TTL_HOURS * 60)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { invitedAt: new Date() },
+    })
+
+    await this.mailService.send(
+      invitationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        invitedByName,
+        // `invite=1` only swaps the wording on the page; the form, validation
+        // and endpoint are identical, so there is no second page to maintain.
+        acceptUrl: `${this.buildResetUrl(token)}&invite=1`,
+      }),
+    )
+  }
+
+  /**
+   * Mints a single-use token, invalidating any outstanding one for that user
+   * so a re-sent email makes the previous link dead.
+   */
+  private async issueResetToken(userId: string, ttlMinutes: number): Promise<string> {
     await this.prisma.passwordResetToken.updateMany({
-      where: { userId: user.id, usedAt: null },
+      where: { userId, usedAt: null },
       data: { usedAt: new Date() },
     })
 
     const token = randomBytes(32).toString('base64url')
     await this.prisma.passwordResetToken.create({
       data: {
-        userId: user.id,
+        userId,
         tokenHash: AuthService.hashResetToken(token),
-        expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000),
+        expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
       },
     })
+    return token
+  }
 
+  private buildResetUrl(token: string): string {
     const baseUrl = this.config.get<string>('WEB_APP_URL') ?? 'http://localhost:3000'
-    await this.mailService.send(
-      passwordResetEmail({
-        to: user.email,
-        firstName: user.firstName,
-        resetUrl: `${baseUrl}/admin/reset-password?token=${token}`,
-        requestedByAdmin,
-      }),
-    )
+    return `${baseUrl}/admin/reset-password?token=${token}`
   }
 
   /**
@@ -409,6 +449,9 @@ export class AuthService {
         where: { id: stored.userId },
         data: {
           passwordHash: await AuthService.hashPassword(newPassword),
+          // Marks the invitation as accepted; also how the UI stops showing
+          // "invitation pending" for this person.
+          passwordSetAt: new Date(),
           // A reset is also the way back in from a lockout.
           failedLoginAttempts: 0,
           lockedUntil: null,
