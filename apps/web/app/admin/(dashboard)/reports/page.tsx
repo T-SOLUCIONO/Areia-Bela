@@ -168,7 +168,6 @@ export default function ReportsPage() {
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
-          <TabsTrigger value="rooms">Room Performance</TabsTrigger>
         </TabsList>
 
         {/* Revenue Tab */}
@@ -333,44 +332,6 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        {/* Room Performance Tab */}
-        <TabsContent value="rooms" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Room Type Performance</CardTitle>
-              <CardDescription>Detailed metrics by room category</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Room Type</TableHead>
-                    <TableHead className="text-right">Bookings</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">ADR</TableHead>
-                    <TableHead className="text-right">Occupancy</TableHead>
-                    <TableHead className="text-right">RevPAR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roomPerformance.map((room) => (
-                    <TableRow key={room.room}>
-                      <TableCell className="font-medium">{room.room}</TableCell>
-                      <TableCell className="text-right">{room.bookings}</TableCell>
-                      <TableCell className="text-right">${room.revenue.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">${room.adr}</TableCell>
-                      <TableCell className="text-right">{room.occupancy}%</TableCell>
-                      <TableCell className="text-right">
-                        ${Math.round(room.adr * (room.occupancy / 100))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

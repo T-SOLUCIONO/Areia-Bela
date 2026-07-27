@@ -602,7 +602,56 @@ pendiente. En el navegador: las nueve pantallas responden 200 y **todas** tienen
 el menú móvil, el panel cambia de idioma con la cookie en ambos sentidos, y el
 sitio público sigue intacto.
 
-Pendiente declarado: calendario, precios y mantenimiento **siguen modelados
-como hotel** (matriz de habitaciones, filtros por piso). Se acordó rehacerlos
-con forma de casa única y no alcanzó en esta pasada; quedan con el aviso de
-datos de ejemplo y su rediseño va a la siguiente.
+Pendiente en su momento, **resuelto en la sección 18**: calendario, precios y
+mantenimiento seguían modelados como hotel.
+
+## 18. Las tres pantallas de hotel, rehechas como casa única
+
+Cierra el pendiente declarado en la sección 17. `CLAUDE.md` prohíbe
+reintroducir `Room`, y estas tres pantallas eran exactamente eso: una matriz de
+habitaciones × fechas, tarifas por tipo de cuarto y tareas por número de
+habitación. Restilizarlas habría conservado el modelo equivocado.
+
+- **Calendario**: una sola línea de tiempo. Hay una unidad reservable, así que
+  no existe una segunda fila que poner — un mes en rejilla donde cada noche
+  está libre o no. Se fueron el filtro por piso y el selector de vista.
+  Las fechas bloqueadas salen del **API real**, lo que convierte esta en la
+  única pantalla del panel completamente viva.
+- **Precios**: por noche para la casa entera. Tarifa base ($300), limpieza
+  ($120) y los cuatro extras son las **cifras reales** del listing y de
+  `docs/domain-decisions.md`, así que esta pantalla **perdió el aviso de datos
+  de ejemplo**: mantenerlo habría sido mentir al revés. Las temporadas dicen
+  abiertamente que aún no existen en vez de inventar tarifas, porque no hay
+  cifras reales para ellas.
+- **Mantenimiento**: agrupado por zona de la casa — piscina, cocina, baños,
+  exterior — en vez de por número de cuarto y piso. Son tres dormitorios y dos
+  baños, no un plano de unidades numeradas. Las tareas siguen siendo de
+  ejemplo, y lo dice.
+
+Limpieza asociada:
+
+- `recent-reservations.tsx` y `upcoming-activity.tsx` quedaron huérfanos al
+  rediseñar el panel y ambos imprimían "Room N": eliminados.
+- La pestaña "Room Type Performance" de informes, que es literalmente el
+  reporte de ocupación por tipo de cuarto que el dominio prohíbe: eliminada.
+- `mockRooms`, `mockStaff`, `mockReservations`, `mockPricingRules`,
+  `mockMaintenanceTasks` y `roomStats` quedan sin un solo consumidor. Se dejan
+  en `lib/mock-data.ts` por ahora: borrarlos es una limpieza aparte y este
+  cambio ya es grande.
+
+Un `useMemo` del calendario impedía que el React Compiler optimizara el
+componente (error de lint, no advertencia). Eliminado: son 42 fechas y el
+compilador lo hace mejor solo.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (73 tests)
+```
+
+Las tres pantallas responden 200 y **cero coincidencias** de "Room", "piso" o
+"habitación" en todo `/admin`. Precios muestra las cifras reales; mantenimiento
+lista las zonas; el calendario abre en el mes actual con sus controles.
