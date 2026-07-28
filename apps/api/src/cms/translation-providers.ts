@@ -40,6 +40,47 @@ interface DeepLResponse {
 }
 
 /**
+ * Names that must survive translation untouched.
+ *
+ * Found the hard way: DeepL turned "St. Petersburg" into "Saint-Pétersbourg"
+ * and "São Petersburgo", which are the Russian city. A French guest would read
+ * that the house is in Russia. "Florida" is deliberately absent — "Floride" is
+ * simply how a French speaker says it, and protecting it would read as a typo.
+ */
+const PROTECTED_TERMS = [
+  'Areia Bela',
+  'Madeira Beach',
+  "John's Pass Village & Boardwalk",
+  "John's Pass",
+  // Only the canonical spelling: the unpunctuated form is derived below, and
+  // listing both made the two entries overwrite each other's mapping.
+  'St. Petersburg',
+]
+
+/**
+ * How each protected name comes back translated, per target language, so it
+ * can be put back.
+ *
+ * Two approaches were tried and abandoned before this one:
+ *
+ * - `ignore_tags`, which hides the term from DeepL. It broke the grammar
+ *   around it, because the model could no longer see the word it had to agree
+ *   with: "près d'Madeira Beach", "perto dMadeira Beach".
+ * - A glossary per language, which is DeepL's own answer to this. The free
+ *   tier allows exactly **one glossary per account**, so it cannot cover four
+ *   target languages.
+ *
+ * What is left works and depends on nothing: translate each name on its own
+ * once, learn what DeepL turns it into, and swap it back afterwards. DeepL
+ * still sees the full sentence, so the grammar is right; only the noun is
+ * restored. In practice only French does this at all — it renders
+ * "St. Petersburg" as "Saint-Pétersbourg", the Russian city.
+ */
+type VariantMap = Map<string, string>
+
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
  * DeepL, free tier: 500,000 characters a month at no cost, indefinitely.
  *
  * Best quality of the three for exactly these languages, which are DeepL's
@@ -51,15 +92,66 @@ interface DeepLResponse {
 export class DeepLProvider implements TranslationProvider {
   readonly name = 'DeepL'
 
+  /** One promise per target language, so concurrent saves don't each learn them. */
+  private readonly variants = new Map<string, Promise<VariantMap>>()
+
   constructor(private readonly apiKey: string) {}
 
-  /** Free keys end in `:fx` and live on a different host than paid ones. */
   private get endpoint(): string {
     const host = this.apiKey.endsWith(':fx') ? 'api-free.deepl.com' : 'api.deepl.com'
     return `https://${host}/v2/translate`
   }
 
+  /**
+   * Learns, once per language, which protected names DeepL alters.
+   *
+   * A failure here yields an empty map rather than throwing: place names may
+   * come out translated, which is worse than nothing but far better than
+   * refusing to translate the page at all.
+   */
+  private learnVariants(to: SupportedLocale): Promise<VariantMap> {
+    const cached = this.variants.get(to)
+    if (cached) return cached
+
+    const learning = (async () => {
+      const map: VariantMap = new Map()
+
+      for (const term of PROTECTED_TERMS) {
+        // DeepL also drops the full stop in abbreviations: "St. Petersburg"
+        // comes back as "St Petersburg" in French and German. That is not a
+        // translation, just normalisation, and the source spelling should win.
+        const unpunctuated = term.replace(/\./g, '')
+        if (unpunctuated !== term) map.set(unpunctuated, term)
+
+        try {
+          const translated = await this.request(term, 'es', to)
+          // Only the ones it changes are worth restoring.
+          if (translated && translated !== term) map.set(translated, term)
+        } catch {
+          // Skip this term; the rest of the language still gets protected.
+        }
+      }
+
+      return map
+    })()
+
+    this.variants.set(to, learning)
+    return learning
+  }
+
   async translate(text: string, from: SupportedLocale, to: SupportedLocale): Promise<string> {
+    const translated = await this.request(text, from, to)
+    if (from !== 'es') return translated
+
+    let restored = translated
+    for (const [variant, original] of await this.learnVariants(to)) {
+      restored = restored.replace(new RegExp(escapeRegex(variant), 'g'), original)
+    }
+
+    return restored
+  }
+
+  private async request(text: string, from: SupportedLocale, to: SupportedLocale): Promise<string> {
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: {

@@ -1175,3 +1175,82 @@ pnpm test      ✅ (116 tests, 13 nuevos de proveedores)
 - Los tests cubren el enrutado de host por sufijo de clave, `EN-US`/`PT-BR`, el
   456 de cupo y la barra final de LibreTranslate — que es justo lo que se rompe
   en silencio.
+
+## 24. DeepL mudaba la casa a Rusia
+
+Con la clave puesta y las 416 traducciones generadas, la primera revisión del
+resultado encontró esto:
+
+```
+fr: Saint-Pétersbourg, Floride, États-Unis
+pt: Casa inteira com piscina aquecida em São Petersburgo
+```
+
+DeepL tradujo el topónimo. "Saint-Pétersbourg" y "São Petersburgo" son la
+ciudad rusa: un huésped francés leía que la casa está en Rusia, junto a la
+palabra "Floride". Es exactamente la clase de detalle que hace desconfiar de un
+sitio de reservas.
+
+### Tres intentos, dos descartados
+
+**`ignore_tags`.** Envolver el nombre en una etiqueta que DeepL ignora. Los
+nombres sobrevivieron, pero se rompió la gramática alrededor, porque el modelo
+dejó de ver la palabra con la que tenía que concordar:
+
+```
+fr: près d'Madeira Beach     pt: perto dMadeira Beach     fr: à l'St. Petersburg
+```
+
+Cambié un error por uno peor: éste se ve roto a simple vista. Descartado.
+
+**Glosario.** Es la respuesta propia de DeepL a este problema, y los cuatro
+pares la soportan. Pero al crearlos:
+
+```
+fr: creado     de: Too many glossaries     pt: Too many glossaries
+```
+
+**El plan gratuito permite exactamente un glosario por cuenta**, así que no
+puede cubrir cuatro idiomas de destino. Descartado, y anotado aquí para que
+nadie lo intente otra vez.
+
+**Aprender y revertir.** Lo que quedó, y que no depende de nada: se traduce
+cada nombre por separado una vez, se aprende en qué lo convierte DeepL, y se
+sustituye de vuelta en el resultado. DeepL sigue viendo la frase entera, así
+que la gramática sale bien; solo se restaura el sustantivo. En la práctica solo
+el francés lo traducía.
+
+Se aprende una vez por idioma y se cachea: seis términos por cuatro idiomas,
+veinticuatro llamadas cortas por proceso.
+
+De paso apareció que DeepL también quita el punto de las abreviaturas —
+"St. Petersburg" volvía como "St Petersburg" en francés y alemán. Eso no es
+traducir, es normalizar, y gana la forma que escribió el anfitrión.
+
+### Un bug que encontró un test
+
+Tener a la vez `'St. Petersburg'` y `'St Petersburg'` en la lista hacía que las
+dos entradas se pisaran el mapeo, y el resultado perdía el punto. Solo se lista
+la forma canónica; la variante sin puntuación se deriva.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (120 tests, 6 nuevos)
+```
+
+Contra la API real de DeepL, los tres idiomas que fallaban:
+
+```
+fr: Ton petit coin de paradis avec piscine près de Madeira Beach
+    St. Petersburg, Floride, États-Unis
+pt: Seu refúgio com piscina perto de Madeira Beach
+    St. Petersburg, Flórida, Estados Unidos
+de: Dein Rückzugsort mit Pool in der Nähe von Madeira Beach
+    St. Petersburg, Florida, USA
+```
+
+Gramática natural y nombres propios intactos. Las traducciones automáticas se
+borraron y regeneraron; las escritas por personas —el inglés original migrado—
+no se tocaron, que es para lo que existe `isMachine`.

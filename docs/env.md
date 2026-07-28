@@ -56,6 +56,20 @@ del plan gratuito terminan en `:fx`) y ponerla en `DEEPL_API_KEY`. El código
 detecta el sufijo y usa el host correcto — las claves gratuitas dan 404 contra
 el host de pago, que es una forma confusa de descubrir el error.
 
+**Nombres propios.** DeepL traduce topónimos: convirtió "St. Petersburg" en
+"Saint-Pétersbourg", que es la ciudad rusa. La lista `PROTECTED_TERMS` de
+`apps/api/src/cms/translation-providers.ts` los protege — se traduce cada uno
+por separado una vez para aprender en qué los convierte, y se revierte en el
+resultado. **Si añades un nombre propio nuevo al contenido** (otro punto de
+interés, una marca), agrégalo a esa lista.
+
+No se usa el glosario de DeepL, que sería lo natural: **el plan gratuito
+permite un solo glosario por cuenta** y hacen falta cuatro, uno por idioma de
+destino. Está documentado en `docs/changelog.md` §24 para que no se reintente.
+
+LibreTranslate no tiene un mecanismo equivalente. Claude no lo necesita: se le
+dice en el prompt, y no cometió este error.
+
 Sin ninguna clave:
 
 - `GET /cms/admin/translation-status` responde `{"configured": false}`.
