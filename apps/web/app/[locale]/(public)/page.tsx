@@ -32,6 +32,12 @@ export default function HomePage() {
       : bundledImages
   // Sections and reviews come from /admin/content. When the API is unreachable
   // `sections` is empty and each block falls back to the bundled copy below.
+  // True once the CMS has answered. A section missing from `sections` then
+  // means the host hid it — not that the API is down — so it must not fall
+  // back to the bundled copy.
+  const cmsReady = siteContent?.available ?? false
+  const shows = (section: { published: boolean } | undefined) =>
+    cmsReady ? Boolean(section) : true
   const sections = siteContent?.sections
   const cmsReviews = siteContent?.reviews ?? []
   const featured = cmsReviews.find((review) => review.featured) ?? cmsReviews[0]
@@ -146,107 +152,114 @@ export default function HomePage() {
     <div className="bg-background text-foreground">
       <HomeHero images={galleryImages} />
 
-      <section id="gallery" className="relative overflow-hidden py-10 sm:py-12 lg:py-14">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_32%),linear-gradient(180deg,rgba(247,242,234,0.96)_0%,rgba(247,242,234,0.9)_100%)]" />
+      {shows(features) && (
+        <section id="gallery" className="relative overflow-hidden py-10 sm:py-12 lg:py-14">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_32%),linear-gradient(180deg,rgba(247,242,234,0.96)_0%,rgba(247,242,234,0.9)_100%)]" />
 
-        <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-px w-12 bg-[#174d7a]/30" />
-            <h2 className="font-serif text-3xl tracking-tight text-[#173a57] sm:text-4xl">
-              {text(features, 'title', home.galleryTitle)}
-            </h2>
-          </div>
-
-          <div className="relative mt-8">
-            <PhotoGallery
-              photos={propertyData.photos}
-              propertyName={propertyData.name}
-              showAllLabel={home.showAllPhotos}
-            />
-          </div>
-
-          {featureCards.length > 0 && (
-            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {featureCards.map((card, index) => {
-                const title = localized(card, 'label', language)
-                return (
-                  <article
-                    key={card.id}
-                    className="overflow-hidden rounded-[28px] border border-white/70 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]"
-                  >
-                    <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
-                      <Image
-                        // A card with no image of its own borrows one from the
-                        // gallery rather than leaving a hole in the grid.
-                        src={card.imageUrl ?? galleryImages[index + 1] ?? galleryImages[0]}
-                        alt={title}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover transition-transform duration-700 hover:scale-[1.03]"
-                      />
-                    </div>
-                    <div className="p-5">
-                      <div className="flex items-center gap-2 text-[#174d7a]">
-                        <ContentIcon name={card.icon} className="h-5 w-5" />
-                        <h3 className="font-serif text-2xl text-[#173a57]">{title}</h3>
-                      </div>
-                      <p className="mt-3 text-[15px] leading-7 text-slate-600">
-                        {localized(card, 'body', language)}
-                      </p>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section id="amenities" className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        <div className="rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-[#174d7a]">
-                <Sparkles className="h-5 w-5" />
-                <span className="text-sm font-semibold uppercase tracking-[0.2em]">
-                  {text(amenities, 'eyebrow', language === 'en' ? 'Amenities' : 'Servicios')}
-                </span>
-              </div>
-              <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
-                {text(amenities, 'title', home.amenitiesTitle)}
+          <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-px w-12 bg-[#174d7a]/30" />
+              <h2 className="font-serif text-3xl tracking-tight text-[#173a57] sm:text-4xl">
+                {text(features, 'title', home.galleryTitle)}
               </h2>
             </div>
-            <p className="max-w-xl text-[15px] leading-7 text-slate-600">
-              {text(amenities, 'body', home.amenitiesBody)}
-            </p>
-          </div>
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            {(amenityTags.length > 0
-              ? amenityTags.map((tag) => ({
-                  key: tag.id,
-                  icon: tag.icon,
-                  label: localized(tag, 'label', language),
-                }))
-              : propertyInfo.amenities
-                  .slice(0, 18)
-                  .map((amenity) => ({ key: amenity, icon: '', label: amenity }))
-            ).map((tag) => (
-              <span
-                key={tag.key}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700"
-              >
-                <ContentIcon name={tag.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
-                {tag.label}
-              </span>
-            ))}
+            <div className="relative mt-8">
+              <PhotoGallery
+                photos={propertyData.photos}
+                propertyName={propertyData.name}
+                showAllLabel={home.showAllPhotos}
+              />
+            </div>
+
+            {featureCards.length > 0 && (
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {featureCards.map((card, index) => {
+                  const title = localized(card, 'label', language)
+                  return (
+                    <article
+                      key={card.id}
+                      className="overflow-hidden rounded-[28px] border border-white/70 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]"
+                    >
+                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
+                        <Image
+                          // A card with no image of its own borrows one from the
+                          // gallery rather than leaving a hole in the grid.
+                          src={card.imageUrl ?? galleryImages[index + 1] ?? galleryImages[0]}
+                          alt={title}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover transition-transform duration-700 hover:scale-[1.03]"
+                        />
+                      </div>
+                      <div className="p-5">
+                        <div className="flex items-center gap-2 text-[#174d7a]">
+                          <ContentIcon name={card.icon} className="h-5 w-5" />
+                          <h3 className="font-serif text-2xl text-[#173a57]">{title}</h3>
+                        </div>
+                        <p className="mt-3 text-[15px] leading-7 text-slate-600">
+                          {localized(card, 'body', language)}
+                        </p>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {shows(amenities) && (
+        <section
+          id="amenities"
+          className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10"
+        >
+          <div className="rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-[#174d7a]">
+                  <Sparkles className="h-5 w-5" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em]">
+                    {text(amenities, 'eyebrow', language === 'en' ? 'Amenities' : 'Servicios')}
+                  </span>
+                </div>
+                <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
+                  {text(amenities, 'title', home.amenitiesTitle)}
+                </h2>
+              </div>
+              <p className="max-w-xl text-[15px] leading-7 text-slate-600">
+                {text(amenities, 'body', home.amenitiesBody)}
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {(amenityTags.length > 0
+                ? amenityTags.map((tag) => ({
+                    key: tag.id,
+                    icon: tag.icon,
+                    label: localized(tag, 'label', language),
+                  }))
+                : propertyInfo.amenities
+                    .slice(0, 18)
+                    .map((amenity) => ({ key: amenity, icon: '', label: amenity }))
+              ).map((tag) => (
+                <span
+                  key={tag.key}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700"
+                >
+                  <ContentIcon name={tag.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* The whole block disappears when the host unpublishes it — an empty
           testimonials frame is worse than no testimonials. */}
-      {reviewsSection?.published !== false && (
+      {shows(reviewsSection) && (
         <section
           id="reviews"
           className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
@@ -409,84 +422,89 @@ export default function HomePage() {
       {/* Everything below the reviews is editable from /admin/content. */}
       <HouseDetails />
 
-      <section id="location" className="mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16">
-        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
-          <div>
-            <h2 className="font-serif text-3xl text-[#173a57] sm:text-4xl">
-              {text(location, 'title', home.locationTitle)}
-            </h2>
-            <p className="mt-2 text-slate-600">{text(location, 'subtitle', home.locationSub)}</p>
+      {shows(location) && (
+        <section
+          id="location"
+          className="mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16"
+        >
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
+            <div>
+              <h2 className="font-serif text-3xl text-[#173a57] sm:text-4xl">
+                {text(location, 'title', home.locationTitle)}
+              </h2>
+              <p className="mt-2 text-slate-600">{text(location, 'subtitle', home.locationSub)}</p>
 
-            <div className="mt-6 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-              <div className="relative h-[360px] w-full sm:h-[480px]">
-                <iframe
-                  src={
-                    location?.linkUrl ??
-                    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3528.27419102434!2d-82.78821252441964!3d27.816251620242203!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88c2fd15ebc9ec1f%3A0xea5d3d7f3368a9aa!2sAreia%20Bela!5e0!3m2!1sen!2sus!4v1710128828956!5m2!1sen!2sus'
-                  }
-                  className="h-full w-full border-0"
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Areia Bela map"
-                />
+              <div className="mt-6 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+                <div className="relative h-[360px] w-full sm:h-[480px]">
+                  <iframe
+                    src={
+                      location?.linkUrl ??
+                      'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3528.27419102434!2d-82.78821252441964!3d27.816251620242203!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88c2fd15ebc9ec1f%3A0xea5d3d7f3368a9aa!2sAreia%20Bela!5e0!3m2!1sen!2sus!4v1710128828956!5m2!1sen!2sus'
+                    }
+                    className="h-full w-full border-0"
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Areia Bela map"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-end space-y-4">
+              <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <h3 className="font-serif text-2xl text-[#173a57]">
+                  {text(location, 'body', home.nearbyTitle)}
+                </h3>
+                <div className="mt-4 space-y-4">
+                  {(highlights.length > 0
+                    ? highlights.map((item) => ({
+                        key: item.id,
+                        icon: item.icon,
+                        label: localized(item, 'label', language),
+                      }))
+                    : home.nearby.map((item) => ({ key: item, icon: '', label: item }))
+                  ).map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                    >
+                      {item.icon ? (
+                        <ContentIcon name={item.icon} className="h-4 w-4 shrink-0 text-[#174d7a]" />
+                      ) : (
+                        <MapPin className="h-4 w-4 shrink-0 text-[#174d7a]" />
+                      )}
+                      <span className="text-sm text-slate-700">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-white/70 bg-[#174d7a] p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
+                <div className="flex items-center gap-2 text-white/80">
+                  <Sparkles className="h-5 w-5" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em]">
+                    {text(directBooking, 'title', home.directTitle)}
+                  </span>
+                </div>
+                <p className="mt-3 text-[15px] leading-7 text-white/85">
+                  {text(directBooking, 'body', home.directBody)}
+                </p>
+                <Button
+                  asChild
+                  className="mt-5 h-11 rounded-full bg-white px-5 font-semibold text-[#174d7a] hover:bg-white/90"
+                >
+                  <Link href={directBooking?.ctaHref || '#reservar'}>
+                    {text(directBooking, 'ctaLabel', home.directCta)}
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
+        </section>
+      )}
 
-          <div className="flex flex-col justify-end space-y-4">
-            <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-              <h3 className="font-serif text-2xl text-[#173a57]">
-                {text(location, 'body', home.nearbyTitle)}
-              </h3>
-              <div className="mt-4 space-y-4">
-                {(highlights.length > 0
-                  ? highlights.map((item) => ({
-                      key: item.id,
-                      icon: item.icon,
-                      label: localized(item, 'label', language),
-                    }))
-                  : home.nearby.map((item) => ({ key: item, icon: '', label: item }))
-                ).map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                  >
-                    {item.icon ? (
-                      <ContentIcon name={item.icon} className="h-4 w-4 shrink-0 text-[#174d7a]" />
-                    ) : (
-                      <MapPin className="h-4 w-4 shrink-0 text-[#174d7a]" />
-                    )}
-                    <span className="text-sm text-slate-700">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-white/70 bg-[#174d7a] p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
-              <div className="flex items-center gap-2 text-white/80">
-                <Sparkles className="h-5 w-5" />
-                <span className="text-sm font-semibold uppercase tracking-[0.2em]">
-                  {text(directBooking, 'title', home.directTitle)}
-                </span>
-              </div>
-              <p className="mt-3 text-[15px] leading-7 text-white/85">
-                {text(directBooking, 'body', home.directBody)}
-              </p>
-              <Button
-                asChild
-                className="mt-5 h-11 rounded-full bg-white px-5 font-semibold text-[#174d7a] hover:bg-white/90"
-              >
-                <Link href={directBooking?.ctaHref || '#reservar'}>
-                  {text(directBooking, 'ctaLabel', home.directCta)}
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {host?.published !== false && (
+      {shows(host) && (
         <section className="bg-gradient-to-b from-[#e8f4f8] to-white py-7">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
             <div className="mb-12 text-center">

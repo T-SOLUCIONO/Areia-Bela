@@ -13,11 +13,15 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-/** Refetch window for guest-facing content: an edit shows up within a minute. */
-const REVALIDATE_SECONDS = 60
-
 /**
  * Server-side reader for the published half of the CMS.
+ *
+ * Not cached. An edit in the admin has to be visible on the next reload, and a
+ * revalidation window meant the host saved a change and saw nothing, which
+ * reads as "the editor is broken". Serving this from a CDN, or revalidating on
+ * demand when the admin saves, is the performance work in Fase 8 — until then
+ * correctness wins, and one API call per render of a single-property site is
+ * not the bottleneck.
  *
  * Deliberately failure-tolerant: if the API is down the guest site falls back
  * to the copy bundled in `lib/property-data.ts` rather than erroring. A booking
@@ -26,9 +30,7 @@ const REVALIDATE_SECONDS = 60
  */
 async function read<T>(path: string): Promise<T | null> {
   try {
-    const response = await fetch(`${API_URL}${path}`, {
-      next: { revalidate: REVALIDATE_SECONDS },
-    })
+    const response = await fetch(`${API_URL}${path}`, { cache: 'no-store' })
     if (!response.ok) return null
     return (await response.json()) as T
   } catch {
@@ -43,6 +45,16 @@ export interface SiteContent {
   faqs: FAQ[]
   images: GalleryImage[]
   settings: SiteSettings | null
+  /**
+   * Whether the CMS answered at all.
+   *
+   * This is the difference between "the host hid this section" and "the API is
+   * unreachable", which look identical otherwise — the public endpoint omits
+   * unpublished sections rather than flagging them, so both cases arrive as an
+   * absent key. Without this, hiding a section made it render the bundled
+   * fallback copy instead of disappearing.
+   */
+  available: boolean
 }
 
 export async function getSiteContent(): Promise<SiteContent> {
@@ -62,6 +74,7 @@ export async function getSiteContent(): Promise<SiteContent> {
     faqs: faqs ?? [],
     images: images ?? [],
     settings,
+    available: sections !== null,
   }
 }
 
