@@ -17,7 +17,7 @@ import {
   type ContentSectionKey,
 } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
-import { BilingualField } from '@/components/admin/content/bilingual-field'
+import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { ImageField } from '@/components/admin/content/image-field'
 import { ItemsEditor } from '@/components/admin/content/items-editor'
 import { cn } from '@/lib/utils'
@@ -154,20 +154,14 @@ export function LandingEditor() {
     setIsSaving(true)
     try {
       await landing.saveSection(selected, {
-        eyebrowEs: current.eyebrowEs,
-        eyebrowEn: current.eyebrowEn,
-        titleEs: current.titleEs,
-        titleEn: current.titleEn,
-        subtitleEs: current.subtitleEs,
-        subtitleEn: current.subtitleEn,
-        bodyEs: current.bodyEs,
-        bodyEn: current.bodyEn,
-        ctaLabelEs: current.ctaLabelEs,
-        ctaLabelEn: current.ctaLabelEn,
+        eyebrow: current.eyebrow,
+        title: current.title,
+        subtitle: current.subtitle,
+        body: current.body,
+        ctaLabel: current.ctaLabel,
         ctaHref: current.ctaHref,
         statValue: current.statValue,
-        statLabelEs: current.statLabelEs,
-        statLabelEn: current.statLabelEn,
+        statLabel: current.statLabel,
         imageUrl: current.imageUrl,
         linkUrl: current.linkUrl,
         published: current.published,
@@ -236,72 +230,42 @@ export function LandingEditor() {
         {current && (
           <div className="space-y-5 rounded-xl border bg-card p-5">
             {layout.eyebrow && (
-              <BilingualField
+              <TranslatableField
                 label={t.content.fieldEyebrow}
-                valueEs={current.eyebrowEs}
-                valueEn={current.eyebrowEn}
-                onChange={(p) =>
-                  edit({
-                    ...(p.es !== undefined && { eyebrowEs: p.es }),
-                    ...(p.en !== undefined && { eyebrowEn: p.en }),
-                  })
-                }
+                value={current.eyebrow}
+                onChange={(v) => edit({ eyebrow: v })}
               />
             )}
             {layout.title && (
-              <BilingualField
+              <TranslatableField
                 label={t.content.fieldTitle}
-                valueEs={current.titleEs}
-                valueEn={current.titleEn}
-                onChange={(p) =>
-                  edit({
-                    ...(p.es !== undefined && { titleEs: p.es }),
-                    ...(p.en !== undefined && { titleEn: p.en }),
-                  })
-                }
+                value={current.title}
+                onChange={(v) => edit({ title: v })}
               />
             )}
             {layout.subtitle && (
-              <BilingualField
+              <TranslatableField
                 label={t.content.fieldSubtitle}
-                valueEs={current.subtitleEs}
-                valueEn={current.subtitleEn}
-                onChange={(p) =>
-                  edit({
-                    ...(p.es !== undefined && { subtitleEs: p.es }),
-                    ...(p.en !== undefined && { subtitleEn: p.en }),
-                  })
-                }
+                value={current.subtitle}
+                onChange={(v) => edit({ subtitle: v })}
               />
             )}
             {layout.body && (
-              <BilingualField
+              <TranslatableField
                 label={t.content.fieldBody}
                 multiline
                 rows={4}
-                valueEs={current.bodyEs}
-                valueEn={current.bodyEn}
-                onChange={(p) =>
-                  edit({
-                    ...(p.es !== undefined && { bodyEs: p.es }),
-                    ...(p.en !== undefined && { bodyEn: p.en }),
-                  })
-                }
+                value={current.body}
+                onChange={(v) => edit({ body: v })}
               />
             )}
 
             {layout.cta && (
               <div className="space-y-4 border-t pt-4">
-                <BilingualField
+                <TranslatableField
                   label={t.content.fieldCta}
-                  valueEs={current.ctaLabelEs}
-                  valueEn={current.ctaLabelEn}
-                  onChange={(p) =>
-                    edit({
-                      ...(p.es !== undefined && { ctaLabelEs: p.es }),
-                      ...(p.en !== undefined && { ctaLabelEn: p.en }),
-                    })
-                  }
+                  value={current.ctaLabel}
+                  onChange={(v) => edit({ ctaLabel: v })}
                 />
                 <div className="space-y-1.5">
                   <Label htmlFor="cta-href">{t.content.fieldCtaHref}</Label>
@@ -326,16 +290,10 @@ export function LandingEditor() {
                     onChange={(event) => edit({ statValue: event.target.value })}
                   />
                 </div>
-                <BilingualField
+                <TranslatableField
                   label={t.content.fieldStatLabel}
-                  valueEs={current.statLabelEs}
-                  valueEn={current.statLabelEn}
-                  onChange={(p) =>
-                    edit({
-                      ...(p.es !== undefined && { statLabelEs: p.es }),
-                      ...(p.en !== undefined && { statLabelEn: p.en }),
-                    })
-                  }
+                  value={current.statLabel}
+                  onChange={(v) => edit({ statLabel: v })}
                 />
               </div>
             )}

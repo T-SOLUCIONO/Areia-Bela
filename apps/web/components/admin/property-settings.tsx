@@ -77,10 +77,8 @@ export function PropertySettings() {
     setIsSaving(true)
     try {
       const saved = await cms.saveProperty({
-        nameEs: draft.nameEs,
-        nameEn: draft.nameEn,
-        descriptionEs: draft.descriptionEs,
-        descriptionEn: draft.descriptionEn,
+        name: draft.name,
+        description: draft.description,
         maxGuests: draft.maxGuests,
         bedrooms: draft.bedrooms,
         bathrooms: draft.bathrooms,
@@ -123,43 +121,15 @@ export function PropertySettings() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {field(
-            'name-es',
-            `${t.property.nameLabel} · ${t.content.spanish}`,
-            draft.nameEs,
-            (nameEs) => edit({ nameEs }),
-          )}
-          {field(
-            'name-en',
-            `${t.property.nameLabel} · ${t.content.english}`,
-            draft.nameEn,
-            (nameEn) => edit({ nameEn }),
-          )}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="desc-es">
-              {t.property.descriptionLabel} · {t.content.spanish}
-            </Label>
-            <Textarea
-              id="desc-es"
-              rows={4}
-              value={draft.descriptionEs}
-              onChange={(e) => edit({ descriptionEs: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="desc-en">
-              {t.property.descriptionLabel} · {t.content.english}
-            </Label>
-            <Textarea
-              id="desc-en"
-              rows={4}
-              value={draft.descriptionEn}
-              onChange={(e) => edit({ descriptionEn: e.target.value })}
-            />
-          </div>
+        {field('name', t.property.nameLabel, draft.name, (name) => edit({ name }))}
+        <div className="space-y-1.5">
+          <Label htmlFor="description">{t.property.descriptionLabel}</Label>
+          <Textarea
+            id="description"
+            rows={4}
+            value={draft.description}
+            onChange={(e) => edit({ description: e.target.value })}
+          />
         </div>
       </section>
 

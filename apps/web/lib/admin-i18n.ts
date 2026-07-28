@@ -1,4 +1,9 @@
-import type { Language } from '@/lib/i18n'
+/**
+ * The panel is the host's tool, not the guest site, so it stays in the two
+ * languages the team reads. The site's five are a separate concern: guests
+ * pick one, and the content is translated for them.
+ */
+export type AdminLanguage = 'es' | 'en'
 
 /**
  * Admin dictionary. Separate from `lib/i18n.ts` (the guest site) because the
@@ -116,15 +121,9 @@ export const adminCopy = {
       pages: 'Text',
       faqs: 'Questions',
       gallery: 'Photos',
-      spanish: 'Spanish',
-      english: 'English',
-      untranslated: 'Same in both languages',
-      untranslatedHint:
-        'This text came from the original listing, which only exists in English. Write the Spanish version to replace it.',
       published: 'Visible',
       hidden: 'Hidden',
       unsaved: 'Unsaved changes',
-      bothLanguagesRequired: 'Fill in both languages before saving.',
       saved: 'Saved',
       saveFailed: 'Could not save.',
       loadFailed: 'Could not load the content.',
@@ -132,7 +131,6 @@ export const adminCopy = {
       pageBody: 'Text',
       emptyPage: 'Nothing written here yet.',
       pagesEmpty: 'No sections yet.',
-      pageCount: '{done} of {total} sections translated',
       // Section names — these are the CMSPage slugs the guest site reads.
       slugs: {
         ABOUT_SPACE: 'About the house',
@@ -176,15 +174,19 @@ export const adminCopy = {
       galleryCount: '{count} photos',
       galleryHint: 'The first photo is the cover. Drag a photo, or use the arrows, to reorder.',
       galleryReordered: 'Order saved.',
+      pageIncomplete: 'Write a title and some text before saving.',
+      translationOffTitle: 'Automatic translation is off',
+      translationOffBody:
+        'The site will show Spanish to visitors reading English, Portuguese, French or German. Set ANTHROPIC_API_KEY on the API to turn it on (see docs/env.md).',
+      autoTranslated: 'Translated automatically',
+      autoTranslatedHint:
+        'Write this once. The site shows it in English, Portuguese, French and German on its own.',
+      sourceLanguageNote:
+        'You write in Spanish. Every other language is translated automatically when you save.',
       moveUp: 'Move up',
       moveDown: 'Move down',
       landing: 'Home page',
       reviews: 'Reviews',
-      translate: 'Translate',
-      translateHint: 'Fills the other language with a suggestion. Read it before saving.',
-      translateDone: 'Suggestion ready — check it before saving.',
-      translateFailed: 'Could not translate.',
-      translateNoSource: 'Write the other language first.',
       sectionShown: 'Section visible',
       sectionHidden: 'Section hidden',
       sections: {
@@ -468,15 +470,9 @@ export const adminCopy = {
       pages: 'Textos',
       faqs: 'Preguntas',
       gallery: 'Fotos',
-      spanish: 'Español',
-      english: 'Inglés',
-      untranslated: 'Igual en los dos idiomas',
-      untranslatedHint:
-        'Este texto viene del anuncio original, que solo existe en inglés. Escribe la versión en español para reemplazarlo.',
       published: 'Visible',
       hidden: 'Oculto',
       unsaved: 'Cambios sin guardar',
-      bothLanguagesRequired: 'Completa los dos idiomas antes de guardar.',
       saved: 'Guardado',
       saveFailed: 'No se pudo guardar.',
       loadFailed: 'No se pudo cargar el contenido.',
@@ -484,7 +480,6 @@ export const adminCopy = {
       pageBody: 'Texto',
       emptyPage: 'Aquí todavía no hay nada escrito.',
       pagesEmpty: 'Todavía no hay secciones.',
-      pageCount: '{done} de {total} secciones traducidas',
       slugs: {
         ABOUT_SPACE: 'Sobre la casa',
         ACCOMMODATION: 'La estadía',
@@ -528,15 +523,18 @@ export const adminCopy = {
       galleryHint:
         'La primera foto es la portada. Arrastra una foto, o usa las flechas, para reordenar.',
       galleryReordered: 'Orden guardado.',
+      pageIncomplete: 'Escribe un título y un texto antes de guardar.',
+      translationOffTitle: 'La traducción automática está apagada',
+      translationOffBody:
+        'El sitio mostrará español a quien lea en inglés, portugués, francés o alemán. Define ANTHROPIC_API_KEY en el API para encenderla (ver docs/env.md).',
+      autoTranslated: 'Se traduce solo',
+      autoTranslatedHint:
+        'Escríbelo una vez. El sitio lo muestra en inglés, portugués, francés y alemán por su cuenta.',
+      sourceLanguageNote: 'Escribes en español. Los demás idiomas se traducen solos al guardar.',
       moveUp: 'Subir',
       moveDown: 'Bajar',
       landing: 'Portada',
       reviews: 'Reseñas',
-      translate: 'Traducir',
-      translateHint: 'Rellena el otro idioma con una propuesta. Léela antes de guardar.',
-      translateDone: 'Propuesta lista — revísala antes de guardar.',
-      translateFailed: 'No se pudo traducir.',
-      translateNoSource: 'Escribe primero el otro idioma.',
       sectionShown: 'Sección visible',
       sectionHidden: 'Sección oculta',
       sections: {
@@ -712,7 +710,7 @@ export const adminCopy = {
       updateFailed: 'No se pudo actualizar a esta persona.',
     },
   },
-} satisfies Record<Language, unknown>
+} satisfies Record<AdminLanguage, unknown>
 
 export type AdminCopy = (typeof adminCopy)['en']
 

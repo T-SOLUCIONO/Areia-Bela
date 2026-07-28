@@ -8,9 +8,11 @@ import {
   ParseEnumPipe,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common'
+import { DEFAULT_LOCALE, isSupportedLocale } from '@areia-bela/shared'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { CMSPageSlug, ContentSectionKey, UserRole } from '@prisma/client'
 import { CmsService } from './cms.service'
@@ -21,7 +23,6 @@ import {
   CreateFAQDto,
   CreateReviewDto,
   ReorderDto,
-  TranslateDto,
   UpdateCMSPageDto,
   UpdateContentItemDto,
   UpdateContentSectionDto,
@@ -48,46 +49,25 @@ export class CmsController {
 
   // --- Public reads --------------------------------------------------------
 
+  /**
+   * The whole guest site in one language.
+   *
+   * `?locale=` picks it; anything unsupported falls back to the language the
+   * content was written in. One call instead of six, because the page needs
+   * all of it and each one would otherwise re-resolve translations.
+   */
   @Public()
-  @Get('pages')
-  listPublicPages() {
-    return this.cms.listPages(true)
+  @Get('site')
+  getSite(@Query('locale') locale?: string) {
+    return this.cms.getLocalizedContent(
+      locale && isSupportedLocale(locale) ? locale : DEFAULT_LOCALE,
+    )
   }
 
   @Public()
   @Get('pages/:slug')
   getPage(@Param('slug', new ParseEnumPipe(CMSPageSlug)) slug: CMSPageSlug) {
     return this.cms.getPage(slug)
-  }
-
-  @Public()
-  @Get('faqs')
-  listPublicFaqs() {
-    return this.cms.listFaqs(true)
-  }
-
-  @Public()
-  @Get('gallery')
-  listPublicImages() {
-    return this.cms.listImages(true)
-  }
-
-  @Public()
-  @Get('landing')
-  getPublicLanding() {
-    return this.cms.listSections(true)
-  }
-
-  @Public()
-  @Get('reviews')
-  listPublicReviews() {
-    return this.cms.listReviews(true)
-  }
-
-  @Public()
-  @Get('settings')
-  getSettings() {
-    return this.cms.getSettings()
   }
 
   // --- Editor reads (include unpublished drafts) ---------------------------
@@ -120,7 +100,11 @@ export class CmsController {
     return this.cms.listReviews()
   }
 
-  /** Lets the admin hide the translate button instead of offering a 503. */
+  /**
+   * Whether automatic translation is switched on. The admin shows a notice
+   * when it isn't — otherwise the host writes in Spanish, the site stays in
+   * Spanish for the other four languages, and nothing explains why.
+   */
   @Get('admin/translation-status')
   translationStatus() {
     return { configured: this.translation.isConfigured }
@@ -165,19 +149,14 @@ export class CmsController {
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Post('gallery')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadImage(
-    @UploadedFile() file: Express.Multer.File,
-    @Body('altEs') altEs?: string,
-    @Body('altEn') altEn?: string,
-  ) {
+  async uploadImage(@UploadedFile() file: Express.Multer.File, @Body('alt') alt?: string) {
     this.storage.assertValidImage(file)
     const url = await this.storage.upload(file)
     // Alt text is required for accessibility but shouldn't block the upload;
     // it defaults to something editable rather than an empty string.
     return this.cms.addImage({
       url,
-      altEs: altEs?.trim() || 'Areia Bela',
-      altEn: altEn?.trim() || 'Areia Bela',
+      alt: alt?.trim() || 'Areia Bela',
     })
   }
 
@@ -288,18 +267,5 @@ export class CmsController {
   async uploadContentImage(@UploadedFile() file: Express.Multer.File) {
     this.storage.assertValidImage(file)
     return { url: await this.storage.upload(file) }
-  }
-
-  // --- Translation ---------------------------------------------------------
-
-  /**
-   * Returns a suggestion for the editor to review. It is never saved from
-   * here: the host reads it and decides, which is what keeps a machine
-   * translation from reaching guests unread.
-   */
-  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
-  @Post('translate')
-  async translate(@Body() dto: TranslateDto) {
-    return { text: await this.translation.translate(dto.text, dto.from, dto.to) }
   }
 }

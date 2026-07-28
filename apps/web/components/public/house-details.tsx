@@ -7,7 +7,6 @@ import {
   AccordionTrigger,
 } from '@areia-bela/ui/accordion'
 import type { CMSPageSlug } from '@/lib/cms-client'
-import { localized } from '@/lib/cms-public'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { useLanguage } from '@/components/language-provider'
 
@@ -65,18 +64,16 @@ export function HouseDetails() {
             {sections.map((page) => (
               <AccordionItem key={page.slug} value={page.slug}>
                 <AccordionTrigger className="text-left font-serif text-lg">
-                  {localized(page, 'title', language)}
+                  {page.title}
                 </AccordionTrigger>
                 <AccordionContent>
                   {/* Stored as plain text: blank lines are paragraph breaks. */}
                   <div className="space-y-3 text-[15px] leading-relaxed text-muted-foreground">
-                    {localized(page, 'body', language)
-                      .split(/\n{2,}/)
-                      .map((paragraph, index) => (
-                        <p key={index} className="whitespace-pre-line">
-                          {paragraph}
-                        </p>
-                      ))}
+                    {page.body.split(/\n{2,}/).map((paragraph, index) => (
+                      <p key={index} className="whitespace-pre-line">
+                        {paragraph}
+                      </p>
+                    ))}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -92,11 +89,9 @@ export function HouseDetails() {
             <Accordion type="single" collapsible className="mt-4">
               {faqs.map((faq) => (
                 <AccordionItem key={faq.id} value={faq.id}>
-                  <AccordionTrigger className="text-left">
-                    {localized(faq, 'question', language)}
-                  </AccordionTrigger>
+                  <AccordionTrigger className="text-left">{faq.question}</AccordionTrigger>
                   <AccordionContent className="text-[15px] leading-relaxed text-muted-foreground">
-                    {localized(faq, 'answer', language)}
+                    {faq.answer}
                   </AccordionContent>
                 </AccordionItem>
               ))}

@@ -22,7 +22,7 @@ cp apps/web/.env.example apps/web/.env
 | `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
 | `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
 | `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
-| `ANTHROPIC_API_KEY`     | no              | Habilita el botón "traducir" del panel (API de Claude). Sin ella el botón no aparece y todo lo demás sigue igual: escribir los dos idiomas a mano nunca deja de ser posible.                                                              |
+| `ANTHROPIC_API_KEY`     | en producción   | Traduce el contenido del sitio a inglés, portugués, francés y alemán cuando el anfitrión guarda. Sin ella nada se rompe: el sitio muestra el idioma en que se escribió, y el panel lo avisa con un aviso visible.                         |
 
 ### Almacenamiento de imágenes (Vercel Blob)
 
@@ -36,17 +36,28 @@ Sin token no hace falta cuenta para trabajar en local; la carpeta
 `apps/web/public/uploads/` está en `.gitignore` para que esas pruebas no se
 commiteen.
 
-### Traducción asistida (opcional)
+### Traducción automática del sitio
 
-El panel puede proponer la traducción de un campo al otro idioma. Es una
-**propuesta**, no un guardado: el texto aparece en el input y el anfitrión
-decide. `CLAUDE.md` prohíbe inventar traducciones, y una traducción automática
-que llega al huésped sin que nadie la lea es exactamente eso.
+El anfitrión escribe **una sola vez**, en español. Al guardar, el API traduce
+ese texto a inglés, portugués, francés y alemán con la API de Claude y lo
+guarda. El sitio de huéspedes sirve el idioma que pida el visitante; nunca
+llama al modelo en tiempo de petición.
 
-Para activarla, una clave de la API de Claude en `ANTHROPIC_API_KEY`
-(console.anthropic.com → API Keys). Sin clave, `GET /cms/admin/translation-status`
-responde `{"configured": false}` y el panel oculta el botón en vez de ofrecer
-uno que solo da error.
+Para activarla, una clave en `ANTHROPIC_API_KEY` (console.anthropic.com → API
+Keys). Sin clave:
+
+- `GET /cms/admin/translation-status` responde `{"configured": false}`.
+- `/admin/content` muestra un aviso explicando que está apagada.
+- El sitio sigue funcionando y muestra el español a todos los idiomas. Se
+  degrada, no se rompe.
+
+Dos reglas que evitan fallos silenciosos:
+
+- Cada traducción guarda el hash del texto del que salió. Si el anfitrión edita
+  el original, la traducción queda **caducada** y el sitio cae a la fuente en
+  vez de mostrar la traducción de un texto que ya no existe.
+- Una traducción que una persona editó (`isMachine: false`) no se vuelve a
+  sobrescribir.
 
 ### Correo (Brevo)
 

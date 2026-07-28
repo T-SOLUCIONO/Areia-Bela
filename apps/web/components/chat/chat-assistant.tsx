@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Send, MessageCircle } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { useLanguage } from '@/components/language-provider'
+import type { Language } from '@/lib/i18n'
 
 type Message = {
   id: string
@@ -68,12 +69,23 @@ const AUTO_REPLIES = {
   ],
 } as const
 
-const getAutoReply = (message: string, language: 'en' | 'es') => {
-  const match = AUTO_REPLIES[language].find((item) => item.keywords.test(message))
-  if (match) return match.reply
-  return language === 'en'
-    ? 'Thanks for your message. One of our hosts will reply with more detail soon.'
-    : 'Gracias por tu mensaje. En breve uno de nuestros anfitriones te dará una respuesta más detallada.'
+/**
+ * The catch-all, in every language the site speaks. The scripted answers above
+ * only exist in English and Spanish, and their keywords wouldn't match French
+ * or German text anyway — so a visitor in one of the other three lands here,
+ * which is the honest outcome: a real host will answer.
+ */
+const HANDOFF: Record<Language, string> = {
+  en: 'Thanks for your message. One of our hosts will reply with more detail soon.',
+  es: 'Gracias por tu mensaje. En breve uno de nuestros anfitriones te dará una respuesta más detallada.',
+  pt: 'Obrigado pela sua mensagem. Em breve um de nossos anfitriões responderá com mais detalhes.',
+  fr: "Merci pour votre message. L'un de nos hôtes vous répondra bientôt plus en détail.",
+  de: 'Danke für Ihre Nachricht. Einer unserer Gastgeber meldet sich in Kürze ausführlicher.',
+}
+
+const getAutoReply = (message: string, language: Language) => {
+  const scripted = language === 'en' || language === 'es' ? AUTO_REPLIES[language] : []
+  return scripted.find((item) => item.keywords.test(message))?.reply ?? HANDOFF[language]
 }
 
 export function ChatAssistant() {

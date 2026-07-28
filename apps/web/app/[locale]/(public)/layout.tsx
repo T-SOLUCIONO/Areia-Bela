@@ -3,7 +3,7 @@ import { Header } from '@/components/public/header'
 import { Footer } from '@/components/public/footer'
 import { Reserve } from '@/components/public/reserve'
 import { SiteContentProvider } from '@/components/public/site-content-provider'
-import { getSiteContent, localized } from '@/lib/cms-public'
+import { getSiteContent } from '@/lib/cms-public'
 
 /**
  * Title and description come from the CMS, so the host can change how the site
@@ -15,13 +15,11 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
-  const [{ locale }, { settings }] = await Promise.all([params, getSiteContent()])
-  if (!settings) return {}
+  const { locale } = await params
+  const { settings } = await getSiteContent(locale)
+  if (!settings?.seoTitle) return {}
 
-  const language = locale === 'es' ? 'es' : 'en'
-  const title = localized(settings, 'seoTitle', language)
-  const description = localized(settings, 'seoDescription', language)
-  if (!title) return {}
+  const { seoTitle: title, seoDescription: description } = settings
 
   return {
     title,
@@ -30,15 +28,22 @@ export async function generateMetadata({
       title,
       description,
       type: 'website',
-      locale: language === 'es' ? 'es_ES' : 'en_US',
+      locale,
       siteName: 'Areia Bela',
     },
     twitter: { card: 'summary_large_image', title, description },
   }
 }
 
-export default async function PublicLayout({ children }: { children: React.ReactNode }) {
-  const content = await getSiteContent()
+export default async function PublicLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  const content = await getSiteContent(locale)
 
   return (
     <SiteContentProvider content={content}>

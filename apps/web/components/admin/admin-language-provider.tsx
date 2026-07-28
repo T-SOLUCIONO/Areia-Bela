@@ -3,11 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { LANGUAGE_COOKIE } from '@areia-bela/shared'
 import { adminCopy, type AdminCopy } from '@/lib/admin-i18n'
-import type { Language } from '@/lib/i18n'
+import type { AdminLanguage } from '@/lib/admin-i18n'
 
 type AdminLanguageContextValue = {
-  language: Language
-  setLanguage: (language: Language) => void
+  language: AdminLanguage
+  setLanguage: (language: AdminLanguage) => void
   t: AdminCopy
 }
 
@@ -26,16 +26,16 @@ export function AdminLanguageProvider({
   initialLanguage,
   children,
 }: {
-  initialLanguage: Language
+  initialLanguage: AdminLanguage
   children: React.ReactNode
 }) {
-  const [language, setLanguageState] = useState<Language>(initialLanguage)
+  const [language, setLanguageState] = useState<AdminLanguage>(initialLanguage)
 
   useEffect(() => {
     document.documentElement.lang = language
   }, [language])
 
-  const setLanguage = useCallback((next: Language) => {
+  const setLanguage = useCallback((next: AdminLanguage) => {
     setLanguageState(next)
     document.cookie = `${LANGUAGE_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`
   }, [])

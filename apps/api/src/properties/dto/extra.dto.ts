@@ -15,8 +15,7 @@ const MONTH_DAY = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 
 export class CreateExtraDto {
   @IsString() @MinLength(1) key!: string
-  @IsString() @MinLength(1) nameEs!: string
-  @IsString() @MinLength(1) nameEn!: string
+  @IsString() @MinLength(1) name!: string
   @IsEnum(ExtraPricingType) pricingType!: ExtraPricingType
   @Type(() => Number) @IsNumber() @Min(0) price!: number
 
@@ -34,8 +33,7 @@ export class CreateExtraDto {
 }
 
 export class UpdateExtraDto {
-  @IsOptional() @IsString() @MinLength(1) nameEs?: string
-  @IsOptional() @IsString() @MinLength(1) nameEn?: string
+  @IsOptional() @IsString() @MinLength(1) name?: string
   @IsOptional() @IsEnum(ExtraPricingType) pricingType?: ExtraPricingType
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) price?: number
   @IsOptional() @IsBoolean() refundable?: boolean

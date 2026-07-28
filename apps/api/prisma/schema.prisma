@@ -14,10 +14,8 @@ datasource db {
 model Property {
   id                         String   @id @default(cuid())
   slug                       String   @unique
-  nameEs                     String
-  nameEn                     String
-  descriptionEs              String
-  descriptionEn              String
+  name  String
+  description  String
   maxGuests                  Int
   additionalGuestFeePerNight Decimal  @db.Decimal(10, 2)
   cleaningFee                Decimal  @db.Decimal(10, 2)
@@ -97,8 +95,7 @@ model Extra {
   propertyId          String
   property            Property         @relation(fields: [propertyId], references: [id])
   key                 String
-  nameEs              String
-  nameEn              String
+  name  String
   pricingType         ExtraPricingType
   price               Decimal          @db.Decimal(10, 2)
   refundable          Boolean          @default(true)
@@ -237,9 +234,13 @@ model PasswordResetToken {
 // ---------------------------------------------------------------------------
 // Fase 5 (CMS). Everything a host can edit without a developer.
 //
-// Bilingual content is stored as two columns per field (…Es/…En) rather than a
-// JSON blob, matching the Property model above: it keeps the columns typed and
-// queryable, and the product is only ever ES/EN.
+// Content is stored **once**, in the language it was written in (DEFAULT_LOCALE).
+// Every other language lives in Translation below.
+//
+// It used to be two columns per field (…Es/…En). That worked for two languages
+// and fell apart at five: the host would have written every sentence five
+// times, and ContentSection alone would have carried forty columns. The host
+// now writes once and the site serves whichever language the visitor picked.
 // ---------------------------------------------------------------------------
 
 enum CMSPageSlug {
@@ -260,10 +261,8 @@ enum CMSPageSlug {
 model CMSPage {
   id        String      @id @default(cuid())
   slug      CMSPageSlug @unique
-  titleEs   String
-  titleEn   String
-  bodyEs    String
-  bodyEn    String
+  title  String
+  body  String
   published Boolean     @default(true)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -279,10 +278,8 @@ enum FAQCategory {
 
 model FAQ {
   id         String      @id @default(cuid())
-  questionEs String
-  questionEn String
-  answerEs   String
-  answerEn   String
+  question  String
+  answer  String
   category   FAQCategory @default(GENERAL)
   sortOrder  Int         @default(0)
   published  Boolean     @default(true)
@@ -295,8 +292,7 @@ model FAQ {
 model GalleryImage {
   id        String   @id @default(cuid())
   url       String
-  altEs     String
-  altEn     String
+  alt  String
   sortOrder Int      @default(0)
   published Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -312,10 +308,8 @@ model SiteSettings {
   contactEmail     String
   contactPhone     String
   whatsapp         String
-  seoTitleEs       String
-  seoTitleEn       String
-  seoDescriptionEs String
-  seoDescriptionEn String
+  seoTitle  String
+  seoDescription  String
   instagramUrl     String?
   facebookUrl      String?
   airbnbUrl        String?
@@ -356,23 +350,17 @@ model ContentSection {
 
   // Not every section uses every slot — an empty string means "don't render".
   // Nullable columns would say the same thing with more null checks.
-  eyebrowEs  String @default("")
-  eyebrowEn  String @default("")
-  titleEs    String @default("")
-  titleEn    String @default("")
-  subtitleEs String @default("")
-  subtitleEn String @default("")
-  bodyEs     String @default("")
-  bodyEn     String @default("")
-  ctaLabelEs String @default("")
-  ctaLabelEn String @default("")
+  eyebrow  String @default("")
+  title  String @default("")
+  subtitle  String @default("")
+  body  String @default("")
+  ctaLabel  String @default("")
   ctaHref    String @default("")
 
   // The one headline figure a section can carry: the review score, the host's
   // years hosting. Kept as text because "5.0" and "< 1 hour" are both valid.
   statValue   String @default("")
-  statLabelEs String @default("")
-  statLabelEn String @default("")
+  statLabel  String @default("")
 
   imageUrl String? // host portrait, section background
   linkUrl  String? // map embed for LOCATION
@@ -403,10 +391,8 @@ model ContentItem {
 
   icon     String  @default("") // lucide-react name, picked from a curated list
   imageUrl String?
-  labelEs  String
-  labelEn  String
-  bodyEs   String  @default("")
-  bodyEn   String  @default("")
+  label  String
+  body  String  @default("")
   // Host stats ("10+", "100%") and review sub-scores ("4.9").
   value    String  @default("")
 
@@ -426,12 +412,10 @@ model Review {
   authorName     String
   authorPhotoUrl String?
   rating         Int     @default(5)
-  textEs         String
-  textEn         String
+  text  String
   // Free text ("noviembre de 2025"): the source listing gives no exact dates,
   // and inventing them would be inventing data.
-  stayedAtEs     String  @default("")
-  stayedAtEn     String  @default("")
+  stayedAt  String  @default("")
   verified       Boolean @default(true)
   // The one pulled out into the large quote block at the top.
   featured       Boolean @default(false)
@@ -442,4 +426,43 @@ model Review {
   updatedAt DateTime @updatedAt
 
   @@index([sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// Translations.
+//
+// One row per (record, field, language). The source text itself is not here —
+// it stays on its own model, in DEFAULT_LOCALE — so a missing row simply means
+// "not translated yet" and the site falls back to the source. A guest reading
+// Spanish on a French page is better than a guest reading a blank one.
+//
+// `entity` and `entityId` are a loose reference on purpose: a real foreign key
+// would need one join table per model, and this table has no meaning of its
+// own to protect. Rows are cleaned up with the record that owns them.
+// ---------------------------------------------------------------------------
+
+model Translation {
+  id       String @id @default(cuid())
+  entity   String // "ContentSection", "Review", …
+  entityId String
+  field    String // "title", "body", …
+  locale   String // never DEFAULT_LOCALE: that text lives on the record
+  text     String
+
+  /**
+   * SHA-256 of the source text this was translated from.
+   *
+   * Without it, editing the Spanish would silently leave four stale
+   * translations that still look fine. The resolver compares this against the
+   * current source and treats a mismatch as untranslated.
+   */
+  sourceHash String
+
+  /** False once a human has edited it, so re-translation stops overwriting. */
+  isMachine Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entity, entityId, field, locale])
+  @@index([entity, entityId, locale])
 }

@@ -1012,3 +1012,105 @@ Contra el API y Stripe de prueba reales:
 - Fechas inválidas → **400**.
 - Cambiar la tarifa de limpieza a $200 en Ajustes: la cotización pasa de $2745 a
   **$2825** en la petición siguiente, sin desplegar. Restaurada a $120.
+
+## 22. Cinco idiomas, escritos una sola vez
+
+El panel pedía cada texto dos veces, en español y en inglés. Eso funcionaba con
+dos idiomas y no sobrevive a cinco: el anfitrión habría escrito cada frase cinco
+veces, y `ContentSection` sola habría llegado a cuarenta columnas.
+
+Ahora **se escribe una vez, en español**, y el sitio muestra el idioma que pida
+el visitante: español, inglés, portugués, francés o alemán.
+
+### El modelo
+
+Las columnas `…Es`/`…En` se colapsan a una sola —la del idioma en que se
+escribe— y aparece `Translation`: una fila por (registro, campo, idioma).
+
+El texto fuente **no** está en esa tabla; sigue en su propio modelo. Así una
+fila ausente significa exactamente "todavía sin traducir", y el sitio cae a la
+fuente. Un huésped leyendo español en una página en francés es mejor que uno
+leyendo una página en blanco.
+
+`entity`/`entityId` son una referencia suelta a propósito: una clave foránea de
+verdad habría exigido una tabla puente por modelo, y esta tabla no tiene
+significado propio que proteger.
+
+Dos reglas evitan que esto falle en silencio:
+
+- **`sourceHash`.** Cada traducción guarda el hash del texto del que salió. Si
+  el anfitrión edita el español, la traducción queda caducada y el sitio vuelve
+  a la fuente. Sin eso, editar una frase dejaba cuatro traducciones viejas que
+  se veían perfectamente bien y decían otra cosa.
+- **`isMachine`.** Una traducción que una persona corrigió no se vuelve a
+  sobrescribir.
+
+La migración **conserva lo ya escrito**: se escribió a mano en SQL en vez de
+dejar que Prisma tirara las columnas, así que las 65 traducciones al inglés que
+ya existían pasaron a `Translation` marcadas como humanas.
+
+### El panel
+
+Un campo por texto, con un globo que avisa de que se traducirá solo. El botón
+"traducir" manual desaparece: existía para rellenar la segunda columna, y ya no
+hay segunda columna.
+
+Cuando `ANTHROPIC_API_KEY` no está configurada, `/admin/content` lo dice con un
+aviso. Sin él, el anfitrión escribiría en español, vería el sitio en español
+para los otros cuatro idiomas, y no tendría forma de saber que la causa es una
+clave que falta y no un error.
+
+El panel en sí **se queda en español e inglés**: es la herramienta del equipo,
+no el sitio de huéspedes. `AdminLanguage` es ahora un tipo aparte de `Language`.
+
+### El sitio
+
+`GET /cms/site?locale=xx` devuelve la página entera ya en un idioma: seis
+consultas y una resolución, en vez de que cada componente resuelva lo suyo. El
+modelo no se llama en tiempo de petición — el texto ya está guardado.
+
+Los textos fijos de la interfaz (navegación, botones, el cotizador) siguen en
+`lib/i18n.ts` porque son parte del producto, no contenido del anfitrión. El
+portugués, el francés y el alemán de ahí son **traducciones automáticas que
+nadie ha revisado**, y el comentario del archivo lo dice: para una docena de
+etiquetas estándar de un sitio de reservas es un intercambio aceptable, y
+corregir una es cambiar una línea. Las palabras del anfitrión nunca funcionan
+así: esas se traducen al guardar y quedan marcadas.
+
+El selector de idioma pasa de cinco píldoras a un desplegable con el nombre de
+cada idioma. A dos idiomas una fila de botones era ordenada; a cinco satura la
+cabecera, y el nombre completo es lo que un visitante busca.
+
+El asistente de chat solo tiene respuestas escritas en español e inglés, y sus
+palabras clave no coincidirían con texto en francés de todos modos, así que en
+los otros tres idiomas responde con la frase de traspaso —traducida— que dice
+que contestará una persona. Es el resultado honesto.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (103 tests, 8 nuevos de TranslationService)
+```
+
+- Migración aplicada sobre datos reales: **65 traducciones conservadas**, cero
+  perdidas. El inglés del hero sigue ahí y marcado como humano.
+- `GET /cms/site` en los cinco idiomas: `es` da la fuente, `en` da la traducción
+  migrada, y `pt`/`fr`/`de` caen a la fuente porque aún no hay clave.
+- Las cinco rutas del sitio responden 200 y la interfaz sale en su idioma.
+- Insertada a mano una traducción al francés: el sitio la sirve. Editado después
+  el español: el sitio **deja de servirla** y muestra el texto nuevo, que es la
+  garantía que da el `sourceHash`. Ambas pruebas revertidas.
+- Los tres seeds corridos dos veces: sin duplicados.
+
+### Diferido
+
+- **No se ha traducido nada de verdad todavía**: hace falta `ANTHROPIC_API_KEY`
+  en `apps/api/.env`. En cuanto esté, guardar cualquier texto lo traduce a los
+  cuatro idiomas restantes. La maquinaria está probada; lo que falta es la clave.
+- La traducción corre al guardar, en segundo plano. Con muchos campos eso son
+  varias llamadas seguidas; si llega a molestar, la siguiente parada es una cola.
+- El panel no muestra todavía qué está traducido y qué no, ni permite corregir
+  una traducción concreta. `isMachine` ya existe en la base para soportarlo.

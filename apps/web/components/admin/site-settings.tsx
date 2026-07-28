@@ -17,10 +17,8 @@ const BLANK: Settings = {
   contactEmail: '',
   contactPhone: '',
   whatsapp: '',
-  seoTitleEs: '',
-  seoTitleEn: '',
-  seoDescriptionEs: '',
-  seoDescriptionEn: '',
+  seoTitle: '',
+  seoDescription: '',
   instagramUrl: null,
   facebookUrl: null,
   airbnbUrl: null,
@@ -114,39 +112,27 @@ export function SiteSettings() {
           <h3 className="font-serif text-base">SEO</h3>
           <p className="text-sm text-muted-foreground">{t.site.seoHint}</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {(
-            [
-              [t.content.spanish, 'seoTitleEs', 'seoDescriptionEs'],
-              [t.content.english, 'seoTitleEn', 'seoDescriptionEn'],
-            ] as const
-          ).map(([label, titleKey, descriptionKey]) => (
-            <div key={titleKey} className="space-y-3 rounded-xl border bg-card p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {label}
-              </p>
-              <div className="space-y-1.5">
-                <Label htmlFor={titleKey}>{t.site.seoTitle}</Label>
-                <Input
-                  id={titleKey}
-                  value={draft[titleKey]}
-                  onChange={(e) => edit({ [titleKey]: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={descriptionKey}>{t.site.seoDescription}</Label>
-                <Textarea
-                  id={descriptionKey}
-                  rows={3}
-                  value={draft[descriptionKey]}
-                  onChange={(e) => edit({ [descriptionKey]: e.target.value })}
-                />
-                <p className="text-right text-xs text-muted-foreground">
-                  {draft[descriptionKey].length} / 155
-                </p>
-              </div>
-            </div>
-          ))}
+        <div className="space-y-3 rounded-xl border bg-card p-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="seoTitle">{t.site.seoTitle}</Label>
+            <Input
+              id="seoTitle"
+              value={draft.seoTitle}
+              onChange={(e) => edit({ seoTitle: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="seoDescription">{t.site.seoDescription}</Label>
+            <Textarea
+              id="seoDescription"
+              rows={3}
+              value={draft.seoDescription}
+              onChange={(e) => edit({ seoDescription: e.target.value })}
+            />
+            <p className="text-right text-xs text-muted-foreground">
+              {draft.seoDescription.length} / 155
+            </p>
+          </div>
         </div>
       </section>
 

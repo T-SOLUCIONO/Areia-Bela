@@ -15,7 +15,7 @@ import {
   type ContentSectionKey,
 } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
-import { BilingualField } from '@/components/admin/content/bilingual-field'
+import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { IconPicker } from '@/components/admin/content/icon-picker'
 import { ContentIcon } from '@/lib/content-icons'
 import { ImageField } from '@/components/admin/content/image-field'
@@ -73,10 +73,8 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
       item.id,
       () =>
         landing.updateItem(item.id, {
-          labelEs: draft.labelEs,
-          labelEn: draft.labelEn,
-          bodyEs: draft.bodyEs,
-          bodyEn: draft.bodyEn,
+          label: draft.label,
+          body: draft.body,
           icon: draft.icon,
           imageUrl: draft.imageUrl,
           value: draft.value,
@@ -95,8 +93,7 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
       await landing.createItem({
         sectionKey,
         kind,
-        labelEs: t.content.itemNew,
-        labelEn: t.content.itemNew,
+        label: t.content.itemNew,
       })
       await onChanged()
     } catch (err) {
@@ -178,31 +175,19 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-4">
-                    <BilingualField
+                    <TranslatableField
                       label={labels.label}
-                      valueEs={draft.labelEs}
-                      valueEn={draft.labelEn}
-                      onChange={(patch) =>
-                        edit(item, {
-                          ...(patch.es !== undefined && { labelEs: patch.es }),
-                          ...(patch.en !== undefined && { labelEn: patch.en }),
-                        })
-                      }
+                      value={draft.label}
+                      onChange={(v) => edit(item, { label: v })}
                     />
 
                     {features.body && (
-                      <BilingualField
+                      <TranslatableField
                         label={labels.body ?? t.content.pageBody}
                         multiline
                         rows={3}
-                        valueEs={draft.bodyEs}
-                        valueEn={draft.bodyEn}
-                        onChange={(patch) =>
-                          edit(item, {
-                            ...(patch.es !== undefined && { bodyEs: patch.es }),
-                            ...(patch.en !== undefined && { bodyEn: patch.en }),
-                          })
-                        }
+                        value={draft.body}
+                        onChange={(v) => edit(item, { body: v })}
                       />
                     )}
 

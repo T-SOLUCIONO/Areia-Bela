@@ -57,7 +57,7 @@ export function GalleryManager() {
     for (const file of Array.from(files)) {
       setUploading(file.name)
       try {
-        await cms.uploadImage(file, '', '')
+        await cms.uploadImage(file, '')
         added += 1
       } catch (err) {
         toast.error(err instanceof Error ? err.message : t.content.saveFailed)
@@ -93,10 +93,10 @@ export function GalleryManager() {
   }
 
   /** Alt text saves on blur — one request per photo, not one per keystroke. */
-  const saveAlt = (image: GalleryImage, field: 'altEs' | 'altEn', value: string) => {
-    if (image[field] === value) return
-    setImages((prev) => prev.map((i) => (i.id === image.id ? { ...i, [field]: value } : i)))
-    void act(image.id, () => cms.updateImage(image.id, { [field]: value }))
+  const saveAlt = (image: GalleryImage, value: string) => {
+    if (image.alt === value) return
+    setImages((prev) => prev.map((i) => (i.id === image.id ? { ...i, alt: value } : i)))
+    void act(image.id, () => cms.updateImage(image.id, { alt: value }))
   }
 
   if (isLoading) {
@@ -168,7 +168,7 @@ export function GalleryManager() {
               <div className="relative aspect-4/3 bg-muted">
                 <Image
                   src={image.url}
-                  alt={image.altEs || image.altEn || ''}
+                  alt={image.alt}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className={cn('object-cover', !image.published && 'grayscale')}
@@ -211,17 +211,10 @@ export function GalleryManager() {
 
               <div className="space-y-2 p-3">
                 <Input
-                  defaultValue={image.altEs}
-                  placeholder={`${t.content.galleryAlt} · ${t.content.spanish}`}
-                  aria-label={`${t.content.galleryAlt} · ${t.content.spanish}`}
-                  onBlur={(event) => saveAlt(image, 'altEs', event.target.value)}
-                  className="h-8 text-sm"
-                />
-                <Input
-                  defaultValue={image.altEn}
-                  placeholder={`${t.content.galleryAlt} · ${t.content.english}`}
-                  aria-label={`${t.content.galleryAlt} · ${t.content.english}`}
-                  onBlur={(event) => saveAlt(image, 'altEn', event.target.value)}
+                  defaultValue={image.alt}
+                  placeholder={t.content.galleryAlt}
+                  aria-label={t.content.galleryAlt}
+                  onBlur={(event) => saveAlt(image, event.target.value)}
                   className="h-8 text-sm"
                 />
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">

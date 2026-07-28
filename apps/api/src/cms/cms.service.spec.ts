@@ -1,7 +1,20 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { NotFoundException } from '@nestjs/common'
 import { CMSPageSlug, ContentItemKind, ContentSectionKey } from '@prisma/client'
 import { CmsService } from './cms.service'
+import type { TranslationService } from './translation.service'
 import type { PrismaService } from '../prisma/prisma.service'
+
+/**
+ * Translation is exercised in translation.service.spec.ts. Here it is stubbed
+ * so these tests stay about the CMS: what gets saved and in what order.
+ */
+const translationsStub = () =>
+  ({
+    load: jest.fn().mockResolvedValue(new Map()),
+    localize: <T>(record: T) => record,
+    syncRecord: jest.fn().mockResolvedValue(undefined),
+    forget: jest.fn().mockResolvedValue(undefined),
+  }) as unknown as TranslationService
 
 /**
  * Covers the behaviour that isn't just a Prisma call passed through: the
@@ -54,14 +67,14 @@ describe('CmsService', () => {
       review: { ...delegate(), updateMany: jest.fn() },
       $transaction: jest.fn(async (operations: unknown[]) => operations),
     }
-    service = new CmsService(prisma as unknown as PrismaService)
+    service = new CmsService(prisma as unknown as PrismaService, translationsStub())
   })
 
   describe('pages', () => {
     it('creates the row when a slug is saved for the first time', async () => {
       // The twelve slugs are fixed by the domain, so saving one that has no row
       // yet must create it rather than 404.
-      const dto = { titleEs: 'Políticas', titleEn: 'Policies', bodyEs: 'a', bodyEn: 'b' }
+      const dto = { title: 'Políticas', body: 'a' }
       await service.updatePage(CMSPageSlug.POLICIES, dto)
 
       expect(prisma.cMSPage.upsert).toHaveBeenCalledWith({
@@ -96,10 +109,8 @@ describe('CmsService', () => {
       prisma.fAQ.findFirst.mockResolvedValue({ sortOrder: 4 })
 
       await service.createFaq({
-        questionEs: 'q',
-        questionEn: 'q',
-        answerEs: 'a',
-        answerEn: 'a',
+        question: 'q',
+        answer: 'a',
       } as Parameters<typeof service.createFaq>[0])
 
       expect(prisma.fAQ.create).toHaveBeenCalledWith(
@@ -111,10 +122,8 @@ describe('CmsService', () => {
       prisma.fAQ.findFirst.mockResolvedValue(null)
 
       await service.createFaq({
-        questionEs: 'q',
-        questionEn: 'q',
-        answerEs: 'a',
-        answerEn: 'a',
+        question: 'q',
+        answer: 'a',
       } as Parameters<typeof service.createFaq>[0])
 
       expect(prisma.fAQ.create).toHaveBeenCalledWith(
@@ -184,7 +193,7 @@ describe('CmsService', () => {
   describe('landing sections', () => {
     it('creates the row when a section is saved for the first time', async () => {
       prisma.contentSection.findUnique.mockResolvedValue(null)
-      const dto = { titleEs: 'Hola', titleEn: 'Hello' }
+      const dto = { title: 'Hola' }
 
       await service.updateSection(ContentSectionKey.HERO, dto)
 
@@ -193,30 +202,6 @@ describe('CmsService', () => {
         update: dto,
         create: { key: ContentSectionKey.HERO, ...dto },
       })
-    })
-
-    it('refuses a field filled in one language only', async () => {
-      prisma.contentSection.findUnique.mockResolvedValue(null)
-
-      await expect(
-        service.updateSection(ContentSectionKey.HERO, { titleEs: 'Solo español' }),
-      ).rejects.toThrow(BadRequestException)
-      expect(prisma.contentSection.upsert).not.toHaveBeenCalled()
-    })
-
-    it('accepts one language when the other is already stored', async () => {
-      // Editing just the Spanish side of an already-bilingual field is fine.
-      prisma.contentSection.findUnique.mockResolvedValue({ titleEs: 'Viejo', titleEn: 'Old' })
-
-      await service.updateSection(ContentSectionKey.HERO, { titleEs: 'Nuevo' })
-      expect(prisma.contentSection.upsert).toHaveBeenCalled()
-    })
-
-    it('accepts a field left empty in both languages', async () => {
-      prisma.contentSection.findUnique.mockResolvedValue(null)
-
-      await service.updateSection(ContentSectionKey.FOOTER, { titleEs: '', titleEn: '' })
-      expect(prisma.contentSection.upsert).toHaveBeenCalled()
     })
   })
 
@@ -230,8 +215,7 @@ describe('CmsService', () => {
       await service.createItem({
         sectionKey: ContentSectionKey.HERO,
         kind: ContentItemKind.HERO_BADGE,
-        labelEs: 'a',
-        labelEn: 'a',
+        label: 'a',
       })
 
       expect(prisma.contentItem.findFirst).toHaveBeenCalledWith(
@@ -249,8 +233,7 @@ describe('CmsService', () => {
         service.createItem({
           sectionKey: ContentSectionKey.HERO,
           kind: ContentItemKind.HERO_BADGE,
-          labelEs: 'a',
-          labelEn: 'a',
+          label: 'a',
         }),
       ).rejects.toThrow(NotFoundException)
     })
@@ -282,7 +265,7 @@ describe('CmsService', () => {
       prisma.review.findUnique.mockResolvedValue({ id: 'r3' })
       prisma.review.update.mockResolvedValue({ id: 'r3', featured: false })
 
-      await service.updateReview('r3', { textEs: 'x', textEn: 'x' })
+      await service.updateReview('r3', { text: 'x' })
       expect(prisma.review.updateMany).not.toHaveBeenCalled()
     })
 

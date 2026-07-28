@@ -10,7 +10,7 @@ import { ContentIcon } from '@/lib/content-icons'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
-import { itemsOf, localized } from '@/lib/cms-public'
+import { itemsOf } from '@/lib/cms-public'
 import { translations } from '@/lib/i18n'
 
 type HeroProps = {
@@ -27,10 +27,10 @@ export function HomeHero({ images }: HeroProps) {
   // fallback for a cold or offline API.
   const section = useSiteContent()?.sections.HERO
   const badges = itemsOf(section, 'HERO_BADGE')
-  const title = section ? localized(section, 'title', language) : ''
-  const subtitle = section ? localized(section, 'subtitle', language) : ''
-  const subline = section ? localized(section, 'body', language) : ''
-  const ctaLabel = section ? localized(section, 'ctaLabel', language) : ''
+  const title = section ? section.title : ''
+  const subtitle = section ? section.subtitle : ''
+  const subline = section ? section.body : ''
+  const ctaLabel = section ? section.ctaLabel : ''
 
   useEffect(() => {
     if (total <= 1) return
@@ -121,9 +121,7 @@ export function HomeHero({ images }: HeroProps) {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#174d7a]/10 text-[#174d7a]">
                   <ContentIcon name={badge.icon} className="h-5 w-5" />
                 </div>
-                <span className="text-sm font-medium text-slate-700">
-                  {localized(badge, 'label', language)}
-                </span>
+                <span className="text-sm font-medium text-slate-700">{badge.label}</span>
               </div>
             ))}
           </div>

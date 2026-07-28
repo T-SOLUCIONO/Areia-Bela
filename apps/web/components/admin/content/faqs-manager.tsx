@@ -27,21 +27,17 @@ import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Switch } from '@areia-bela/ui/switch'
 import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
+import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { cms, type FAQ, type FAQCategory } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
 
 const CATEGORIES: FAQCategory[] = ['GENERAL', 'PETS', 'POOL', 'TRASH', 'PARTIES']
 
-type Draft = Pick<
-  FAQ,
-  'questionEs' | 'questionEn' | 'answerEs' | 'answerEn' | 'category' | 'published'
->
+type Draft = Pick<FAQ, 'question' | 'question' | 'answer' | 'answer' | 'category' | 'published'>
 
 const EMPTY_DRAFT: Draft = {
-  questionEs: '',
-  questionEn: '',
-  answerEs: '',
-  answerEn: '',
+  question: '',
+  answer: '',
   category: 'GENERAL',
   published: true,
 }
@@ -78,10 +74,8 @@ export function FaqsManager() {
   const openEdit = (faq: FAQ) => {
     setEditing(faq)
     setDraft({
-      questionEs: faq.questionEs,
-      questionEn: faq.questionEn,
-      answerEs: faq.answerEs,
-      answerEn: faq.answerEn,
+      question: faq.question,
+      answer: faq.answer,
       category: faq.category,
       published: faq.published,
     })
@@ -130,10 +124,7 @@ export function FaqsManager() {
   }
 
   const isComplete = Boolean(
-    draft?.questionEs.trim() &&
-    draft.questionEn.trim() &&
-    draft.answerEs.trim() &&
-    draft.answerEn.trim(),
+    draft?.question.trim() && draft.question.trim() && draft.answer.trim() && draft.answer.trim(),
   )
 
   if (isLoading) {
@@ -195,12 +186,12 @@ export function FaqsManager() {
 
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">{faq.questionEs}</p>
+                  <p className="font-medium">{faq.question}</p>
                   <Badge variant="secondary">{t.content.categories[faq.category]}</Badge>
                   {!faq.published && <Badge variant="outline">{t.content.hidden}</Badge>}
                 </div>
-                <p className="text-sm text-muted-foreground">{faq.questionEn}</p>
-                <p className="line-clamp-2 pt-1 text-sm text-muted-foreground">{faq.answerEs}</p>
+                <p className="font-medium">{faq.question}</p>
+                <p className="line-clamp-2 pt-1 text-sm text-muted-foreground">{faq.answer}</p>
               </div>
 
               <div className="flex gap-1">
@@ -240,50 +231,20 @@ export function FaqsManager() {
 
           {draft && (
             <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="q-es">
-                    {t.content.faqQuestion} · {t.content.spanish}
-                  </Label>
-                  <Input
-                    id="q-es"
-                    value={draft.questionEs}
-                    onChange={(e) => setDraft({ ...draft, questionEs: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="q-en">
-                    {t.content.faqQuestion} · {t.content.english}
-                  </Label>
-                  <Input
-                    id="q-en"
-                    value={draft.questionEn}
-                    onChange={(e) => setDraft({ ...draft, questionEn: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="a-es">
-                    {t.content.faqAnswer} · {t.content.spanish}
-                  </Label>
-                  <Textarea
-                    id="a-es"
-                    rows={4}
-                    value={draft.answerEs}
-                    onChange={(e) => setDraft({ ...draft, answerEs: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="a-en">
-                    {t.content.faqAnswer} · {t.content.english}
-                  </Label>
-                  <Textarea
-                    id="a-en"
-                    rows={4}
-                    value={draft.answerEn}
-                    onChange={(e) => setDraft({ ...draft, answerEn: e.target.value })}
-                  />
-                </div>
-              </div>
+              <TranslatableField
+                id="faq-question"
+                label={t.content.faqQuestion}
+                value={draft.question}
+                onChange={(question) => setDraft({ ...draft, question })}
+              />
+              <TranslatableField
+                id="faq-answer"
+                label={t.content.faqAnswer}
+                multiline
+                rows={4}
+                value={draft.answer}
+                onChange={(answer) => setDraft({ ...draft, answer })}
+              />
 
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="space-y-1.5">

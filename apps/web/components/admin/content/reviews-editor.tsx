@@ -13,7 +13,7 @@ import { Switch } from '@areia-bela/ui/switch'
 import { ApiError } from '@/lib/api-client'
 import { landing, type Review } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
-import { BilingualField } from '@/components/admin/content/bilingual-field'
+import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { ImageField } from '@/components/admin/content/image-field'
 import { cn } from '@/lib/utils'
 
@@ -79,10 +79,8 @@ export function ReviewsEditor() {
           authorName: draft.authorName,
           authorPhotoUrl: draft.authorPhotoUrl,
           rating: draft.rating,
-          textEs: draft.textEs,
-          textEn: draft.textEn,
-          stayedAtEs: draft.stayedAtEs,
-          stayedAtEn: draft.stayedAtEn,
+          text: draft.text,
+          stayedAt: draft.stayedAt,
           verified: draft.verified,
           featured: draft.featured,
           published: draft.published,
@@ -97,8 +95,7 @@ export function ReviewsEditor() {
     try {
       await landing.createReview({
         authorName: t.content.reviewNewAuthor,
-        textEs: t.content.reviewNewText,
-        textEn: t.content.reviewNewText,
+        text: t.content.reviewNewText,
       })
       await load()
     } catch (err) {
@@ -218,31 +215,19 @@ export function ReviewsEditor() {
                       </div>
                     </div>
 
-                    <BilingualField
+                    <TranslatableField
                       label={t.content.reviewText}
                       multiline
                       rows={4}
-                      valueEs={draft.textEs}
-                      valueEn={draft.textEn}
-                      onChange={(p) =>
-                        edit(review, {
-                          ...(p.es !== undefined && { textEs: p.es }),
-                          ...(p.en !== undefined && { textEn: p.en }),
-                        })
-                      }
+                      value={draft.text}
+                      onChange={(v) => edit(review, { text: v })}
                     />
 
-                    <BilingualField
+                    <TranslatableField
                       label={t.content.reviewDate}
-                      valueEs={draft.stayedAtEs}
-                      valueEn={draft.stayedAtEn}
+                      value={draft.stayedAt}
                       placeholder="noviembre de 2025"
-                      onChange={(p) =>
-                        edit(review, {
-                          ...(p.es !== undefined && { stayedAtEs: p.es }),
-                          ...(p.en !== undefined && { stayedAtEn: p.en }),
-                        })
-                      }
+                      onChange={(v) => edit(review, { stayedAt: v })}
                     />
 
                     <ImageField

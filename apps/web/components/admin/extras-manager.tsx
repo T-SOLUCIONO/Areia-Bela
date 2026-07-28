@@ -77,8 +77,7 @@ export function ExtrasManager({ extras, canEdit, onChanged }: Props) {
     const ok = await run(
       () =>
         cms.updateExtra(draft.id, {
-          nameEs: draft.nameEs,
-          nameEn: draft.nameEn,
+          name: draft.name,
           price: Number(draft.price),
           pricingType: draft.pricingType,
           refundable: draft.refundable,
@@ -105,13 +104,13 @@ export function ExtrasManager({ extras, canEdit, onChanged }: Props) {
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-foreground">{extra.nameEs}</p>
+                <p className="font-medium text-foreground">{extra.name}</p>
                 {!extra.active && <Badge variant="outline">{t.extras.inactive}</Badge>}
                 {extra.requiresRequest && <Badge variant="secondary">{t.pricing.onRequest}</Badge>}
                 {!extra.refundable && <Badge variant="outline">{t.pricing.nonRefundable}</Badge>}
               </div>
               <p className="text-sm text-muted-foreground">
-                {extra.nameEn}
+                {extra.name}
                 {extra.seasonStartMonthDay && extra.seasonEndMonthDay && (
                   <>
                     {' · '}
@@ -134,7 +133,7 @@ export function ExtrasManager({ extras, canEdit, onChanged }: Props) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  aria-label={`${t.extras.edit}: ${extra.nameEs}`}
+                  aria-label={`${t.extras.edit}: ${extra.name}`}
                   onClick={() => setDraft(extra)}
                 >
                   <Pencil className="h-4 w-4" aria-hidden />
@@ -159,23 +158,11 @@ export function ExtrasManager({ extras, canEdit, onChanged }: Props) {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="extra-name-es">
-                    {t.extras.name} · {t.content.spanish}
-                  </Label>
+                  <Label htmlFor="extra-name">{t.extras.name}</Label>
                   <Input
-                    id="extra-name-es"
-                    value={draft.nameEs}
-                    onChange={(e) => setDraft({ ...draft, nameEs: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="extra-name-en">
-                    {t.extras.name} · {t.content.english}
-                  </Label>
-                  <Input
-                    id="extra-name-en"
-                    value={draft.nameEn}
-                    onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })}
+                    id="extra-name"
+                    value={draft.name}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">

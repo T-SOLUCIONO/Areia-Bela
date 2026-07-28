@@ -24,6 +24,24 @@ export const RESPONSE_TIME_BADGE: Record<Language, Record<ResponseTimeKey, strin
     'within-a-day': 'Responde en un día',
     unknown: null,
   },
+  pt: {
+    'within-an-hour': 'Responde em menos de uma hora',
+    'within-a-few-hours': 'Responde em poucas horas',
+    'within-a-day': 'Responde em um dia',
+    unknown: null,
+  },
+  fr: {
+    'within-an-hour': "Répond en moins d'une heure",
+    'within-a-few-hours': 'Répond en quelques heures',
+    'within-a-day': 'Répond dans la journée',
+    unknown: null,
+  },
+  de: {
+    'within-an-hour': 'Antwortet innerhalb einer Stunde',
+    'within-a-few-hours': 'Antwortet innerhalb weniger Stunden',
+    'within-a-day': 'Antwortet innerhalb eines Tages',
+    unknown: null,
+  },
 }
 
 /** Clause form: follows the host's first name. */
@@ -40,6 +58,24 @@ export const RESPONSE_TIME_CLAUSE: Record<Language, ResponseLabels> = {
     'within-a-day': 'suele responder en un día.',
     unknown: 'te responderá pronto.',
   },
+  pt: {
+    'within-an-hour': 'costuma responder em menos de uma hora.',
+    'within-a-few-hours': 'costuma responder em poucas horas.',
+    'within-a-day': 'costuma responder em um dia.',
+    unknown: 'responderá em breve.',
+  },
+  fr: {
+    'within-an-hour': "répond généralement en moins d'une heure.",
+    'within-a-few-hours': 'répond généralement en quelques heures.',
+    'within-a-day': 'répond généralement dans la journée.',
+    unknown: 'vous répondra bientôt.',
+  },
+  de: {
+    'within-an-hour': 'antwortet meist innerhalb einer Stunde.',
+    'within-a-few-hours': 'antwortet meist innerhalb weniger Stunden.',
+    'within-a-day': 'antwortet meist innerhalb eines Tages.',
+    unknown: 'meldet sich bald bei Ihnen.',
+  },
 }
 
 /** Compact form: fits inside a small stat tile. */
@@ -54,6 +90,24 @@ export const RESPONSE_TIME_COMPACT: Record<Language, ResponseLabels> = {
     'within-an-hour': '< 1 hora',
     'within-a-few-hours': 'Pocas horas',
     'within-a-day': '< 1 día',
+    unknown: '—',
+  },
+  pt: {
+    'within-an-hour': '< 1 hora',
+    'within-a-few-hours': 'Poucas horas',
+    'within-a-day': '< 1 dia',
+    unknown: '—',
+  },
+  fr: {
+    'within-an-hour': '< 1 heure',
+    'within-a-few-hours': 'Quelques heures',
+    'within-a-day': '< 1 jour',
+    unknown: '—',
+  },
+  de: {
+    'within-an-hour': '< 1 Stunde',
+    'within-a-few-hours': 'Wenige Stunden',
+    'within-a-day': '< 1 Tag',
     unknown: '—',
   },
 }

@@ -21,20 +21,16 @@ export type ExtraPricingType = 'PER_NIGHT' | 'PER_HOUR' | 'PER_STAY'
 export interface CMSPage {
   id: string
   slug: CMSPageSlug
-  titleEs: string
-  titleEn: string
-  bodyEs: string
-  bodyEn: string
+  title: string
+  body: string
   published: boolean
   updatedAt: string
 }
 
 export interface FAQ {
   id: string
-  questionEs: string
-  questionEn: string
-  answerEs: string
-  answerEn: string
+  question: string
+  answer: string
   category: FAQCategory
   sortOrder: number
   published: boolean
@@ -43,8 +39,7 @@ export interface FAQ {
 export interface GalleryImage {
   id: string
   url: string
-  altEs: string
-  altEn: string
+  alt: string
   sortOrder: number
   published: boolean
 }
@@ -53,10 +48,8 @@ export interface SiteSettings {
   contactEmail: string
   contactPhone: string
   whatsapp: string
-  seoTitleEs: string
-  seoTitleEn: string
-  seoDescriptionEs: string
-  seoDescriptionEn: string
+  seoTitle: string
+  seoDescription: string
   instagramUrl: string | null
   facebookUrl: string | null
   airbnbUrl: string | null
@@ -66,8 +59,7 @@ export interface SiteSettings {
 export interface Extra {
   id: string
   key: string
-  nameEs: string
-  nameEn: string
+  name: string
   pricingType: ExtraPricingType
   price: string
   refundable: boolean
@@ -90,10 +82,8 @@ export interface PriceRule {
 export interface PropertySettings {
   id: string
   slug: string
-  nameEs: string
-  nameEn: string
-  descriptionEs: string
-  descriptionEn: string
+  name: string
+  description: string
   maxGuests: number
   bedrooms: number
   bathrooms: number
@@ -142,7 +132,7 @@ export type ExtraUpdate = Partial<Omit<Extra, 'id' | 'key' | 'price'> & { price:
 
 /** True when a page still carries the same text in both languages. */
 export function needsTranslation(page: CMSPage): boolean {
-  return page.bodyEs.trim() === page.bodyEn.trim()
+  return page.body.trim() === page.body.trim()
 }
 
 export const cms = {
@@ -189,11 +179,10 @@ export const cms = {
    * Uploads bypass apiFetch: it sets a JSON content-type, and multipart needs
    * the browser to set its own boundary.
    */
-  async uploadImage(file: File, altEs: string, altEn: string): Promise<GalleryImage> {
+  async uploadImage(file: File, alt: string): Promise<GalleryImage> {
     const form = new FormData()
     form.append('file', file)
-    form.append('altEs', altEs)
-    form.append('altEn', altEn)
+    form.append('alt', alt)
 
     const response = await fetch(`${API_URL}/cms/gallery`, {
       method: 'POST',
@@ -222,10 +211,8 @@ export interface ContentItem {
   kind: ContentItemKind
   icon: string
   imageUrl: string | null
-  labelEs: string
-  labelEn: string
-  bodyEs: string
-  bodyEn: string
+  label: string
+  body: string
   value: string
   sortOrder: number
   published: boolean
@@ -234,20 +221,14 @@ export interface ContentItem {
 export interface ContentSection {
   id: string
   key: ContentSectionKey
-  eyebrowEs: string
-  eyebrowEn: string
-  titleEs: string
-  titleEn: string
-  subtitleEs: string
-  subtitleEn: string
-  bodyEs: string
-  bodyEn: string
-  ctaLabelEs: string
-  ctaLabelEn: string
+  eyebrow: string
+  title: string
+  subtitle: string
+  body: string
+  ctaLabel: string
   ctaHref: string
   statValue: string
-  statLabelEs: string
-  statLabelEn: string
+  statLabel: string
   imageUrl: string | null
   linkUrl: string | null
   published: boolean
@@ -259,10 +240,8 @@ export interface Review {
   authorName: string
   authorPhotoUrl: string | null
   rating: number
-  textEs: string
-  textEn: string
-  stayedAtEs: string
-  stayedAtEn: string
+  text: string
+  stayedAt: string
   verified: boolean
   featured: boolean
   sortOrder: number
@@ -307,13 +286,9 @@ export const landing = {
   reorderReviews: (ids: string[]) =>
     apiFetch<void>('/cms/reviews/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
 
+  /** False when ANTHROPIC_API_KEY is unset, so the admin can say so. */
   translationEnabled: () =>
     apiFetch<{ configured: boolean }>('/cms/admin/translation-status').then((r) => r.configured),
-  translate: (text: string, from: 'es' | 'en', to: 'es' | 'en') =>
-    apiFetch<{ text: string }>('/cms/translate', {
-      method: 'POST',
-      body: JSON.stringify({ text, from, to }),
-    }).then((r) => r.text),
 
   /** Multipart, so it can't go through apiFetch — see uploadImage above. */
   async uploadImage(file: File): Promise<string> {

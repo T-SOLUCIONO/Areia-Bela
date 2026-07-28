@@ -34,29 +34,25 @@ async function main() {
   )[0]
   const source = listing.sectionedDescription
 
-  const pages: Array<{ slug: CMSPageSlug; titleEs: string; titleEn: string; body?: string }> = [
+  const pages: Array<{ slug: CMSPageSlug; title: string; body?: string }> = [
     {
       slug: CMSPageSlug.ABOUT_SPACE,
-      titleEs: 'Sobre la casa',
-      titleEn: 'About the space',
+      title: 'Sobre la casa',
       body: source.space,
     },
     {
       slug: CMSPageSlug.LOCATION,
-      titleEs: 'Dónde está',
-      titleEn: 'Where it is',
+      title: 'Dónde está',
       body: [source.neighborhoodOverview, source.transit].filter(Boolean).join('\n\n'),
     },
     {
       slug: CMSPageSlug.HOUSE_RULES,
-      titleEs: 'Normas de la casa',
-      titleEn: 'House rules',
+      title: 'Normas de la casa',
       body: source.houseRules,
     },
     {
       slug: CMSPageSlug.GUEST_ACCESS,
-      titleEs: 'Antes de reservar',
-      titleEn: 'Before you book',
+      title: 'Antes de reservar',
       body: source.notes,
     },
   ]
@@ -71,11 +67,9 @@ async function main() {
       update: {},
       create: {
         slug: page.slug,
-        titleEs: page.titleEs,
-        titleEn: page.titleEn,
+        title: page.title,
         // Same text both sides: see the note above on the translation gap.
-        bodyEs: body,
-        bodyEn: body,
+        body: body,
       },
     })
     created += 1
@@ -86,45 +80,35 @@ async function main() {
   // Spanish, so both languages here are genuine rather than duplicated.
   const faqs = [
     {
-      questionEs: '¿Puedo llevar a mi mascota?',
-      questionEn: 'Can I bring my pet?',
-      answerEs: 'Sí, se admiten perros y gatos. Hay un cargo de $100 por estadía, no reembolsable.',
-      answerEn: 'Yes, dogs and cats are welcome. There is a $100 non-refundable fee per stay.',
+      question: '¿Puedo llevar a mi mascota?',
+      answer: 'Sí, se admiten perros y gatos. Hay un cargo de $100 por estadía, no reembolsable.',
       category: FAQCategory.PETS,
       sortOrder: 0,
     },
     {
-      questionEs: '¿La piscina está climatizada?',
-      questionEn: 'Is the pool heated?',
-      answerEs:
+      question: '¿La piscina está climatizada?',
+      answer:
         'La calefacción es opcional, cuesta $20 por noche y está disponible del 1 de octubre al 1 de mayo.',
-      answerEn:
-        'Heating is optional, costs $20 per night, and is available from 1 October to 1 May.',
       category: FAQCategory.POOL,
       sortOrder: 1,
     },
     {
-      questionEs: '¿Qué días pasa el camión de la basura?',
-      questionEn: 'When is the trash collected?',
-      answerEs: 'Miércoles y sábado. Deja los contenedores en la acera la noche anterior.',
-      answerEn: 'Wednesday and Saturday. Please put the bins out the night before.',
+      question: '¿Qué días pasa el camión de la basura?',
+      answer: 'Miércoles y sábado. Deja los contenedores en la acera la noche anterior.',
       category: FAQCategory.TRASH,
       sortOrder: 2,
     },
     {
-      questionEs: '¿Se pueden hacer fiestas?',
-      questionEn: 'Are parties allowed?',
-      answerEs:
+      question: '¿Se pueden hacer fiestas?',
+      answer:
         'No. No se permiten eventos ni reuniones numerosas: queremos mantener el vecindario tranquilo.',
-      answerEn:
-        'No. Events and large gatherings are not allowed — we want to keep the neighbourhood quiet.',
       category: FAQCategory.PARTIES,
       sortOrder: 3,
     },
   ]
 
   for (const faq of faqs) {
-    const existing = await prisma.fAQ.findFirst({ where: { questionEn: faq.questionEn } })
+    const existing = await prisma.fAQ.findFirst({ where: { question: faq.question } })
     if (!existing) await prisma.fAQ.create({ data: faq })
   }
   console.log(`Seed CMS — ${faqs.length} preguntas frecuentes`)
@@ -138,12 +122,9 @@ async function main() {
       contactEmail: 'host@areiabela.com',
       contactPhone: '+1 (727) 555-3043',
       whatsapp: '17275553043',
-      seoTitleEs: 'Areia Bela — Casa completa con piscina climatizada en St. Petersburg',
-      seoTitleEn: 'Areia Bela — Whole home with heated pool in St. Petersburg',
-      seoDescriptionEs:
+      seoTitle: 'Areia Bela — Casa completa con piscina climatizada en St. Petersburg',
+      seoDescription:
         'Casa de 3 dormitorios a 5 minutos de Madeira Beach. Piscina climatizada, admite mascotas, hasta 8 huéspedes.',
-      seoDescriptionEn:
-        'Three-bedroom house five minutes from Madeira Beach. Heated pool, pet friendly, sleeps eight.',
     },
   })
   console.log('Seed CMS — ajustes del sitio')
@@ -160,8 +141,7 @@ async function main() {
       await prisma.galleryImage.create({
         data: {
           url: photo.large,
-          altEs: photo.caption?.trim() || 'Areia Bela',
-          altEn: photo.caption?.trim() || 'Areia Bela',
+          alt: photo.caption?.trim() || 'Areia Bela',
           sortOrder: index,
         },
       })

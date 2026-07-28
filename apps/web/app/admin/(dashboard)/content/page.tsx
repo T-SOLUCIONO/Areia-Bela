@@ -7,6 +7,7 @@ import { FaqsManager } from '@/components/admin/content/faqs-manager'
 import { GalleryManager } from '@/components/admin/content/gallery-manager'
 import { LandingEditor } from '@/components/admin/content/landing-editor'
 import { ReviewsEditor } from '@/components/admin/content/reviews-editor'
+import { TranslationNotice } from '@/components/admin/content/translation-notice'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
 
 /**
@@ -20,45 +21,49 @@ export default function ContentPage() {
   const t = useAdminCopy()
 
   return (
-    <Tabs defaultValue="landing" className="space-y-6">
-      <TabsList>
-        <TabsTrigger value="landing" className="gap-1.5">
-          <Home className="h-4 w-4" aria-hidden />
-          {t.content.landing}
-        </TabsTrigger>
-        <TabsTrigger value="pages" className="gap-1.5">
-          <FileText className="h-4 w-4" aria-hidden />
-          {t.content.pages}
-        </TabsTrigger>
-        <TabsTrigger value="reviews" className="gap-1.5">
-          <MessageSquareQuote className="h-4 w-4" aria-hidden />
-          {t.content.reviews}
-        </TabsTrigger>
-        <TabsTrigger value="faqs" className="gap-1.5">
-          <HelpCircle className="h-4 w-4" aria-hidden />
-          {t.content.faqs}
-        </TabsTrigger>
-        <TabsTrigger value="gallery" className="gap-1.5">
-          <Images className="h-4 w-4" aria-hidden />
-          {t.content.gallery}
-        </TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      <TranslationNotice />
 
-      <TabsContent value="landing">
-        <LandingEditor />
-      </TabsContent>
-      <TabsContent value="pages">
-        <PagesEditor />
-      </TabsContent>
-      <TabsContent value="reviews">
-        <ReviewsEditor />
-      </TabsContent>
-      <TabsContent value="faqs">
-        <FaqsManager />
-      </TabsContent>
-      <TabsContent value="gallery">
-        <GalleryManager />
-      </TabsContent>
-    </Tabs>
+      <Tabs defaultValue="landing" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="landing" className="gap-1.5">
+            <Home className="h-4 w-4" aria-hidden />
+            {t.content.landing}
+          </TabsTrigger>
+          <TabsTrigger value="pages" className="gap-1.5">
+            <FileText className="h-4 w-4" aria-hidden />
+            {t.content.pages}
+          </TabsTrigger>
+          <TabsTrigger value="reviews" className="gap-1.5">
+            <MessageSquareQuote className="h-4 w-4" aria-hidden />
+            {t.content.reviews}
+          </TabsTrigger>
+          <TabsTrigger value="faqs" className="gap-1.5">
+            <HelpCircle className="h-4 w-4" aria-hidden />
+            {t.content.faqs}
+          </TabsTrigger>
+          <TabsTrigger value="gallery" className="gap-1.5">
+            <Images className="h-4 w-4" aria-hidden />
+            {t.content.gallery}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="landing">
+          <LandingEditor />
+        </TabsContent>
+        <TabsContent value="pages">
+          <PagesEditor />
+        </TabsContent>
+        <TabsContent value="reviews">
+          <ReviewsEditor />
+        </TabsContent>
+        <TabsContent value="faqs">
+          <FaqsManager />
+        </TabsContent>
+        <TabsContent value="gallery">
+          <GalleryManager />
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

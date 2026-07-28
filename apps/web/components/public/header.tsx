@@ -4,8 +4,14 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu } from 'lucide-react'
+import { Globe, Menu } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@areia-bela/ui/dropdown-menu'
 import {
   Sheet,
   SheetContent,
@@ -73,22 +79,36 @@ export function Header() {
           <Button asChild variant="brand" size="lg" className="font-semibold">
             <Link href="#reservar">{copy.bookNow}</Link>
           </Button>
-          <div className="flex items-center gap-2 rounded-full border border-border bg-white/80 px-2 py-1 shadow-sm">
-            {languages.map((item) => (
-              <button
-                key={item.code}
-                type="button"
-                onClick={() => changeLanguage(item.code)}
-                className={
-                  item.code === language
-                    ? 'rounded-full bg-primary px-3 py-1 text-xs font-semibold tracking-[0.18em] text-primary-foreground'
-                    : 'rounded-full px-3 py-1 text-xs font-semibold tracking-[0.18em] text-muted-foreground'
-                }
+          {/* A dropdown rather than five pills: at two languages a row of
+              buttons was tidy, at five it crowds the header — and the menu has
+              room for the language's own name, which is what a visitor scans
+              for. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                className="gap-2 rounded-full bg-white/80"
+                aria-label={language === 'en' ? 'Change language' : 'Cambiar idioma'}
               >
-                {item.label}
-              </button>
-            ))}
-          </div>
+                <Globe className="h-4 w-4" aria-hidden />
+                <span className="text-xs font-semibold tracking-[0.18em]">
+                  {language.toUpperCase()}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {languages.map((item) => (
+                <DropdownMenuItem
+                  key={item.code}
+                  onSelect={() => changeLanguage(item.code)}
+                  className={item.code === language ? 'font-semibold text-primary' : undefined}
+                >
+                  {item.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Mobile Menu */}
@@ -141,7 +161,9 @@ export function Header() {
                   <div className="text-sm font-medium text-foreground">
                     {language === 'en' ? 'Language' : 'Idioma'}
                   </div>
-                  <div className="flex items-center gap-2 rounded-full border border-border px-2 py-1 w-fit">
+                  {/* On a phone there is room to list them, and tapping a
+                      language name is a bigger target than a two-letter pill. */}
+                  <div className="grid grid-cols-2 gap-2">
                     {languages.map((item) => (
                       <button
                         key={item.code}
@@ -149,11 +171,11 @@ export function Header() {
                         onClick={() => changeLanguage(item.code)}
                         className={
                           item.code === language
-                            ? 'rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground'
-                            : 'rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground'
+                            ? 'rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground'
+                            : 'rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground'
                         }
                       >
-                        {item.label}
+                        {item.name}
                       </button>
                     ))}
                   </div>

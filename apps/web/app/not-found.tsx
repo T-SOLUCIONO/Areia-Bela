@@ -22,6 +22,27 @@ const copy = {
     home: 'Volver al inicio',
     availability: 'Ver disponibilidad',
   },
+  pt: {
+    kicker: 'Página não encontrada',
+    title: 'Esta página foi embora com a maré',
+    body: 'Não encontramos o que você procurava, mas a casa continua de pé e a piscina continua morna.',
+    home: 'Voltar ao início',
+    availability: 'Ver disponibilidade',
+  },
+  fr: {
+    kicker: 'Page introuvable',
+    title: 'Cette page est partie avec la marée',
+    body: "Nous n'avons pas trouvé ce que vous cherchiez, mais la maison est toujours là et la piscine est toujours tiède.",
+    home: "Retour à l'accueil",
+    availability: 'Voir les disponibilités',
+  },
+  de: {
+    kicker: 'Seite nicht gefunden',
+    title: 'Diese Seite ist mit der Flut davongetrieben',
+    body: 'Wir konnten nicht finden, wonach Sie gesucht haben — aber das Haus steht noch, und der Pool ist noch warm.',
+    home: 'Zurück zur Startseite',
+    availability: 'Verfügbarkeit ansehen',
+  },
 } satisfies Record<Language, Record<string, string>>
 
 export default function NotFound() {

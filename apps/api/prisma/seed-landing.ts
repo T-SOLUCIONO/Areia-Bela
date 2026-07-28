@@ -82,29 +82,21 @@ interface SeedItem {
   kind: ContentItemKind
   icon?: string
   imageUrl?: string
-  labelEs: string
-  labelEn: string
-  bodyEs?: string
-  bodyEn?: string
+  label: string
+  body?: string
   value?: string
 }
 
 interface SeedSection {
   key: ContentSectionKey
-  eyebrowEs?: string
-  eyebrowEn?: string
-  titleEs?: string
-  titleEn?: string
-  subtitleEs?: string
-  subtitleEn?: string
-  bodyEs?: string
-  bodyEn?: string
-  ctaLabelEs?: string
-  ctaLabelEn?: string
+  eyebrow?: string
+  title?: string
+  subtitle?: string
+  body?: string
+  ctaLabel?: string
   ctaHref?: string
   statValue?: string
-  statLabelEs?: string
-  statLabelEn?: string
+  statLabel?: string
   imageUrl?: string
   linkUrl?: string
   items: SeedItem[]
@@ -115,222 +107,169 @@ const photo = (index: number) => listing.photos[index]?.large ?? listing.photos[
 const sections: SeedSection[] = [
   {
     key: ContentSectionKey.HERO,
-    titleEs: 'Tu refugio con piscina cerca de Madeira Beach',
-    titleEn: 'Your private pool retreat near Madeira Beach',
-    subtitleEs: '3 dormitorios, 2 baños · Familiar · Acepta mascotas',
-    subtitleEn: '3 bedrooms, 2 bathrooms · Family-friendly · Pet-friendly',
-    bodyEs: 'A solo 5 minutos de Madeira Beach',
-    bodyEn: 'Just 5 minutes to Madeira Beach',
-    ctaLabelEs: 'RESERVA TU ESTADÍA',
-    ctaLabelEn: 'BOOK YOUR STAY',
+    title: 'Tu refugio con piscina cerca de Madeira Beach',
+    subtitle: '3 dormitorios, 2 baños · Familiar · Acepta mascotas',
+    body: 'A solo 5 minutos de Madeira Beach',
+    ctaLabel: 'RESERVA TU ESTADÍA',
     ctaHref: '#reservar',
     items: [
       {
         kind: ContentItemKind.HERO_BADGE,
         icon: 'Users',
-        labelEs: 'Hasta 8 huéspedes',
-        labelEn: 'Sleeps 8',
+        label: 'Hasta 8 huéspedes',
       },
       {
         kind: ContentItemKind.HERO_BADGE,
         icon: 'Waves',
-        labelEs: 'Piscina climatizada privada',
-        labelEn: 'Private Heated Pool',
+        label: 'Piscina climatizada privada',
       },
       {
         kind: ContentItemKind.HERO_BADGE,
         icon: 'PawPrint',
-        labelEs: 'Acepta mascotas',
-        labelEn: 'Pet Friendly',
+        label: 'Acepta mascotas',
       },
       {
         kind: ContentItemKind.HERO_BADGE,
         icon: 'Gamepad2',
-        labelEs: 'Lista para la familia',
-        labelEn: 'Family Ready',
+        label: 'Lista para la familia',
       },
       {
         kind: ContentItemKind.HERO_BADGE,
         icon: 'Wifi',
-        labelEs: 'Wi-Fi rápido',
-        labelEn: 'Fast Wi-Fi',
+        label: 'Wi-Fi rápido',
       },
     ],
   },
   {
     key: ContentSectionKey.FEATURES,
-    titleEs: 'Detalles pensados para una estadía inolvidable',
-    titleEn: 'Thoughtful touches for an unforgettable stay',
+    title: 'Detalles pensados para una estadía inolvidable',
     items: [
       {
         kind: ContentItemKind.FEATURE_CARD,
         icon: 'Coffee',
         imageUrl: photo(1),
-        labelEs: 'Coffee Bar',
-        labelEn: 'Coffee Bar',
-        bodyEs: 'Empieza el día con café premium, té y todo lo necesario.',
-        bodyEn: 'Start your day the beach way. Enjoy premium coffee, tea, and all the essentials.',
+        label: 'Coffee Bar',
+        body: 'Empieza el día con café premium, té y todo lo necesario.',
       },
       {
         kind: ContentItemKind.FEATURE_CARD,
         icon: 'Gamepad2',
         imageUrl: photo(2),
-        labelEs: 'Rincón de Juegos',
-        labelEn: 'Family Game Corner',
-        bodyEs:
-          'Diversión para todas las edades con juegos de mesa, cartas y un espacio cómodo para compartir.',
-        bodyEn: 'Fun for all ages with board games, cards, and a cozy spot to connect and play.',
+        label: 'Rincón de Juegos',
+        body: 'Diversión para todas las edades con juegos de mesa, cartas y un espacio cómodo para compartir.',
       },
       {
         kind: ContentItemKind.FEATURE_CARD,
         icon: 'Umbrella',
         imageUrl: photo(3),
-        labelEs: 'Esenciales de Playa',
-        labelEn: 'Beach Essentials',
-        bodyEs: 'Incluye sillas, toallas, sombrilla, hielera y más para tu día de playa.',
-        bodyEn: "We've got you covered with beach chairs, towels, umbrella, cooler and more.",
+        label: 'Esenciales de Playa',
+        body: 'Incluye sillas, toallas, sombrilla, hielera y más para tu día de playa.',
       },
     ],
   },
   {
     key: ContentSectionKey.AMENITIES,
-    eyebrowEs: 'Servicios',
-    eyebrowEn: 'Amenities',
-    titleEs: 'Todo lo que necesitas, ya está aquí.',
-    titleEn: 'Everything you need, already in place.',
-    bodyEs: 'Detalles útiles y claros que ayudan a decidir sin ruido visual.',
-    bodyEn:
-      'Clean, useful details that help guests decide faster without scanning a noisy block of icons.',
+    eyebrow: 'Servicios',
+    title: 'Todo lo que necesitas, ya está aquí.',
+    body: 'Detalles útiles y claros que ayudan a decidir sin ruido visual.',
     // Source amenities are Spanish-only — see the gap noted at the top.
     items: listing.amenities.slice(0, 18).map((amenity) => ({
       kind: ContentItemKind.AMENITY,
-      labelEs: amenity,
-      labelEn: amenity,
+      label: amenity,
     })),
   },
   {
     key: ContentSectionKey.REVIEWS,
-    eyebrowEs: 'Huéspedes verificados',
-    eyebrowEn: 'Verified guests',
-    titleEs: 'Lo que dicen nuestros huéspedes',
-    titleEn: 'What our guests say',
+    eyebrow: 'Huéspedes verificados',
+    title: 'Lo que dicen nuestros huéspedes',
     statValue: listing.stars.toFixed(1),
-    statLabelEs: `${listing.reviews.reviewsCount} reseñas`,
-    statLabelEn: `${listing.reviews.reviewsCount} reviews`,
+    statLabel: `${listing.reviews.reviewsCount} reseñas`,
     items: [
       {
         kind: ContentItemKind.REVIEW_RATING,
-        labelEs: 'Limpieza',
-        labelEn: 'Cleanliness',
+        label: 'Limpieza',
         value: '5.0',
       },
       {
         kind: ContentItemKind.REVIEW_RATING,
-        labelEs: 'Comunicación',
-        labelEn: 'Communication',
+        label: 'Comunicación',
         value: '5.0',
       },
       {
         kind: ContentItemKind.REVIEW_RATING,
-        labelEs: 'Ubicación',
-        labelEn: 'Location',
+        label: 'Ubicación',
         value: '4.9',
       },
-      { kind: ContentItemKind.REVIEW_RATING, labelEs: 'Valor', labelEn: 'Value', value: '4.8' },
+      { kind: ContentItemKind.REVIEW_RATING, label: 'Valor', value: '4.8' },
     ],
   },
   {
     key: ContentSectionKey.LOCATION,
-    titleEs: 'Dónde te quedarás',
-    titleEn: "Where you'll be staying",
-    subtitleEs: 'St. Petersburg, Florida, Estados Unidos',
-    subtitleEn: 'St. Petersburg, Florida, United States',
-    bodyEs: 'Puntos cercanos',
-    bodyEn: 'Highlights nearby',
+    title: 'Dónde te quedarás',
+    subtitle: 'St. Petersburg, Florida, Estados Unidos',
+    body: 'Puntos cercanos',
     linkUrl:
       'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3528.27419102434!2d-82.78821252441964!3d27.816251620242203!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88c2fd15ebc9ec1f%3A0xea5d3d7f3368a9aa!2sAreia%20Bela!5e0!3m2!1sen!2sus!4v1710128828956!5m2!1sen!2sus',
     items: [
       {
         kind: ContentItemKind.LOCATION_HIGHLIGHT,
         icon: 'MapPin',
-        labelEs: 'A 5 min de Madeira Beach',
-        labelEn: '5 min from Madeira Beach',
+        label: 'A 5 min de Madeira Beach',
       },
       {
         kind: ContentItemKind.LOCATION_HIGHLIGHT,
         icon: 'MapPin',
-        labelEs: "John's Pass Village & Boardwalk",
-        labelEn: "John's Pass Village & Boardwalk",
+        label: "John's Pass Village & Boardwalk",
       },
       {
         kind: ContentItemKind.LOCATION_HIGHLIGHT,
         icon: 'MapPin',
-        labelEs: 'Restaurantes y cafés locales',
-        labelEn: 'Local restaurants and cafés',
+        label: 'Restaurantes y cafés locales',
       },
     ],
   },
   {
     key: ContentSectionKey.DIRECT_BOOKING,
-    titleEs: 'Reserva directa',
-    titleEn: 'Direct booking',
-    bodyEs:
-      'Reserva directo para obtener la mejor tarifa, comunicación clara y una estadía más fluida de inicio a fin.',
-    bodyEn:
-      'Book direct for the best rate, clear communication, and a smoother stay from start to finish.',
-    ctaLabelEs: 'Reservar ahora',
-    ctaLabelEn: 'Book now',
+    title: 'Reserva directa',
+    body: 'Reserva directo para obtener la mejor tarifa, comunicación clara y una estadía más fluida de inicio a fin.',
+    ctaLabel: 'Reservar ahora',
     ctaHref: '#reservar',
     items: [],
   },
   {
     key: ContentSectionKey.HOST,
-    eyebrowEs: 'Tu anfitriona',
-    eyebrowEn: 'Your host',
-    titleEs: 'Conoce a Angélica',
-    titleEn: 'Meet Angélica',
-    subtitleEs: 'Superanfitriona',
-    subtitleEn: 'Superhost',
-    bodyEs:
-      '¡Hola! Soy Angélica, y me encanta compartir este hermoso rincón de Florida con viajeros de todo el mundo. Mi misión es que tu estadía sea perfecta: desde el primer mensaje hasta el último día.',
-    bodyEn:
-      'Hi! I am Angélica, and I love sharing this beautiful corner of Florida with travelers from around the world. My mission is to make your stay perfect: from the first message to your last day.',
-    ctaLabelEs: 'Contactar a Angélica',
-    ctaLabelEn: 'Contact Angélica',
+    eyebrow: 'Tu anfitriona',
+    title: 'Conoce a Angélica',
+    subtitle: 'Superanfitriona',
+    body: '¡Hola! Soy Angélica, y me encanta compartir este hermoso rincón de Florida con viajeros de todo el mundo. Mi misión es que tu estadía sea perfecta: desde el primer mensaje hasta el último día.',
+    ctaLabel: 'Contactar a Angélica',
     statValue: '2019',
-    statLabelEs: 'Anfitriona desde',
-    statLabelEn: 'Host since',
+    statLabel: 'Anfitriona desde',
     imageUrl: listing.primaryHost.pictureUrl,
     items: [
       {
         kind: ContentItemKind.HOST_STAT,
         icon: 'Star',
-        labelEs: 'Reseñas',
-        labelEn: 'Reviews',
+        label: 'Reseñas',
         value: `${listing.reviews.reviewsCount}+`,
       },
       {
         kind: ContentItemKind.HOST_STAT,
         icon: 'ShieldCheck',
-        labelEs: 'Respuesta',
-        labelEn: 'Response',
+        label: 'Respuesta',
         value: '< 1 h',
       },
       {
         kind: ContentItemKind.HOST_STAT,
         icon: 'Sparkles',
-        labelEs: 'Tasa de respuesta',
-        labelEn: 'Response rate',
+        label: 'Tasa de respuesta',
         value: listing.primaryHost.responseRateWithoutNa ?? '—',
       },
     ],
   },
   {
     key: ContentSectionKey.FOOTER,
-    bodyEs:
-      'Escapada premium cerca de Madeira Beach con piscina climatizada, coffee bar y auto check-in para una estadía sin fricciones.',
-    bodyEn:
-      'Premium getaway near Madeira Beach with a heated pool, coffee bar, and self check-in for a smooth stay.',
+    body: 'Escapada premium cerca de Madeira Beach con piscina climatizada, coffee bar y auto check-in para una estadía sin fricciones.',
     items: [],
   },
 ]
@@ -351,7 +290,7 @@ async function main() {
       // Natural key: one label per list per section. Re-running must not
       // duplicate, and must not overwrite an edit the host already made.
       const existing = await prisma.contentItem.findFirst({
-        where: { sectionId: row.id, kind: item.kind, labelEn: item.labelEn },
+        where: { sectionId: row.id, kind: item.kind, label: item.label },
       })
       if (existing) continue
 
@@ -369,7 +308,7 @@ async function main() {
   for (const [index, review] of listing.reviews.reviews.slice(0, 4).entries()) {
     const text = clean(review.comments)
     const authorName = review.author?.firstName?.trim() || 'Huésped'
-    const existing = await prisma.review.findFirst({ where: { authorName, textEn: text } })
+    const existing = await prisma.review.findFirst({ where: { authorName, text: text } })
     if (existing) continue
 
     await prisma.review.create({
@@ -377,10 +316,8 @@ async function main() {
         authorName,
         authorPhotoUrl: review.author?.pictureUrl ?? null,
         rating: review.rating,
-        textEs: text,
-        textEn: text,
-        stayedAtEs: review.localizedDate ?? '',
-        stayedAtEn: review.localizedDate ? dateToEnglish(review.localizedDate) : '',
+        text: text,
+        stayedAt: review.localizedDate ?? '',
         verified: true,
         featured: index === 0,
         sortOrder: index,

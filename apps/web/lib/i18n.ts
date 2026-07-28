@@ -1,9 +1,23 @@
-export type Language = 'en' | 'es'
+import { LOCALE_LABELS, SUPPORTED_LOCALES, type SupportedLocale } from '@areia-bela/shared'
 
-export const languages: Array<{ code: Language; label: string }> = [
-  { code: 'en', label: 'EN' },
-  { code: 'es', label: 'ES' },
-]
+export type Language = SupportedLocale
+
+export const languages = SUPPORTED_LOCALES.map((code) => ({
+  code,
+  label: code.toUpperCase(),
+  name: LOCALE_LABELS[code],
+}))
+
+/**
+ * The site's own furniture: navigation, buttons, the labels on the booking
+ * card. Unlike the host's copy, this is part of the product, so it ships with
+ * the code rather than going through the CMS.
+ *
+ * The Portuguese, French and German below are machine translations that nobody
+ * has reviewed, which for a dozen standard booking-site labels is an acceptable
+ * trade — and the moment one reads wrong it is one line to fix here. The host's
+ * own words never work this way: those are translated on save and marked.
+ */
 
 export const translations = {
   en: {
@@ -96,6 +110,144 @@ export const translations = {
       from: 'Precio desde',
       availability: 'Ver disponibilidad',
       rights: 'Todos los derechos reservados.',
+    },
+  },
+  pt: {
+    nav: ['INÍCIO', 'GALERIA', 'COMODIDADES', 'LOCALIZAÇÃO'],
+    bookNow: 'RESERVAR',
+    heroTitle: ['Seu refúgio com piscina', 'perto de', 'Madeira Beach'],
+    heroDescription: '3 quartos, 2 banheiros · Para famílias · Aceita pets',
+    heroSubline: 'A apenas 5 minutos de Madeira Beach',
+    heroCta: 'RESERVE SUA ESTADIA',
+    featureBadges: [
+      'Capacidad 8',
+      'Piscina aquecida privativa',
+      'Aceita pets',
+      'Ideal para familias',
+      'Wi-Fi rápido',
+    ],
+    availability: {
+      title: 'Ver disponibilidade',
+      guaranteed: 'Melhor tarifa garantida',
+      checkIn: 'Llegada',
+      checkOut: 'Check-out',
+      addDate: 'Agregar fecha',
+      guests: 'Hóspedes',
+      guestOne: 'huésped',
+      guestMany: 'huéspedes',
+      babiesOne: 'bebê',
+      babiesMany: 'bebês',
+      guestRows: [
+        { title: 'Adultos', description: 'Más de 13 años' },
+        { title: 'Crianças', description: 'De 2 a 12' },
+        { title: 'Bebês', description: 'Menos de 2' },
+      ],
+      reserve: 'Reservar',
+      footer: 'Melhor tarifa garantida ao reservar direto.',
+    },
+    footer: {
+      description:
+        'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
+      explore: 'Explorar',
+      reserve: 'Reservar',
+      photos: 'Fotos',
+      services: 'Comodidades',
+      reviews: 'Avaliações',
+      from: 'A partir de',
+      availability: 'Ver disponibilidade',
+      rights: 'Todos os direitos reservados.',
+    },
+  },
+  fr: {
+    nav: ['ACCUEIL', 'GALERIE', 'ÉQUIPEMENTS', 'EMPLACEMENT'],
+    bookNow: 'RÉSERVER',
+    heroTitle: ['Votre refuge avec piscine', 'près de', 'Madeira Beach'],
+    heroDescription: '3 chambres, 2 salles de bain · Familial · Animaux acceptés',
+    heroSubline: 'À seulement 5 minutes de Madeira Beach',
+    heroCta: 'RÉSERVEZ VOTRE SÉJOUR',
+    featureBadges: [
+      'Capacidad 8',
+      'Piscine chauffée privée',
+      'Animaux acceptés',
+      'Ideal para familias',
+      'Wi-Fi rapide',
+    ],
+    availability: {
+      title: 'Voir les disponibilités',
+      guaranteed: 'Meilleur tarif garanti',
+      checkIn: 'Llegada',
+      checkOut: 'Départ',
+      addDate: 'Agregar fecha',
+      guests: 'Voyageurs',
+      guestOne: 'huésped',
+      guestMany: 'huéspedes',
+      babiesOne: 'bébé',
+      babiesMany: 'bébés',
+      guestRows: [
+        { title: 'Adultes', description: 'Más de 13 años' },
+        { title: 'Enfants', description: 'De 2 a 12' },
+        { title: 'Bébés', description: 'Menos de 2' },
+      ],
+      reserve: 'Réserver',
+      footer: 'Meilleur tarif garanti en réservant en direct.',
+    },
+    footer: {
+      description:
+        'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
+      explore: 'Explorer',
+      reserve: 'Réserver',
+      photos: 'Photos',
+      services: 'Équipements',
+      reviews: 'Avis',
+      from: 'À partir de',
+      availability: 'Voir les disponibilités',
+      rights: 'Tous droits réservés.',
+    },
+  },
+  de: {
+    nav: ['START', 'GALERIE', 'AUSSTATTUNG', 'LAGE'],
+    bookNow: 'JETZT BUCHEN',
+    heroTitle: ['Ihr Refugium mit Pool', 'nahe', 'Madeira Beach'],
+    heroDescription: '3 Schlafzimmer, 2 Bäder · Familienfreundlich · Haustiere willkommen',
+    heroSubline: 'Nur 5 Minuten von Madeira Beach',
+    heroCta: 'AUFENTHALT BUCHEN',
+    featureBadges: [
+      'Capacidad 8',
+      'Privater beheizter Pool',
+      'Haustiere willkommen',
+      'Ideal para familias',
+      'Schnelles WLAN',
+    ],
+    availability: {
+      title: 'Verfügbarkeit ansehen',
+      guaranteed: 'Bestpreisgarantie',
+      checkIn: 'Llegada',
+      checkOut: 'Abreise',
+      addDate: 'Agregar fecha',
+      guests: 'Gäste',
+      guestOne: 'huésped',
+      guestMany: 'huéspedes',
+      babiesOne: 'Baby',
+      babiesMany: 'Babys',
+      guestRows: [
+        { title: 'Erwachsene', description: 'Más de 13 años' },
+        { title: 'Kinder', description: 'De 2 a 12' },
+        { title: 'Babys', description: 'Menos de 2' },
+      ],
+      reserve: 'Buchen',
+      footer: 'Bestpreisgarantie bei Direktbuchung.',
+    },
+    footer: {
+      description:
+        'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
+      explore: 'Entdecken',
+      reserve: 'Buchen',
+      photos: 'Fotos',
+      services: 'Ausstattung',
+      reviews: 'Bewertungen',
+      from: 'Preis ab',
+      availability: 'Verfügbarkeit ansehen',
+      rights: 'Alle Rechte vorbehalten.',
     },
   },
 } as const

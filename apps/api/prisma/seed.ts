@@ -13,7 +13,7 @@ import propertyListing from '../../web/datos.json'
  *
  * Known gap, disclosed rather than papered over: no Spanish translation of
  * the property description exists yet anywhere in the codebase, so
- * descriptionEs below is the same English text as descriptionEn. Real
+ * description below is the same English text as description. Real
  * Spanish copy is Fase 5 (CMS) work.
  *
  * Only ONE PriceRule is seeded (the real flat nightly rate, $300, from the
@@ -50,10 +50,8 @@ async function main() {
     update: {},
     create: {
       slug: 'areia-bela',
-      nameEs: listing.name,
-      nameEn: listing.name,
-      descriptionEs: listing.sectionedDescription.description,
-      descriptionEn: listing.sectionedDescription.description,
+      name: listing.name,
+      description: listing.sectionedDescription.description,
       maxGuests: 8,
       additionalGuestFeePerNight: 30,
       cleaningFee: listing.pricing.cleaning_fee,
@@ -87,8 +85,7 @@ async function main() {
 
   const extras: Array<{
     key: string
-    nameEs: string
-    nameEn: string
+    name: string
     pricingType: 'PER_NIGHT' | 'PER_HOUR' | 'PER_STAY'
     price: number
     refundable: boolean
@@ -98,8 +95,7 @@ async function main() {
   }> = [
     {
       key: 'heated-pool',
-      nameEs: 'Piscina climatizada',
-      nameEn: 'Heated pool',
+      name: 'Piscina climatizada',
       pricingType: 'PER_NIGHT',
       price: listing.pricing.extras.find((e) => e.id === 'heated-pool')?.price_per_night ?? 20,
       refundable: true,
@@ -108,8 +104,7 @@ async function main() {
     },
     {
       key: 'certified-nanny',
-      nameEs: 'Niñera certificada RCP',
-      nameEn: 'Certified CPR nanny',
+      name: 'Niñera certificada RCP',
       pricingType: 'PER_HOUR',
       price: 20,
       refundable: true,
@@ -117,16 +112,14 @@ async function main() {
     },
     {
       key: 'additional-guest',
-      nameEs: 'Huésped adicional',
-      nameEn: 'Additional guest',
+      name: 'Huésped adicional',
       pricingType: 'PER_NIGHT',
       price: 30,
       refundable: true,
     },
     {
       key: 'pet',
-      nameEs: 'Mascota (gato o perro)',
-      nameEn: 'Pet (cat or dog)',
+      name: 'Mascota (gato o perro)',
       pricingType: 'PER_STAY',
       price: 100,
       refundable: false,

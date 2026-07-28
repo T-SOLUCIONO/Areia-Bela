@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
   }, [])
 
   const baseRate = property?.priceRules.find((rule) => rule.type === 'LOW' && rule.active)
-  const written = pages?.filter((page) => page.bodyEn.trim()) ?? []
+  const written = pages?.filter((page) => page.body.trim()) ?? []
   const untranslated = written.filter(needsTranslation).length
 
   const stats = [

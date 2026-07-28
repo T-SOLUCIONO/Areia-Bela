@@ -18,19 +18,15 @@ import { CMSPageSlug, ContentItemKind, ContentSectionKey, FAQCategory } from '@p
  * in one language only.
  */
 export class UpdateCMSPageDto {
-  @IsString() @MinLength(1) titleEs!: string
-  @IsString() @MinLength(1) titleEn!: string
-  @IsString() @MinLength(1) bodyEs!: string
-  @IsString() @MinLength(1) bodyEn!: string
+  @IsString() @MinLength(1) title!: string
+  @IsString() @MinLength(1) body!: string
 
   @IsOptional() @IsBoolean() published?: boolean
 }
 
 export class CreateFAQDto {
-  @IsString() @MinLength(1) questionEs!: string
-  @IsString() @MinLength(1) questionEn!: string
-  @IsString() @MinLength(1) answerEs!: string
-  @IsString() @MinLength(1) answerEn!: string
+  @IsString() @MinLength(1) question!: string
+  @IsString() @MinLength(1) answer!: string
 
   @IsOptional() @IsEnum(FAQCategory) category?: FAQCategory
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number
@@ -38,18 +34,15 @@ export class CreateFAQDto {
 }
 
 export class UpdateFAQDto {
-  @IsOptional() @IsString() @MinLength(1) questionEs?: string
-  @IsOptional() @IsString() @MinLength(1) questionEn?: string
-  @IsOptional() @IsString() @MinLength(1) answerEs?: string
-  @IsOptional() @IsString() @MinLength(1) answerEn?: string
+  @IsOptional() @IsString() @MinLength(1) question?: string
+  @IsOptional() @IsString() @MinLength(1) answer?: string
   @IsOptional() @IsEnum(FAQCategory) category?: FAQCategory
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number
   @IsOptional() @IsBoolean() published?: boolean
 }
 
 export class UpdateGalleryImageDto {
-  @IsOptional() @IsString() @MinLength(1) altEs?: string
-  @IsOptional() @IsString() @MinLength(1) altEn?: string
+  @IsOptional() @IsString() @MinLength(1) alt?: string
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number
   @IsOptional() @IsBoolean() published?: boolean
 }
@@ -63,10 +56,8 @@ export class UpdateSiteSettingsDto {
   @IsEmail() contactEmail!: string
   @IsString() @MinLength(1) contactPhone!: string
   @IsString() @MinLength(1) whatsapp!: string
-  @IsString() @MinLength(1) seoTitleEs!: string
-  @IsString() @MinLength(1) seoTitleEn!: string
-  @IsString() @MinLength(1) seoDescriptionEs!: string
-  @IsString() @MinLength(1) seoDescriptionEn!: string
+  @IsString() @MinLength(1) seoTitle!: string
+  @IsString() @MinLength(1) seoDescription!: string
 
   @IsOptional() @IsUrl() instagramUrl?: string
   @IsOptional() @IsUrl() facebookUrl?: string
@@ -85,20 +76,14 @@ export class UpdateSiteSettingsDto {
  * can look at what actually arrived.
  */
 export class UpdateContentSectionDto {
-  @IsOptional() @IsString() eyebrowEs?: string
-  @IsOptional() @IsString() eyebrowEn?: string
-  @IsOptional() @IsString() titleEs?: string
-  @IsOptional() @IsString() titleEn?: string
-  @IsOptional() @IsString() subtitleEs?: string
-  @IsOptional() @IsString() subtitleEn?: string
-  @IsOptional() @IsString() bodyEs?: string
-  @IsOptional() @IsString() bodyEn?: string
-  @IsOptional() @IsString() ctaLabelEs?: string
-  @IsOptional() @IsString() ctaLabelEn?: string
+  @IsOptional() @IsString() eyebrow?: string
+  @IsOptional() @IsString() title?: string
+  @IsOptional() @IsString() subtitle?: string
+  @IsOptional() @IsString() body?: string
+  @IsOptional() @IsString() ctaLabel?: string
   @IsOptional() @IsString() ctaHref?: string
   @IsOptional() @IsString() statValue?: string
-  @IsOptional() @IsString() statLabelEs?: string
-  @IsOptional() @IsString() statLabelEn?: string
+  @IsOptional() @IsString() statLabel?: string
   @IsOptional() @IsString() imageUrl?: string | null
   @IsOptional() @IsString() linkUrl?: string | null
   @IsOptional() @IsBoolean() published?: boolean
@@ -107,37 +92,31 @@ export class UpdateContentSectionDto {
 export class CreateContentItemDto {
   @IsEnum(ContentSectionKey) sectionKey!: ContentSectionKey
   @IsEnum(ContentItemKind) kind!: ContentItemKind
-  @IsString() @MinLength(1) labelEs!: string
-  @IsString() @MinLength(1) labelEn!: string
+  @IsString() @MinLength(1) label!: string
 
   @IsOptional() @IsString() icon?: string
   @IsOptional() @IsString() imageUrl?: string | null
-  @IsOptional() @IsString() bodyEs?: string
-  @IsOptional() @IsString() bodyEn?: string
+  @IsOptional() @IsString() body?: string
   @IsOptional() @IsString() value?: string
   @IsOptional() @IsBoolean() published?: boolean
 }
 
 export class UpdateContentItemDto {
-  @IsOptional() @IsString() @MinLength(1) labelEs?: string
-  @IsOptional() @IsString() @MinLength(1) labelEn?: string
+  @IsOptional() @IsString() @MinLength(1) label?: string
   @IsOptional() @IsString() icon?: string
   @IsOptional() @IsString() imageUrl?: string | null
-  @IsOptional() @IsString() bodyEs?: string
-  @IsOptional() @IsString() bodyEn?: string
+  @IsOptional() @IsString() body?: string
   @IsOptional() @IsString() value?: string
   @IsOptional() @IsBoolean() published?: boolean
 }
 
 export class CreateReviewDto {
   @IsString() @MinLength(1) authorName!: string
-  @IsString() @MinLength(1) textEs!: string
-  @IsString() @MinLength(1) textEn!: string
+  @IsString() @MinLength(1) text!: string
 
   @IsOptional() @IsString() authorPhotoUrl?: string | null
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) rating?: number
-  @IsOptional() @IsString() stayedAtEs?: string
-  @IsOptional() @IsString() stayedAtEn?: string
+  @IsOptional() @IsString() stayedAt?: string
   @IsOptional() @IsBoolean() verified?: boolean
   @IsOptional() @IsBoolean() featured?: boolean
   @IsOptional() @IsBoolean() published?: boolean
@@ -145,12 +124,10 @@ export class CreateReviewDto {
 
 export class UpdateReviewDto {
   @IsOptional() @IsString() @MinLength(1) authorName?: string
-  @IsOptional() @IsString() @MinLength(1) textEs?: string
-  @IsOptional() @IsString() @MinLength(1) textEn?: string
+  @IsOptional() @IsString() @MinLength(1) text?: string
   @IsOptional() @IsString() authorPhotoUrl?: string | null
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) rating?: number
-  @IsOptional() @IsString() stayedAtEs?: string
-  @IsOptional() @IsString() stayedAtEn?: string
+  @IsOptional() @IsString() stayedAt?: string
   @IsOptional() @IsBoolean() verified?: boolean
   @IsOptional() @IsBoolean() featured?: boolean
   @IsOptional() @IsBoolean() published?: boolean

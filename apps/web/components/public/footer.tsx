@@ -8,7 +8,6 @@ import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
-import { localized } from '@/lib/cms-public'
 import { translations } from '@/lib/i18n'
 
 export function Footer() {
@@ -24,9 +23,7 @@ export function Footer() {
   const phone = settings?.contactPhone || propertyInfo.phone
   const email = settings?.contactEmail || propertyInfo.email
   const footerSection = content?.sections.FOOTER
-  const description = footerSection
-    ? localized(footerSection, 'body', language) || copy.description
-    : copy.description
+  const description = footerSection ? footerSection.body || copy.description : copy.description
   const social = [
     { href: settings?.instagramUrl, label: 'Instagram' },
     { href: settings?.facebookUrl, label: 'Facebook' },

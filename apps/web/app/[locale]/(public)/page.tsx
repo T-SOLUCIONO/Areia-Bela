@@ -15,7 +15,7 @@ import { propertyData } from '@/lib/property-data'
 import { RESPONSE_TIME_COMPACT } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
-import { itemsOf, localized } from '@/lib/cms-public'
+import { itemsOf } from '@/lib/cms-public'
 import { ContentIcon } from '@/lib/content-icons'
 
 const bundledImages = propertyData.photos?.map((photo) => photo.large) ?? propertyInfo.images
@@ -61,7 +61,7 @@ export default function HomePage() {
     section: typeof features,
     field: 'eyebrow' | 'title' | 'subtitle' | 'body' | 'ctaLabel' | 'statLabel',
     fallback: string,
-  ) => (section ? localized(section, field, language) || fallback : fallback)
+  ) => section?.[field] || fallback
   const home =
     language === 'en'
       ? {
@@ -175,7 +175,7 @@ export default function HomePage() {
             {featureCards.length > 0 && (
               <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {featureCards.map((card, index) => {
-                  const title = localized(card, 'label', language)
+                  const title = card.label
                   return (
                     <article
                       key={card.id}
@@ -197,9 +197,7 @@ export default function HomePage() {
                           <ContentIcon name={card.icon} className="h-5 w-5" />
                           <h3 className="font-serif text-2xl text-[#173a57]">{title}</h3>
                         </div>
-                        <p className="mt-3 text-[15px] leading-7 text-slate-600">
-                          {localized(card, 'body', language)}
-                        </p>
+                        <p className="mt-3 text-[15px] leading-7 text-slate-600">{card.body}</p>
                       </div>
                     </article>
                   )
@@ -238,7 +236,7 @@ export default function HomePage() {
                 ? amenityTags.map((tag) => ({
                     key: tag.id,
                     icon: tag.icon,
-                    label: localized(tag, 'label', language),
+                    label: tag.label,
                   }))
                 : propertyInfo.amenities
                     .slice(0, 18)
@@ -300,9 +298,7 @@ export default function HomePage() {
                     const outOfFive = Number(score.value) || 0
                     return (
                       <div key={score.id} className="flex items-center gap-2">
-                        <span className="w-24 text-xs text-gray-500">
-                          {localized(score, 'label', language)}
-                        </span>
+                        <span className="w-24 text-xs text-gray-500">{score.label}</span>
                         <div className="h-1 w-20 overflow-hidden rounded-full bg-gray-200">
                           <div
                             className="h-full rounded-full bg-[#173a57]"
@@ -329,7 +325,7 @@ export default function HomePage() {
                     ))}
                   </div>
                   <p className="mb-6 whitespace-pre-line text-lg leading-relaxed text-white md:text-xl">
-                    &ldquo;{localized(featured, 'text', language)}&rdquo;
+                    &ldquo;{featured.text}&rdquo;
                   </p>
                   <div className="flex items-center gap-3">
                     {featured.authorPhotoUrl ? (
@@ -351,9 +347,7 @@ export default function HomePage() {
                         <p className="flex items-center gap-1 text-sm text-blue-300">
                           <ShieldCheck className="h-3.5 w-3.5" />{' '}
                           {language === 'en' ? 'Verified stay' : 'Estadía verificada'}
-                          {localized(featured, 'stayedAt', language)
-                            ? ` · ${localized(featured, 'stayedAt', language)}`
-                            : ''}
+                          {featured.stayedAt ? ` · ${featured.stayedAt}` : ''}
                         </p>
                       )}
                     </div>
@@ -366,7 +360,7 @@ export default function HomePage() {
           {otherReviews.length > 0 && (
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {otherReviews.map((review) => {
-                const stayedAt = localized(review, 'stayedAt', language)
+                const stayedAt = review.stayedAt
                 return (
                   <article
                     key={review.id}
@@ -385,7 +379,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <p className="flex-1 whitespace-pre-line text-sm leading-relaxed text-gray-700">
-                      &ldquo;{localized(review, 'text', language)}&rdquo;
+                      &ldquo;{review.text}&rdquo;
                     </p>
                     <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
                       {review.authorPhotoUrl ? (
@@ -461,7 +455,7 @@ export default function HomePage() {
                     ? highlights.map((item) => ({
                         key: item.id,
                         icon: item.icon,
-                        label: localized(item, 'label', language),
+                        label: item.label,
                       }))
                     : home.nearby.map((item) => ({ key: item, icon: '', label: item }))
                   ).map((item) => (
@@ -577,9 +571,7 @@ export default function HomePage() {
                             <ContentIcon name={stat.icon} className="h-4 w-4" />
                           </div>
                           <p className="text-sm text-[#173a57]">{stat.value}</p>
-                          <p className="text-[11px] text-gray-400">
-                            {localized(stat, 'label', language)}
-                          </p>
+                          <p className="text-[11px] text-gray-400">{stat.label}</p>
                         </div>
                       ))}
                     </div>

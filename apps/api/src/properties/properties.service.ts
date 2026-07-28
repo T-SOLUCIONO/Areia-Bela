@@ -48,7 +48,7 @@ export class PropertiesService {
         taxesPercent: Number(property.taxesPercent),
         extras: property.extras.map((extra) => ({
           id: extra.key,
-          label: extra.nameEn,
+          label: extra.name,
           pricePerNight: Number(extra.price),
         })),
       },

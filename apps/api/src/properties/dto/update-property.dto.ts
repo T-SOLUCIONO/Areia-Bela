@@ -19,10 +19,8 @@ import {
  * computed from, not a suggestion from the client.
  */
 export class UpdatePropertyDto {
-  @IsOptional() @IsString() @MinLength(1) nameEs?: string
-  @IsOptional() @IsString() @MinLength(1) nameEn?: string
-  @IsOptional() @IsString() @MinLength(1) descriptionEs?: string
-  @IsOptional() @IsString() @MinLength(1) descriptionEn?: string
+  @IsOptional() @IsString() @MinLength(1) name?: string
+  @IsOptional() @IsString() @MinLength(1) description?: string
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) maxGuests?: number
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) bedrooms?: number
