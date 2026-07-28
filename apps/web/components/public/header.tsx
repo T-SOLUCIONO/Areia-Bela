@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
 import { Globe, Menu } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import {
@@ -20,7 +19,7 @@ import {
   SheetDescription,
   SheetTrigger,
 } from '@areia-bela/ui/sheet'
-import { languages, type Language } from '@/lib/i18n'
+import { languages } from '@/lib/i18n'
 import { translations } from '@/lib/i18n'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
@@ -31,24 +30,11 @@ export function Header() {
   const logo = useSiteContent()?.settings?.logoUrl ?? '/areia-bela-logo.png'
   const [isOpen, setIsOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
-  const router = useRouter()
-  const pathname = usePathname()
   const copy = translations[language]
   const navigation = publicNavItems.map((item, index) => ({
     name: copy.nav[index],
     href: item.href,
   }))
-
-  const changeLanguage = (next: Language) => {
-    setLanguage(next)
-    const segments = pathname.split('/')
-    if (segments[1] === 'en' || segments[1] === 'es') {
-      segments[1] = next
-    } else {
-      segments.splice(1, 0, next)
-    }
-    router.push(segments.join('/') || '/')
-  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/60 bg-[rgba(255,251,246,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[rgba(255,251,246,0.72)]">
@@ -101,7 +87,7 @@ export function Header() {
               {languages.map((item) => (
                 <DropdownMenuItem
                   key={item.code}
-                  onSelect={() => changeLanguage(item.code)}
+                  onSelect={() => setLanguage(item.code)}
                   className={item.code === language ? 'font-semibold text-primary' : undefined}
                 >
                   {item.name}
@@ -168,7 +154,7 @@ export function Header() {
                       <button
                         key={item.code}
                         type="button"
-                        onClick={() => changeLanguage(item.code)}
+                        onClick={() => setLanguage(item.code)}
                         className={
                           item.code === language
                             ? 'rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground'

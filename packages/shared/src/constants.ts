@@ -50,3 +50,25 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
 export function isSupportedLocale(value: string): value is SupportedLocale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(value)
 }
+
+/**
+ * Removes the leading locale from a path so it can be re-prefixed.
+ *
+ * Lives beside SUPPORTED_LOCALES on purpose. The header used to carry its own
+ * copy that only knew `en` and `es`, so from `/pt` it appended rather than
+ * replaced and produced `/en/pt`, which 404s. Anything that needs this must
+ * import it rather than re-derive it.
+ */
+export function stripLocale(pathname: string): string {
+  for (const locale of SUPPORTED_LOCALES) {
+    if (pathname === `/${locale}`) return '/'
+    if (pathname.startsWith(`/${locale}/`)) return pathname.slice(locale.length + 1)
+  }
+  return pathname
+}
+
+/** The same path under a different language. */
+export function pathForLocale(pathname: string, locale: SupportedLocale): string {
+  const rest = stripLocale(pathname)
+  return rest === '/' ? `/${locale}` : `/${locale}${rest}`
+}

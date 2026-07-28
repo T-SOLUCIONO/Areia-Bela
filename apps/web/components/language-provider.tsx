@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LANGUAGE_COOKIE, SUPPORTED_LOCALES } from '@areia-bela/shared'
+import { LANGUAGE_COOKIE, pathForLocale } from '@areia-bela/shared'
 import type { Language } from '@/lib/i18n'
 
 // Re-exported for convenience; defined in @areia-bela/shared because server
@@ -15,15 +15,6 @@ type LanguageContextValue = {
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
-
-/** Strips a leading `/es` or `/en` so the path can be re-prefixed. */
-function stripLocale(pathname: string) {
-  for (const locale of SUPPORTED_LOCALES) {
-    if (pathname === `/${locale}`) return '/'
-    if (pathname.startsWith(`/${locale}/`)) return pathname.slice(locale.length + 1)
-  }
-  return pathname
-}
 
 export function LanguageProvider({
   children,
@@ -47,8 +38,7 @@ export function LanguageProvider({
     (next: Language) => {
       document.cookie = `${LANGUAGE_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`
 
-      const rest = stripLocale(pathname)
-      router.push(`/${next}${rest === '/' ? '' : rest}`)
+      router.push(pathForLocale(pathname, next))
     },
     [pathname, router],
   )

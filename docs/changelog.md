@@ -1254,3 +1254,61 @@ de: Dein Rückzugsort mit Pool in der Nähe von Madeira Beach
 Gramática natural y nombres propios intactos. Las traducciones automáticas se
 borraron y regeneraron; las escritas por personas —el inglés original migrado—
 no se tocaron, que es para lo que existe `isMachine`.
+
+## 25. Cambiar de idioma llevaba a un 404
+
+Reportado al usarlo: estando en el sitio y eligiendo otro idioma, la URL pasaba
+a `/en/pt` o `/pt/fr` y la página no existía.
+
+### La causa
+
+Dos sitios navegaban a la vez. `setLanguage()` del proveedor ya lo hacía bien,
+recorriendo `SUPPORTED_LOCALES`. Pero `changeLanguage()` de la cabecera lo
+llamaba **y además hacía su propio `router.push`**, con una copia de la lógica
+escrita cuando solo había dos idiomas:
+
+```ts
+if (segments[1] === 'en' || segments[1] === 'es') segments[1] = next
+else segments.splice(1, 0, next) // ← desde /pt inserta en vez de reemplazar
+```
+
+Desde `/pt`, `/fr` o `/de` caía en el `else` y **añadía** el idioma nuevo
+delante del viejo. La segunda navegación pisaba a la primera, así que ganaba la
+rota.
+
+Es un fallo de la migración a cinco idiomas: actualicé `SUPPORTED_LOCALES` y el
+proveedor, y no vi que la cabecera tenía su propia copia. Duplicar esa lógica
+fue el error original; el idioma nuevo solo lo hizo visible.
+
+### El arreglo
+
+La cabecera deja de navegar por su cuenta y llama a `setLanguage`. `router` y
+`pathname` quedaron sin uso allí y se van con ella.
+
+`stripLocale` y una nueva `pathForLocale` se mueven a `@areia-bela/shared`,
+junto a `SUPPORTED_LOCALES`: es su sitio, y así lo que necesite convertir una
+ruta a otro idioma la importa en vez de rederivarla.
+
+### Sobre el test
+
+Escribí primero un `.spec.ts` en `apps/web` y luego lo borré: **la app web no
+tiene runner de tests**, así que habría sido un archivo que nadie ejecuta, que
+es peor que no tener test. Moviendo las funciones a `shared` sí se pueden
+probar desde `apps/api`, que es el único paquete con Jest hoy (montarlo en web
+es Fase 8, y queda anotado en el propio spec).
+
+El test recorre las **25 combinaciones** de idioma origen/destino y afirma que
+ninguna produce dos segmentos de idioma.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (138 tests, 18 nuevos)
+```
+
+- Las cinco rutas de idioma y las profundas (`/fr/checkout`) responden 200.
+- Las rutas rotas (`/en/pt`, `/es/en`, `/pt/fr`, `/de/es`) siguen dando 404,
+  que es lo correcto: no deben existir. Lo que se arregló es que el selector ya
+  no las genera.
+- La 404 sale **en el idioma de la ruta** en los cinco casos.
