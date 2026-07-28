@@ -14,8 +14,10 @@ import { Textarea } from '@areia-bela/ui/textarea'
 import {
   currency,
   getQuoteFromStorage,
-  parseQuoteFromSearchParams,
+  fetchQuote,
+  parseQuoteRequestFromSearchParams,
   saveQuoteToStorage,
+  type BookingQuote,
 } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
 import { createCheckoutSession } from '@/services/payment'
@@ -51,11 +53,12 @@ function CheckoutForm() {
   const searchParams = useSearchParams()
   const { language } = useLanguage()
   const isEnglish = language === 'en'
-  const quoteFromParams = useMemo(
-    () => parseQuoteFromSearchParams(new URLSearchParams(searchParams.toString())),
+  // Only the stay's inputs come from the URL; the price is asked for again.
+  const request = useMemo(
+    () => parseQuoteRequestFromSearchParams(new URLSearchParams(searchParams.toString())),
     [searchParams],
   )
-  const [quote, setQuote] = useState(quoteFromParams)
+  const [quote, setQuote] = useState<BookingQuote | null>(null)
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -69,18 +72,30 @@ function CheckoutForm() {
   })
 
   useEffect(() => {
-    if (quoteFromParams) {
-      setQuote(quoteFromParams)
-      saveQuoteToStorage(quoteFromParams)
+    if (!request) {
+      // Nothing to price. The stored quote is only a convenience for a
+      // refresh; it is still re-priced below on the way to payment.
+      const persisted = getQuoteFromStorage()
+      if (persisted) setQuote(persisted)
+      else router.replace('/')
       return
     }
-    const persisted = getQuoteFromStorage()
-    if (persisted) {
-      setQuote(persisted)
-      return
+
+    let cancelled = false
+    void fetchQuote(request).then((priced) => {
+      if (cancelled) return
+      if (priced) {
+        setQuote(priced)
+        saveQuoteToStorage(priced)
+      } else {
+        router.replace('/')
+      }
+    })
+
+    return () => {
+      cancelled = true
     }
-    router.replace('/')
-  }, [quoteFromParams, router])
+  }, [request, router])
 
   if (!quote) {
     return (
@@ -102,21 +117,17 @@ function CheckoutForm() {
     setIsLoading(true)
 
     try {
+      // Dates and extras only. The route re-prices them server-side and
+      // charges that; no total is sent from here, because a total sent from a
+      // browser is a total a browser can change.
       const session = await createCheckoutSession({
-        roomId: propertyData.id,
-        roomName: propertyData.name,
-        roomType: 'casa',
         checkIn: quote.checkIn,
         checkOut: quote.checkOut,
-        guests: quote.guests.adults + quote.guests.children,
         adults: quote.guests.adults,
         children: quote.guests.children,
-        nights: quote.nights,
-        nightPrice: quote.pricePerNight,
-        cleaningFee: quote.cleaningFee,
-        serviceFee: quote.serviceFee,
-        taxes: quote.taxes,
-        totalPrice: quote.total,
+        infants: quote.guests.infants,
+        pets: quote.guests.pets,
+        extraIds: quote.extras.map((extra: BookingQuote['extras'][number]) => extra.id),
       })
 
       window.location.href = session.url

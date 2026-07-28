@@ -938,3 +938,77 @@ prueba:
 Una nota de método: la primera verificación dio media pantalla en blanco y el
 motivo no era el código sino un `next-server` viejo sirviendo el bundle
 anterior. Reiniciarlo lo arregló. Es la segunda vez que pasa en este repo.
+
+## 21. El precio deja de calcularse en el navegador
+
+Al probar la portada editable salió el fallo de fondo: podías cambiar la tarifa
+de limpieza en Ajustes y al huésped se le seguía cobrando la vieja. Tirando de
+ahí apareció algo peor.
+
+### El agujero
+
+`apps/web/app/api/checkout/route.ts` le pasaba a Stripe el `totalPrice` que
+llegaba en el cuerpo de la petición, tal cual. Y ese total viajaba desde el
+cotizador hasta el checkout **en la query string**. Editar la URL a
+`?total=1` era una forma que funcionaba de pagar un dólar por una semana.
+
+`lib/booking.ts` calculaba el precio en el navegador con las cifras del
+`datos.json` incluido en el bundle. De ahí los dos síntomas: el precio no
+cambiaba al editarlo, y era el que dijera el navegador.
+
+`CLAUDE.md` lo prohíbe explícitamente: _"El precio es siempre autoritativo en el
+servidor. El frontend nunca envía un total que el backend acepte sin
+recalcular."_ El endpoint `POST /properties/:slug/quote` existía desde Fase 3 y
+no lo llamaba nadie.
+
+### El arreglo
+
+- `buildQuote()` se va; en su lugar `fetchQuote()` le pregunta al API.
+- **A la URL solo viajan las entradas** —fechas, huéspedes, extras—, nunca un
+  importe. Manipularlas ya no significa nada: te cotizan bien esas fechas.
+- El checkout **vuelve a pedir el precio** al cargar, en vez de creerle a la
+  query string.
+- La ruta de Stripe **cotiza contra el API** y cobra esa cifra. Si el API no
+  responde devuelve 502: negarse a cobrar es mejor que adivinar un precio.
+- El cotizador ya no dibuja un precio de relleno mientras carga. Un precio
+  provisional es un precio equivocado; dice que está consultando.
+
+De paso, tres cosas que aparecieron al tocarlo:
+
+- `origin` vacío generaba URLs de retorno relativas y Stripe las rechazaba.
+  Ahora cae al origen de la propia petición.
+- La ruta devolvía el mensaje de error de Stripe al navegador; puede nombrar
+  configuración interna y el huésped no puede hacer nada con él.
+- `services/payment.ts` tenía cuatro funciones simuladas sin ningún consumidor,
+  una de ellas decidía si un pago salía bien con `Math.random() > 0.05`.
+  Eliminadas: el cobro de verdad es Fase 7, y dinero simulado es peor que nada.
+- `roomId` / `roomName` / `roomType: 'casa'` en los metadatos de Stripe, restos
+  del modelo de hotel. Sustituidos por los datos de la estadía que la Fase 7
+  necesita para crear el `Booking` desde el webhook.
+
+### `verify-quote-parity.ts`, eliminado
+
+Ese script comparaba la `buildQuote()` del cliente con la `computeQuote()` del
+servidor para probar que no divergían. Ya no hay dos implementaciones: el
+cliente pregunta. La paridad pasó de comprobarse a ser estructural, y mantener
+un script que corre una función que ya no existe habría sido deuda. Anotado
+también en `docs/database.md`, que lo citaba como criterio de salida de Fase 3.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (95 tests)
+```
+
+Contra el API y Stripe de prueba reales:
+
+- El API cotiza 7 noches en **$2745**.
+- Se manda al checkout esa estadía **con `total: 1` y `totalPrice: 1`** en el
+  cuerpo. La sesión de Stripe creada cobra `amount_total: 274500` centavos, es
+  decir **$2745**. El importe del navegador se ignora por completo.
+- Fechas inválidas → **400**.
+- Cambiar la tarifa de limpieza a $200 en Ajustes: la cotización pasa de $2745 a
+  **$2825** en la petición siguiente, sin desplegar. Restaurada a $120.

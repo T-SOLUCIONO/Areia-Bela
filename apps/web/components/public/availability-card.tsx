@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addDays, format } from 'date-fns'
 import { CalendarDays, ChevronDown, Minus, Plus, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -8,10 +8,11 @@ import { Button } from '@areia-bela/ui/button'
 import { Calendar } from '@areia-bela/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
 import {
-  buildQuote,
+  fetchQuote,
   getBlockedDateRanges,
   saveQuoteToStorage,
   serializeQuoteToSearchParams,
+  type BookingQuote,
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { useLanguage } from '@/components/language-provider'
@@ -31,6 +32,7 @@ export function AvailabilityCard({ className }: Props) {
   const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 4))
   const [guestsOpen, setGuestsOpen] = useState(false)
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0 })
+  const { adults, children, infants } = guests
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
@@ -39,22 +41,44 @@ export function AvailabilityCard({ className }: Props) {
     getBlockedDateRanges().then(setBlockedRanges)
   }, [])
 
-  const quote = useMemo(
-    () =>
-      buildQuote({
-        checkIn: checkIn ? format(checkIn, 'yyyy-MM-dd') : '',
-        checkOut: checkOut ? format(checkOut, 'yyyy-MM-dd') : '',
-        guests: { ...guests, pets: 0 },
-        selectedExtraIds: [],
-      }),
-    [checkIn, checkOut, guests],
-  )
+  const [quote, setQuote] = useState<BookingQuote | null>(null)
+  const [isPricing, setIsPricing] = useState(false)
+
+  const checkInIso = checkIn ? format(checkIn, 'yyyy-MM-dd') : ''
+  const checkOutIso = checkOut ? format(checkOut, 'yyyy-MM-dd') : ''
+
+  // The price comes from the API, so it changes with the dates rather than
+  // being computed here. `cancelled` guards against a slow first response
+  // landing after a faster second one and showing a stale total.
+  useEffect(() => {
+    if (!checkInIso || !checkOutIso) {
+      setQuote(null)
+      return
+    }
+
+    let cancelled = false
+    setIsPricing(true)
+    void fetchQuote({
+      checkIn: checkInIso,
+      checkOut: checkOutIso,
+      guests: { adults, children, infants, pets: 0 },
+      selectedExtraIds: [],
+    }).then((result) => {
+      if (cancelled) return
+      setQuote(result)
+      setIsPricing(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [checkInIso, checkOutIso, adults, children, infants])
 
   const guestTotal = guests.adults + guests.children
   const guestSummary = `${guestTotal} ${guestTotal === 1 ? copy.guestOne : copy.guestMany}${guests.infants > 0 ? `, ${guests.infants} ${guests.infants === 1 ? copy.babiesOne : copy.babiesMany}` : ''}`
 
   const handleReserve = () => {
-    if (!checkIn || !checkOut) return
+    if (!quote) return
     saveQuoteToStorage(quote)
     router.push(`/checkout?${serializeQuoteToSearchParams(quote)}`)
   }
@@ -212,7 +236,7 @@ export function AvailabilityCard({ className }: Props) {
         </PopoverContent>
       </Popover>
 
-      {checkIn && checkOut && (
+      {checkIn && checkOut && quote && (
         <PriceBreakdownCard
           quote={quote}
           isEnglish={language === 'en'}
@@ -220,9 +244,22 @@ export function AvailabilityCard({ className }: Props) {
         />
       )}
 
+      {/* No skeleton with numbers in it: a placeholder price is a wrong price. */}
+      {checkIn && checkOut && !quote && (
+        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          {isPricing
+            ? language === 'en'
+              ? 'Checking the price...'
+              : 'Consultando el precio...'
+            : language === 'en'
+              ? 'We could not get the price right now. Please try again.'
+              : 'No pudimos obtener el precio ahora mismo. Inténtalo de nuevo.'}
+        </p>
+      )}
+
       <Button
         onClick={handleReserve}
-        disabled={!checkIn || !checkOut}
+        disabled={!quote || isPricing}
         variant="brand"
         size="lg"
         className="mt-4 w-full text-sm font-semibold shadow-none"
