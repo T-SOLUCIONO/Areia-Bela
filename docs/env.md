@@ -43,11 +43,23 @@ ese texto a inglés, portugués, francés y alemán con la API de Claude y lo
 guarda. El sitio de huéspedes sirve el idioma que pida el visitante; nunca
 llama al modelo en tiempo de petición.
 
-Para activarla, una clave en `ANTHROPIC_API_KEY` (console.anthropic.com → API
-Keys). Sin clave:
+#### Qué proveedor elegir
+
+|                         | Coste                          | Calidad                           | Notas                                                                                                    |
+| ----------------------- | ------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **DeepL** (recomendado) | Gratis, 500.000 caracteres/mes | La mejor para estos cinco idiomas | El sitio entero son ~39.000 caracteres, así que retraducirlo todo gasta el 8% del cupo mensual           |
+| **LibreTranslate**      | Gratis, sin cuenta             | Un escalón por debajo             | Autoalojado: los textos no salen de tu servidor. `docker run -p 5000:5000 libretranslate/libretranslate` |
+| **Claude**              | De pago (centavos)             | Muy buena, y con contexto         | El único al que se le puede decir "esto es una casa, no un hotel"                                        |
+
+Para DeepL: crear cuenta gratuita en deepl.com/pro-api, copiar la clave (las
+del plan gratuito terminan en `:fx`) y ponerla en `DEEPL_API_KEY`. El código
+detecta el sufijo y usa el host correcto — las claves gratuitas dan 404 contra
+el host de pago, que es una forma confusa de descubrir el error.
+
+Sin ninguna clave:
 
 - `GET /cms/admin/translation-status` responde `{"configured": false}`.
-- `/admin/content` muestra un aviso explicando que está apagada.
+- `/admin/content` muestra un aviso explicando que está apagada, y cuando sí lo está, **dice qué proveedor traduce**: a quién le llegan los textos no debería deducirse de la configuración del despliegue.
 - El sitio sigue funcionando y muestra el español a todos los idiomas. Se
   degrada, no se rompe.
 

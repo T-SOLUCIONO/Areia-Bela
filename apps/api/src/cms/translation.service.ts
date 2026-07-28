@@ -8,25 +8,7 @@ import {
   type SupportedLocale,
 } from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
-
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_VERSION = '2023-06-01'
-
-/**
- * Sonnet rather than Opus: these are short strings of website copy, and the
- * cheaper, faster model is more than capable. Translation quality is not the
- * bottleneck; having a key configured is.
- */
-const MODEL = 'claude-sonnet-5'
-const MAX_TOKENS = 4096
-
-const LANGUAGE_NAME: Record<SupportedLocale, string> = {
-  es: 'Spanish',
-  en: 'English',
-  pt: 'Portuguese',
-  fr: 'French',
-  de: 'German',
-}
+import { selectProvider, type TranslationProvider } from './translation-providers'
 
 /** Locales that need a Translation row. The source language is not one. */
 export const TARGET_LOCALES = SUPPORTED_LOCALES.filter(
@@ -34,11 +16,6 @@ export const TARGET_LOCALES = SUPPORTED_LOCALES.filter(
 )
 
 export const hashSource = (text: string) => createHash('sha256').update(text).digest('hex')
-
-interface AnthropicResponse {
-  content?: Array<{ type: string; text?: string }>
-  error?: { message?: string }
-}
 
 /**
  * Machine translation of the site's content.
@@ -54,14 +31,36 @@ interface AnthropicResponse {
 @Injectable()
 export class TranslationService {
   private readonly logger = new Logger(TranslationService.name)
+  private readonly provider: TranslationProvider | null
 
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) {
+    this.provider = selectProvider({
+      provider: this.config.get<string>('TRANSLATION_PROVIDER'),
+      deeplKey: this.config.get<string>('DEEPL_API_KEY'),
+      libreUrl: this.config.get<string>('LIBRETRANSLATE_URL'),
+      libreKey: this.config.get<string>('LIBRETRANSLATE_API_KEY'),
+      anthropicKey: this.config.get<string>('ANTHROPIC_API_KEY'),
+    })
+
+    // Said out loud at boot: which service the site's words go to is not
+    // something anyone should have to infer from behaviour.
+    this.logger.log(
+      this.provider
+        ? `Translating with ${this.provider.name}`
+        : 'Translation is off — the site will show the language content was written in',
+    )
+  }
 
   get isConfigured(): boolean {
-    return Boolean(this.config.get<string>('ANTHROPIC_API_KEY'))
+    return this.provider !== null
+  }
+
+  /** Shown in the admin so the host knows where their words are being sent. */
+  get providerName(): string | null {
+    return this.provider?.name ?? null
   }
 
   /**
@@ -165,44 +164,10 @@ export class TranslationService {
     await this.prisma.translation.deleteMany({ where: { entity, entityId } })
   }
 
-  async translate(text: string, from: SupportedLocale, to: SupportedLocale): Promise<string> {
-    const apiKey = this.config.get<string>('ANTHROPIC_API_KEY')
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
-    if (from === to) return text
+  translate(text: string, from: SupportedLocale, to: SupportedLocale): Promise<string> {
+    if (!this.provider) throw new Error('No translation provider is configured')
+    if (from === to) return Promise.resolve(text)
 
-    const response = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        // The house's own voice, not a literal gloss. Told explicitly not to
-        // add commentary, because whatever it says goes straight on the page.
-        system:
-          `You translate website copy for Areia Bela, a single whole-home ` +
-          `vacation rental near Madeira Beach, Florida. It is a house, not a ` +
-          `hotel: never use hotel vocabulary such as rooms, suites or front ` +
-          `desk. Translate from ${LANGUAGE_NAME[from]} to ${LANGUAGE_NAME[to]}, ` +
-          `keeping the warm, plain tone and any line breaks. Keep proper nouns, ` +
-          `prices and place names as they are. Reply with the translation ` +
-          `alone — no quotes, no notes, no explanation.`,
-        messages: [{ role: 'user', content: text }],
-      }),
-    })
-
-    const body = (await response.json().catch(() => null)) as AnthropicResponse | null
-
-    if (!response.ok) {
-      throw new Error(body?.error?.message ?? response.statusText)
-    }
-
-    const translated = body?.content?.find((part) => part.type === 'text')?.text?.trim()
-    if (!translated) throw new Error('Translation returned nothing')
-
-    return translated
+    return this.provider.translate(text, from, to)
   }
 }

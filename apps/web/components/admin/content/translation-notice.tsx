@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Languages, TriangleAlert } from 'lucide-react'
 import { landing } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { fill } from '@/lib/admin-i18n'
 
 /**
  * Says whether the site is actually translating.
@@ -14,15 +15,19 @@ import { useAdminCopy } from '@/components/admin/admin-language-provider'
  */
 export function TranslationNotice() {
   const t = useAdminCopy()
-  const [configured, setConfigured] = useState<boolean | null>(null)
+  const [status, setStatus] = useState<{ configured: boolean; provider: string | null } | null>(
+    null,
+  )
 
   useEffect(() => {
-    landing.translationEnabled().then(setConfigured, () => setConfigured(false))
+    landing
+      .translationStatus()
+      .then(setStatus, () => setStatus({ configured: false, provider: null }))
   }, [])
 
-  if (configured === null) return null
+  if (status === null) return null
 
-  if (!configured) {
+  if (!status.configured) {
     return (
       <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm">
         <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
@@ -37,7 +42,16 @@ export function TranslationNotice() {
   return (
     <div className="flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
       <Languages className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-      <p>{t.content.sourceLanguageNote}</p>
+      <p>
+        {t.content.sourceLanguageNote}{' '}
+        {/* Named on purpose: the host should know which company their words
+            are being sent to, without reading the deployment config. */}
+        <span className="text-foreground">
+          {fill(t.content.translationVia, {
+            provider: status.provider ?? '—',
+          })}
+        </span>
+      </p>
     </div>
   )
 }

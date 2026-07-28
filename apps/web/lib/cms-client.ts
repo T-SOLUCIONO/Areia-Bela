@@ -286,9 +286,9 @@ export const landing = {
   reorderReviews: (ids: string[]) =>
     apiFetch<void>('/cms/reviews/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
 
-  /** False when ANTHROPIC_API_KEY is unset, so the admin can say so. */
-  translationEnabled: () =>
-    apiFetch<{ configured: boolean }>('/cms/admin/translation-status').then((r) => r.configured),
+  /** Which service translates the site, or null when none is configured. */
+  translationStatus: () =>
+    apiFetch<{ configured: boolean; provider: string | null }>('/cms/admin/translation-status'),
 
   /** Multipart, so it can't go through apiFetch — see uploadImage above. */
   async uploadImage(file: File): Promise<string> {

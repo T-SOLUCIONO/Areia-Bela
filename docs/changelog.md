@@ -1114,3 +1114,64 @@ pnpm test      ✅ (103 tests, 8 nuevos de TranslationService)
   varias llamadas seguidas; si llega a molestar, la siguiente parada es una cola.
 - El panel no muestra todavía qué está traducido y qué no, ni permite corregir
   una traducción concreta. `isMachine` ya existe en la base para soportarlo.
+
+## 23. El traductor pasa a ser intercambiable, y gratis por defecto
+
+Casar el sitio con un proveedor de pago fue una decisión mía sin preguntar.
+Ahora hay tres y se eligen por variable de entorno.
+
+|                         | Coste                          | Cuándo                                                                                              |
+| ----------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **DeepL** (por defecto) | Gratis, 500.000 caracteres/mes | Lo normal. Es además la mejor calidad para estos cinco idiomas                                      |
+| **LibreTranslate**      | Gratis, autoalojado            | Cuando los textos no deban salir del propio servidor                                                |
+| **Claude**              | De pago, centavos              | Cuando importe el contexto: es el único al que se le puede decir que esto es una casa y no un hotel |
+
+Para dimensionarlo: el sitio entero son **103 textos, 9.788 caracteres**.
+Traducirlo todo a los cuatro idiomas gasta el **8% del cupo mensual gratuito**
+de DeepL, y después solo se retraduce lo que se edita.
+
+`selectProvider()` toma el primero que esté configurado, DeepL primero, y
+`TRANSLATION_PROVIDER` fuerza uno. Si se fuerza uno que no está configurado
+devuelve nada en vez de usar otro en silencio: si alguien pidió un servicio
+concreto, mandar sus textos a otro sin avisar no es una cortesía.
+
+### Detalles que cuestan una tarde si no se saben
+
+- Las claves gratuitas de DeepL terminan en `:fx` y **dan 404 contra el host de
+  pago**. El código detecta el sufijo y enruta solo.
+- DeepL rechaza `EN` a secas como destino. Se pide `EN-US`, y `PT-BR` para
+  portugués: los brasileños son la mayoría de los visitantes lusófonos a
+  Florida. Ambas decisiones están en una constante, no repartidas.
+- `preserve_formatting` activado, porque varios campos dependen de los saltos
+  de línea.
+- El 456 de DeepL ("cupo agotado") se traduce a un mensaje que lo dice, porque
+  la solución es esperar al mes siguiente, no depurar.
+- LibreTranslate: se normaliza la barra final de la URL y se omite `api_key`
+  del cuerpo cuando no hay, en vez de mandarlo vacío.
+
+### El panel dice quién traduce
+
+El aviso de `/admin/content` ya no solo dice si está encendido: nombra el
+proveedor. A qué empresa le llegan los textos del anfitrión no debería tener
+que deducirse leyendo la configuración del despliegue.
+
+El API también lo anuncia al arrancar (`Translating with DeepL`).
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (116 tests, 13 nuevos de proveedores)
+```
+
+- Arrancado sin claves: `Translation is off`. Con `DEEPL_API_KEY`:
+  `Translating with DeepL`.
+- **Con una clave de DeepL inválida, guardar una sección devuelve 200** y el log
+  dice `Could not translate … DeepL: Forbidden` con el enlace a su
+  documentación. Que el traductor esté caído no puede impedir que el anfitrión
+  guarde sus propias palabras.
+- Los tests cubren el enrutado de host por sufijo de clave, `EN-US`/`PT-BR`, el
+  456 de cupo y la barra final de LibreTranslate — que es justo lo que se rompe
+  en silencio.

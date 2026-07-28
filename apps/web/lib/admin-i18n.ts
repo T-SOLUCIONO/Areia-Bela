@@ -175,9 +175,10 @@ export const adminCopy = {
       galleryHint: 'The first photo is the cover. Drag a photo, or use the arrows, to reorder.',
       galleryReordered: 'Order saved.',
       pageIncomplete: 'Write a title and some text before saving.',
+      translationVia: 'Translated by {provider}.',
       translationOffTitle: 'Automatic translation is off',
       translationOffBody:
-        'The site will show Spanish to visitors reading English, Portuguese, French or German. Set ANTHROPIC_API_KEY on the API to turn it on (see docs/env.md).',
+        'The site will show Spanish to visitors reading English, Portuguese, French or German. Set DEEPL_API_KEY on the API to turn it on — the free tier is plenty (see docs/env.md).',
       autoTranslated: 'Translated automatically',
       autoTranslatedHint:
         'Write this once. The site shows it in English, Portuguese, French and German on its own.',
@@ -524,9 +525,10 @@ export const adminCopy = {
         'La primera foto es la portada. Arrastra una foto, o usa las flechas, para reordenar.',
       galleryReordered: 'Orden guardado.',
       pageIncomplete: 'Escribe un título y un texto antes de guardar.',
+      translationVia: 'Traduce {provider}.',
       translationOffTitle: 'La traducción automática está apagada',
       translationOffBody:
-        'El sitio mostrará español a quien lea en inglés, portugués, francés o alemán. Define ANTHROPIC_API_KEY en el API para encenderla (ver docs/env.md).',
+        'El sitio mostrará español a quien lea en inglés, portugués, francés o alemán. Define DEEPL_API_KEY en el API para encenderla — con el plan gratuito sobra (ver docs/env.md).',
       autoTranslated: 'Se traduce solo',
       autoTranslatedHint:
         'Escríbelo una vez. El sitio lo muestra en inglés, portugués, francés y alemán por su cuenta.',

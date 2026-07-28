@@ -107,7 +107,10 @@ export class CmsController {
    */
   @Get('admin/translation-status')
   translationStatus() {
-    return { configured: this.translation.isConfigured }
+    return {
+      configured: this.translation.isConfigured,
+      provider: this.translation.providerName,
+    }
   }
 
   // --- Writes --------------------------------------------------------------
