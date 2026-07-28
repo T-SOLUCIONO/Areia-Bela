@@ -255,6 +255,11 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* Sits with the amenities rather than after the reviews: both are the
+          practical half of the page, and a wall of prose between the
+          testimonials and the map broke the run into the booking CTA. */}
+      <HouseDetails />
+
       {/* The whole block disappears when the host unpublishes it — an empty
           testimonials frame is worse than no testimonials. */}
       {shows(reviewsSection) && (
@@ -412,9 +417,6 @@ export default function HomePage() {
           )}
         </section>
       )}
-
-      {/* Everything below the reviews is editable from /admin/content. */}
-      <HouseDetails />
 
       {shows(location) && (
         <section

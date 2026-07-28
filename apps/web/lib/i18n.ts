@@ -21,6 +21,13 @@ export const languages = SUPPORTED_LOCALES.map((code) => ({
 
 export const translations = {
   en: {
+    details: {
+      eyebrow: 'Good to know',
+      title: 'Everything about the house',
+      lead: 'The details worth reading before you book — and the answers to what guests ask most.',
+      house: 'The house',
+      faqs: 'Frequently asked',
+    },
     nav: ['HOME', 'GALLERY', 'AMENITIES', 'LOCATION'],
     bookNow: 'BOOK NOW',
     heroTitle: ['Your private pool', 'retreat near', 'Madeira Beach'],
@@ -67,6 +74,13 @@ export const translations = {
     },
   },
   es: {
+    details: {
+      eyebrow: 'Conviene saber',
+      title: 'Todo sobre la casa',
+      lead: 'Los detalles que conviene leer antes de reservar, y las respuestas a lo que más preguntan.',
+      house: 'La casa',
+      faqs: 'Preguntas frecuentes',
+    },
     nav: ['INICIO', 'GALERÍA', 'SERVICIOS', 'UBICACIÓN'],
     bookNow: 'RESERVAR',
     heroTitle: ['Tu refugio con piscina', 'cerca de', 'Madeira Beach'],
@@ -113,6 +127,13 @@ export const translations = {
     },
   },
   pt: {
+    details: {
+      eyebrow: 'Bom saber',
+      title: 'Tudo sobre a casa',
+      lead: 'Os detalhes que vale a pena ler antes de reservar, e as respostas ao que mais perguntam.',
+      house: 'A casa',
+      faqs: 'Perguntas frequentes',
+    },
     nav: ['INÍCIO', 'GALERIA', 'COMODIDADES', 'LOCALIZAÇÃO'],
     bookNow: 'RESERVAR',
     heroTitle: ['Seu refúgio com piscina', 'perto de', 'Madeira Beach'],
@@ -159,6 +180,13 @@ export const translations = {
     },
   },
   fr: {
+    details: {
+      eyebrow: 'Bon à savoir',
+      title: 'Tout sur la maison',
+      lead: 'Les détails à lire avant de réserver, et les réponses aux questions les plus fréquentes.',
+      house: 'La maison',
+      faqs: 'Questions fréquentes',
+    },
     nav: ['ACCUEIL', 'GALERIE', 'ÉQUIPEMENTS', 'EMPLACEMENT'],
     bookNow: 'RÉSERVER',
     heroTitle: ['Votre refuge avec piscine', 'près de', 'Madeira Beach'],
@@ -205,6 +233,13 @@ export const translations = {
     },
   },
   de: {
+    details: {
+      eyebrow: 'Gut zu wissen',
+      title: 'Alles über das Haus',
+      lead: 'Was Sie vor der Buchung wissen sollten — und die Antworten auf die häufigsten Fragen.',
+      house: 'Das Haus',
+      faqs: 'Häufige Fragen',
+    },
     nav: ['START', 'GALERIE', 'AUSSTATTUNG', 'LAGE'],
     bookNow: 'JETZT BUCHEN',
     heroTitle: ['Ihr Refugium mit Pool', 'nahe', 'Madeira Beach'],

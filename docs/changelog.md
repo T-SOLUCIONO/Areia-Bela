@@ -1312,3 +1312,56 @@ pnpm typecheck ✅   pnpm test      ✅ (138 tests, 18 nuevos)
   que es lo correcto: no deben existir. Lo que se arregló es que el selector ya
   no las genera.
 - La 404 sale **en el idioma de la ruta** en los cinco casos.
+
+## 26. "Todo sobre la casa", rehecha
+
+Comentario del usuario al verla: parece hecha por alguien junior, está mal
+colocada y rompe el esquema. Tenía razón, y el motivo es concreto.
+
+### Por qué desentonaba
+
+Todas las secciones de la portada hablan el mismo idioma visual: tarjeta blanca
+`rounded-[32px]` sobre crema, borde `white/70`, sombra larga y suave, antetítulo
+en versalitas con icono, títulos en navy `#173a57`, ancho de 1440px.
+
+Esta sección **no usaba nada de eso**: era un acordeón desnudo, sin tarjeta ni
+sombra, en una columna centrada de `max-w-3xl` dentro de una página que ocupa 1440. No es que estuviera fea por dentro; es que no pertenecía.
+
+### Por qué no una página aparte ni un modal
+
+Se evaluaron las dos, que era lo que el usuario proponía:
+
+- **Página aparte**: ahí viven las normas, las mascotas y la piscina — el
+  contenido que convence de reservar y el que posiciona en buscadores.
+  Esconderlo tras un clic pierde las dos cosas.
+- **Modal**: ya es un acordeón. Un modal encima serían dos capas de esconder lo
+  mismo, y un modal es para una tarea, no para leer prosa larga.
+
+### Qué se hizo
+
+- **Se viste como sus vecinas**: la misma tarjeta, sombra, antetítulo con icono
+  y navy que la sección de servicios, que es su hermana más cercana —las dos
+  son la mitad práctica de la página.
+- **Se movió** de entre reseñas y ubicación a justo después de servicios. Lo
+  práctico queda junto, y un muro de prosa deja de cortar el paso de los
+  testimonios al mapa y al botón de reservar.
+- **Dos columnas** en escritorio: la casa a la izquierda, las preguntas a la
+  derecha. Aprovecha el ancho en vez de apilar una debajo de la otra y estirar
+  la página una pantalla más.
+
+De paso, sus rótulos (`Conviene saber`, `La casa`, `Preguntas frecuentes`)
+estaban escritos a mano en español e inglés, así que en portugués, francés y
+alemán caían al español. Pasan a `lib/i18n.ts` en los cinco idiomas, como el
+resto de la interfaz.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (138 tests)
+```
+
+- Orden de anclas en el documento: `gallery → amenities → details → reviews →
+location`.
+- Los rótulos salen en su idioma en los cinco: "Conviene saber", "Good to know",
+  "Bom saber", "Bon à savoir", "Gut zu wissen".
