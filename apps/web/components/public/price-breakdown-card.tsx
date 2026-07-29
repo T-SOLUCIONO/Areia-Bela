@@ -3,20 +3,22 @@ import { format, parseISO, subDays } from 'date-fns'
 import { Clock, Info, Star } from 'lucide-react'
 import { currency, type BookingQuote } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
+import { translations, type Language } from '@/lib/i18n'
 
 type Props = {
   quote: BookingQuote
-  isEnglish: boolean
+  /**
+   * The language, not a boolean. This was `isEnglish`, which quietly meant
+   * "English or Spanish" — so once the site spoke five languages, a French
+   * guest read the price breakdown in Spanish.
+   */
+  language: Language
   propertyPreview?: boolean
   className?: string
 }
 
-export function PriceBreakdownCard({
-  quote,
-  isEnglish,
-  propertyPreview = false,
-  className,
-}: Props) {
+export function PriceBreakdownCard({ quote, language, propertyPreview = false, className }: Props) {
+  const copy = translations[language].quote
   const cancellationDate = format(subDays(parseISO(quote.checkIn), 5), 'MMM d')
   const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
   const savings = hasDiscount
@@ -53,45 +55,37 @@ export function PriceBreakdownCard({
       <div className="space-y-3 border-b border-slate-100 py-5">
         <div className="flex items-center justify-between">
           <span className="text-slate-600 underline">
-            {currency(quote.pricePerNight)} x {quote.nights} {isEnglish ? 'nights' : 'noches'}
+            {currency(quote.pricePerNight)} x {quote.nights} {copy.nights}
           </span>
           <span className="text-slate-800">{currency(quote.subtotal)}</span>
         </div>
 
         {hasDiscount && savings > 0 && (
           <div className="flex items-center justify-between text-emerald-700">
-            <span className="underline">{isEnglish ? 'Weekly discount' : 'Descuento semanal'}</span>
+            <span className="underline">{copy.weeklyDiscount}</span>
             <span>-{currency(savings)}</span>
           </div>
         )}
 
         <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">
-            {isEnglish ? 'Cleaning fee' : 'Tarifa de limpieza'}
-          </span>
+          <span className="text-slate-600 underline">{copy.cleaningFee}</span>
           <span className="text-slate-800">{currency(quote.cleaningFee)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">
-            {isEnglish ? 'Service fee' : 'Tarifa de servicio'}
-          </span>
+          <span className="text-slate-600 underline">{copy.serviceFee}</span>
           <span className="text-slate-800">{currency(quote.serviceFee)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">
-            {isEnglish ? 'Taxes & fees' : 'Impuestos y tarifas'}
-          </span>
+          <span className="text-slate-600 underline">{copy.taxes}</span>
           <span className="text-slate-800">{currency(quote.taxes)}</span>
         </div>
       </div>
 
       <div className="pt-5">
         <div className="flex items-center justify-between">
-          <span className="text-base font-semibold text-[#173a57]">
-            {isEnglish ? 'Total (USD)' : 'Total (USD)'}
-          </span>
+          <span className="text-base font-semibold text-[#173a57]">{copy.total}</span>
           <span className="text-xl font-semibold text-[#173a57]">{currency(quote.total)}</span>
         </div>
       </div>
@@ -100,12 +94,9 @@ export function PriceBreakdownCard({
         <div className="flex items-start gap-3">
           <Clock className="mt-0.5 h-5 w-5 text-[#174d7a]" />
           <div>
-            <p className="font-semibold text-[#173a57]">
-              {isEnglish ? 'Free cancellation' : 'Cancelación gratuita'}
-            </p>
+            <p className="font-semibold text-[#173a57]">{copy.freeCancellation}</p>
             <p className="mt-1 text-sm text-slate-600">
-              {isEnglish ? 'Cancel before' : 'Cancela antes del'} {cancellationDate}{' '}
-              {isEnglish ? 'for a partial refund.' : 'para un reembolso parcial.'}
+              {copy.cancelBefore} {cancellationDate} {copy.partialRefund}
             </p>
           </div>
         </div>
@@ -115,9 +106,8 @@ export function PriceBreakdownCard({
         <div className="mt-4 flex items-start gap-2 rounded-[16px] bg-emerald-50 p-3">
           <Info className="mt-0.5 h-4 w-4 text-emerald-700" />
           <p className="text-sm text-emerald-800">
-            {isEnglish ? "You're saving" : 'Estás ahorrando'}{' '}
-            <span className="font-semibold">{currency(savings)}</span>{' '}
-            {isEnglish ? 'with this discount!' : 'con este descuento!'}
+            {copy.saving} <span className="font-semibold">{currency(savings)}</span>{' '}
+            {copy.withDiscount}
           </p>
         </div>
       )}

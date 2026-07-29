@@ -75,7 +75,7 @@ export function Header() {
                 variant="outline"
                 size="lg"
                 className="gap-2 rounded-full bg-white/80"
-                aria-label={language === 'en' ? 'Change language' : 'Cambiar idioma'}
+                aria-label={copy.ui.changeLanguage}
               >
                 <Globe className="h-4 w-4" aria-hidden />
                 <span className="text-xs font-semibold tracking-[0.18em]">
@@ -102,7 +102,7 @@ export function Header() {
           <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon">
               <Menu className="h-5 w-5" />
-              <span className="sr-only">{language === 'en' ? 'Toggle menu' : 'Abrir menú'}</span>
+              <span className="sr-only">{copy.ui.toggleMenu}</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="overflow-y-auto">
@@ -144,9 +144,7 @@ export function Header() {
                   </Link>
                 </Button>
                 <div className="grid gap-3 rounded-2xl border border-border bg-background p-4">
-                  <div className="text-sm font-medium text-foreground">
-                    {language === 'en' ? 'Language' : 'Idioma'}
-                  </div>
+                  <div className="text-sm font-medium text-foreground">{copy.ui.language}</div>
                   {/* On a phone there is room to list them, and tapping a
                       language name is a bigger target than a two-letter pill. */}
                   <div className="grid grid-cols-2 gap-2">

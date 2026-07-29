@@ -239,7 +239,7 @@ export function AvailabilityCard({ className }: Props) {
       {checkIn && checkOut && quote && (
         <PriceBreakdownCard
           quote={quote}
-          isEnglish={language === 'en'}
+          language={language}
           className="mt-4 shadow-none ring-1 ring-slate-100"
         />
       )}

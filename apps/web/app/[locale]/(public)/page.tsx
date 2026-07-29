@@ -14,6 +14,7 @@ import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
 import { RESPONSE_TIME_COMPACT } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
+import { translations } from '@/lib/i18n'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { itemsOf } from '@/lib/cms-public'
 import { ContentIcon } from '@/lib/content-icons'
@@ -23,6 +24,7 @@ const bundledImages = propertyData.photos?.map((photo) => photo.large) ?? proper
 export default function HomePage() {
   const { language } = useLanguage()
   const siteContent = useSiteContent()
+  const ui = translations[language].ui
 
   // The gallery the host curates in /admin/content wins; the images bundled
   // from the original listing are the fallback for a cold or offline API.
@@ -219,7 +221,7 @@ export default function HomePage() {
                 <div className="flex items-center gap-2 text-[#174d7a]">
                   <Sparkles className="h-5 w-5" />
                   <span className="text-sm font-semibold uppercase tracking-[0.2em]">
-                    {text(amenities, 'eyebrow', language === 'en' ? 'Amenities' : 'Servicios')}
+                    {text(amenities, 'eyebrow', ui.amenities)}
                   </span>
                 </div>
                 <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
@@ -288,11 +290,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <p className="mt-1 text-xs text-gray-400">
-                  {text(
-                    reviewsSection,
-                    'statLabel',
-                    `${propertyData.reviewsCount} ${language === 'en' ? 'reviews' : 'reseñas'}`,
-                  )}
+                  {text(reviewsSection, 'statLabel', `${propertyData.reviewsCount} ${ui.reviews}`)}
                 </p>
               </div>
 
@@ -350,8 +348,7 @@ export default function HomePage() {
                       <p className="text-white">- {featured.authorName}</p>
                       {featured.verified && (
                         <p className="flex items-center gap-1 text-sm text-blue-300">
-                          <ShieldCheck className="h-3.5 w-3.5" />{' '}
-                          {language === 'en' ? 'Verified stay' : 'Estadía verificada'}
+                          <ShieldCheck className="h-3.5 w-3.5" /> {ui.verifiedStay}
                           {featured.stayedAt ? ` · ${featured.stayedAt}` : ''}
                         </p>
                       )}
@@ -542,12 +539,7 @@ export default function HomePage() {
                         {propertyData.host.firstName}
                       </h3>
                       <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
-                        <Sparkles className="h-3.5 w-3.5" />{' '}
-                        {text(
-                          host,
-                          'statLabel',
-                          language === 'en' ? 'Host since' : 'Anfitriona desde',
-                        )}{' '}
+                        <Sparkles className="h-3.5 w-3.5" /> {text(host, 'statLabel', ui.hostSince)}{' '}
                         {host?.statValue || propertyData.hostSinceYear}
                       </p>
                     </div>

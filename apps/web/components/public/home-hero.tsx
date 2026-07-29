@@ -50,9 +50,7 @@ export function HomeHero({ images }: HeroProps) {
           <Image
             key={src}
             src={src}
-            alt={
-              language === 'en' ? 'Areia Bela beach stay' : 'Estadía frente a la playa Areia Bela'
-            }
+            alt={copy.ui.heroAlt}
             fill
             priority={slideIndex === 0}
             className={cn(

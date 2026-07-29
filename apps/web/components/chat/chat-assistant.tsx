@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Send, MessageCircle } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { useLanguage } from '@/components/language-provider'
-import type { Language } from '@/lib/i18n'
+import { translations, type Language } from '@/lib/i18n'
 
 type Message = {
   id: string
@@ -163,9 +163,10 @@ export function ChatAssistant() {
     }, 600)
   }
 
-  const assistantTitle = language === 'en' ? 'Areia Bela Assistant' : 'Asistente Areia Bela'
-  const assistantSubtitle = language === 'en' ? 'Automated responses' : 'Respuestas automáticas'
-  const placeholder = language === 'en' ? 'Type your message...' : 'Escribe tu mensaje...'
+  const ui = translations[language].ui
+  const assistantTitle = ui.chatTitle
+  const assistantSubtitle = ui.chatSubtitle
+  const placeholder = ui.chatPlaceholder
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
@@ -184,7 +185,7 @@ export function ChatAssistant() {
               setIsVisible(false)
             }}
             className="h-12 w-12 rounded-full shadow-lg"
-            aria-label={language === 'en' ? 'Open help chat' : 'Abrir chat de ayuda'}
+            aria-label={ui.chatOpen}
           >
             <MessageCircle className="h-5 w-5" />
           </Button>

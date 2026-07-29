@@ -67,6 +67,30 @@ export function stripLocale(pathname: string): string {
   return pathname
 }
 
+/**
+ * Reads `Accept-Language` in the browser's stated order of preference.
+ *
+ * `fr-CA;q=0.9` counts as French: the region is dropped and the q-values are
+ * respected, rather than taking whichever tag happens to come first.
+ */
+export function localeFromAcceptLanguage(header: string): SupportedLocale | null {
+  const ranked = header
+    .split(',')
+    .map((part) => {
+      const [tag, ...params] = part.trim().split(';')
+      const quality = params.find((param) => param.trim().startsWith('q='))
+      return {
+        tag: tag.trim().toLowerCase().split('-')[0] ?? '',
+        q: quality ? Number(quality.split('=')[1]) : 1,
+      }
+    })
+    .filter((entry) => !Number.isNaN(entry.q))
+    .sort((a, b) => b.q - a.q)
+
+  const match = ranked.find((entry) => isSupportedLocale(entry.tag))
+  return match ? (match.tag as SupportedLocale) : null
+}
+
 /** The same path under a different language. */
 export function pathForLocale(pathname: string, locale: SupportedLocale): string {
   const rest = stripLocale(pathname)

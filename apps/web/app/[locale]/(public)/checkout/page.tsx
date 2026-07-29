@@ -277,7 +277,7 @@ function CheckoutForm() {
                 isSuperhost={propertyData.host.isSuperhost}
                 responseTime={propertyData.hostResponseTime}
                 responseRate={propertyData.host.responseRateWithoutNa}
-                isEnglish={isEnglish}
+                language={language}
               />
               <Textarea
                 id="specialRequests"
@@ -506,7 +506,7 @@ function CheckoutForm() {
                 </span>
               </button>
               <div className={showPriceBreakdown ? 'block' : 'hidden lg:block'}>
-                <PriceBreakdownCard quote={quote} isEnglish={isEnglish} propertyPreview />
+                <PriceBreakdownCard quote={quote} language={language} propertyPreview />
               </div>
             </div>
           </div>

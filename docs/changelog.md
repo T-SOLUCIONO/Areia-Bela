@@ -1365,3 +1365,81 @@ pnpm typecheck ✅   pnpm test      ✅ (138 tests)
 location`.
 - Los rótulos salen en su idioma en los cinco: "Conviene saber", "Good to know",
   "Bom saber", "Bon à savoir", "Gut zu wissen".
+
+## 27. La portada, auditada en cinco idiomas
+
+Revisando el sitio con los cinco idiomas puestos aparecieron tres cosas.
+
+### El cotizador, el modal y el pie seguían en dos idiomas
+
+El patrón era siempre el mismo:
+
+```ts
+{
+  isEnglish ? 'Cleaning fee' : 'Tarifa de limpieza'
+}
+```
+
+Un ternario no puede representar cinco idiomas. Con `pt`, `fr` o `de` caía
+siempre a la rama española, así que un huésped francés veía la portada en
+francés y el desglose del precio en español.
+
+La raíz era un **prop booleano**: `PriceBreakdownCard` y `HostResponseBadges`
+recibían `isEnglish: boolean`, que en realidad significaba "inglés o español".
+Pasa a `language: Language`, lo que obliga a cada llamante a decir cuál es.
+
+Migrados a `lib/i18n.ts` en los cinco idiomas: el desglose de precio completo
+(noches, limpieza, servicio, impuestos, cancelación, descuento), el modal de
+contacto con la anfitriona, la barra de reserva del móvil, el pie, las
+etiquetas de la anfitriona, el asistente de chat y los `aria-label` de la
+cabecera. **Cero ternarios de dos idiomas** en toda la portada.
+
+### El idioma elegido se perdía al volver
+
+`detectLocale` en el middleware tenía el mismo fallo:
+
+```ts
+const saved = request.cookies.get('areia_bela_language')?.value
+if (saved === 'es' || saved === 'en') return saved // ← 'pt' se ignora
+```
+
+Elegir portugués guardaba la cookie que el middleware luego ignoraba, así que
+al volver a una ruta sin prefijo el sitio salía en español. De paso el nombre
+de la cookie estaba escrito a mano en vez de usar `LANGUAGE_COOKIE`.
+
+Ahora usa la constante y `isSupportedLocale`. Y la negociación de
+`Accept-Language` pasa de dos `startsWith` a un lector que respeta los valores
+`q` y descarta la región: `fr-CA;q=0.9` es francés, y `en;q=0.3,de;q=0.9` da
+alemán aunque el inglés vaya primero. Vive en `@areia-bela/shared` para poder
+probarlo.
+
+### "Todo sobre la casa", con más carácter
+
+- **Un icono por sección**, dentro de un círculo que se invierte a navy al
+  abrirse. Once filas idénticas de texto navy son un muro; el icono es lo que
+  permite encontrar la política de mascotas sin leer cada título.
+- **Un contador** junto a cada encabezado de columna: once secciones son
+  muchas para abrir a ciegas.
+- **Un halo de color** de marca en la esquina, como el de la galería, para que
+  un bloque alto de texto no se lea como una caja blanca.
+- El panel abierto **se alinea con el texto**, no con el icono.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (143 tests, 5 nuevos)
+```
+
+- Cookie `pt` entrando a `/` con el navegador en español → sitio en portugués.
+- Sin cookie y navegador en alemán → sitio en alemán.
+- Las cadenas del cotizador y del modal están en el bundle de cliente de `fr`,
+  `de` y `pt` (no se ven por `curl` porque el precio llega por fetch y el modal
+  solo monta al abrirse).
+
+### Diferido, con su tamaño
+
+**Checkout (33) y confirmación (34) siguen con ternarios de dos idiomas.** No
+son la portada, pero es un hueco real del flujo: un huésped francés reserva y
+el checkout le sale en español. Son 67 cadenas × 3 idiomas nuevos; se declara
+aquí en vez de dejarlo pasar en silencio.

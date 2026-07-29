@@ -13,7 +13,7 @@ import { translations } from '@/lib/i18n'
 export function Footer() {
   const { language } = useLanguage()
   const copy = translations[language].footer
-  const perNight = language === 'en' ? '/ night' : '/ noche'
+  const perNight = translations[language].quote.perNight
 
   // Contact details are editable in /admin/settings; the bundled values are
   // the fallback when the API is unreachable.

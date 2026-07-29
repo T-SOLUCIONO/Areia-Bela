@@ -1,4 +1,9 @@
-import { SUPPORTED_LOCALES, pathForLocale, stripLocale } from '@areia-bela/shared'
+import {
+  SUPPORTED_LOCALES,
+  localeFromAcceptLanguage,
+  pathForLocale,
+  stripLocale,
+} from '@areia-bela/shared'
 
 /**
  * These live in @areia-bela/shared but are tested here, because the API is the
@@ -62,5 +67,31 @@ describe('pathForLocale', () => {
         expect(result.split('/').filter(Boolean)).toHaveLength(1)
       }
     }
+  })
+})
+
+describe('localeFromAcceptLanguage', () => {
+  it('picks the first supported language', () => {
+    expect(localeFromAcceptLanguage('fr,en;q=0.8')).toBe('fr')
+  })
+
+  it('drops the region', () => {
+    // "fr-CA" is still French.
+    expect(localeFromAcceptLanguage('fr-CA')).toBe('fr')
+    expect(localeFromAcceptLanguage('pt-BR,en;q=0.5')).toBe('pt')
+  })
+
+  it('respects q-values rather than document order', () => {
+    // German is listed second but wanted more.
+    expect(localeFromAcceptLanguage('en;q=0.3,de;q=0.9')).toBe('de')
+  })
+
+  it('skips languages the site does not speak', () => {
+    expect(localeFromAcceptLanguage('ja,ko;q=0.9,de;q=0.1')).toBe('de')
+  })
+
+  it('returns null when none match, so the caller can pick the default', () => {
+    expect(localeFromAcceptLanguage('ja,ko')).toBeNull()
+    expect(localeFromAcceptLanguage('')).toBeNull()
   })
 })
