@@ -154,6 +154,34 @@ export function parseQuoteRequestFromSearchParams(
   }
 }
 
+export type NightRate = {
+  date: string
+  rate: number
+  season: 'LOW' | 'HIGH' | 'WEEKEND'
+  available: boolean
+}
+
+/**
+ * What each night costs, for the price under each day in the calendar.
+ *
+ * Comes from the API like everything else about money: showing a guest a rate
+ * the server would not honour is worse than showing none.
+ */
+export async function fetchNightRates(from: string, to: string): Promise<NightRate[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return []
+
+  try {
+    const response = await fetch(
+      `${apiUrl}/properties/${PROPERTY_SLUG}/rates?from=${from}&to=${to}`,
+    )
+    if (!response.ok) return []
+    return (await response.json()) as NightRate[]
+  } catch {
+    return []
+  }
+}
+
 export async function getBlockedDateRanges(): Promise<Array<{ from: Date; to: Date }>> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
   if (!apiUrl) return []

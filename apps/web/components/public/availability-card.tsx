@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, format, subDays } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, subDays } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
-import { CalendarDays, ChevronDown, Minus, Plus, ShieldCheck } from 'lucide-react'
+import { ChevronDown, Minus, Plus, ShieldCheck, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@areia-bela/ui/button'
-import { Calendar } from '@areia-bela/ui/calendar'
+import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
 import {
   currency,
+  fetchNightRates,
   fetchQuote,
   getBlockedDateRanges,
   saveQuoteToStorage,
@@ -40,10 +41,20 @@ export function AvailabilityCard({ className }: Props) {
   const { adults, children, infants, pets } = guests
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
+  const [rates, setRates] = useState<Map<string, number>>(new Map())
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
 
   useEffect(() => {
     getBlockedDateRanges().then(setBlockedRanges)
+
+    // A year ahead: enough for both calendar months and any paging, in one
+    // request rather than one per month change.
+    const from = format(today, 'yyyy-MM-dd')
+    const to = format(addDays(today, 365), 'yyyy-MM-dd')
+    fetchNightRates(from, to).then((nights) => {
+      setRates(new Map(nights.map((night) => [night.date, night.rate])))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const [quote, setQuote] = useState<BookingQuote | null>(null)
@@ -122,6 +133,7 @@ export function AvailabilityCard({ className }: Props) {
 
   const selectedRange = checkIn ? { from: checkIn, to: checkOut } : undefined
   const cancellationDate = checkIn ? format(subDays(checkIn, 5), 'd MMM', { locale }) : ''
+  const nights = checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0
 
   return (
     <aside
@@ -150,38 +162,88 @@ export function AvailabilityCard({ className }: Props) {
 
       <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
         <PopoverTrigger asChild>
-          <button type="button" className="mt-5 grid w-full grid-cols-2 gap-3 text-left">
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 transition hover:border-slate-300 hover:bg-slate-50">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-medium text-slate-500">{copy.checkIn}</div>
-                  <div className="mt-0.5 text-sm text-slate-800">
-                    {checkIn ? format(checkIn, 'MMM d') : copy.addDate}
-                  </div>
-                </div>
-                <CalendarDays className="h-4 w-4 text-slate-500" />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 transition hover:border-slate-300 hover:bg-slate-50">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-medium text-slate-500">{copy.checkOut}</div>
-                  <div className="mt-0.5 text-sm text-slate-800">
-                    {checkOut ? format(checkOut, 'MMM d') : copy.addDate}
-                  </div>
-                </div>
-                <CalendarDays className="h-4 w-4 text-slate-500" />
-              </div>
-            </div>
+          {/* One bordered box divided in two, sharing its middle rule with the
+              guest row below — the shape the reference uses. */}
+          <button
+            type="button"
+            className="mt-5 grid w-full grid-cols-2 divide-x divide-slate-200 overflow-hidden rounded-t-[14px] border border-b-0 border-slate-300 text-left"
+          >
+            {(
+              [
+                [copy.arrival, checkIn],
+                [copy.departure, checkOut],
+              ] as const
+            ).map(([label, value], index) => (
+              <span key={index} className="block px-4 py-2.5 transition hover:bg-slate-50">
+                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-800">
+                  {label}
+                </span>
+                <span className="mt-0.5 block text-sm text-slate-700">
+                  {value ? format(value, 'd/M/yyyy') : copy.addDate}
+                </span>
+              </span>
+            ))}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
+        <PopoverContent
+          className="w-[min(100vw-1rem,760px)] rounded-[22px] border-slate-200 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
+          align="end"
+          sideOffset={10}
+        >
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-[22px] font-semibold leading-tight text-slate-900">
+                {nights === 1
+                  ? copy.nightSelected
+                  : fill(copy.nightsSelected, { count: String(nights) })}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {checkIn && checkOut
+                  ? `${format(checkIn, 'd MMM yyyy', { locale })} - ${format(checkOut, 'd MMM yyyy', { locale })}`
+                  : copy.pickDates}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 divide-x divide-slate-300 overflow-hidden rounded-[10px] border border-slate-800">
+              {(
+                [
+                  [copy.arrival, checkIn, () => setCheckIn(undefined)],
+                  [copy.departure, checkOut, () => setCheckOut(undefined)],
+                ] as const
+              ).map(([label, value, clear], index) => (
+                <div key={index} className="flex items-center gap-3 px-3 py-2">
+                  <div className="min-w-20">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-800">
+                      {label}
+                    </p>
+                    <p className="text-sm text-slate-700">
+                      {value ? format(value, 'd/M/yyyy') : '—'}
+                    </p>
+                  </div>
+                  {value && (
+                    <button
+                      type="button"
+                      onClick={clear}
+                      aria-label={`${copy.clearDates}: ${label}`}
+                      className="shrink-0 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           <Calendar
             mode="range"
             selected={selectedRange}
             numberOfMonths={2}
             min={1}
+            // Each month shows only its own days. With the default, September
+            // ends with October's first days and October starts with
+            // September's last — the same date twice, side by side.
+            showOutsideDays={false}
             onSelect={(range) => {
               setCheckIn(range?.from)
               setCheckOut(range?.to)
@@ -195,13 +257,43 @@ export function AvailabilityCard({ className }: Props) {
                   : [],
             }}
             modifiersClassNames={{
-              blocked: 'line-through decoration-red-400 bg-red-50 text-red-300',
-              previewRange: 'bg-accent/50 rounded-none',
+              blocked: 'line-through decoration-red-400 text-slate-300',
+              previewRange: 'bg-slate-100 rounded-none',
             }}
             onDayMouseEnter={setHoverDate}
             onDayMouseLeave={() => setHoverDate(undefined)}
+            className="w-full [--cell-size:3rem]"
+            components={{
+              DayButton: (dayProps) => {
+                const rate = rates.get(format(dayProps.day.date, 'yyyy-MM-dd'))
+                return (
+                  <CalendarDayButton {...dayProps}>
+                    {dayProps.day.date.getDate()}
+                    {/* Shown so a guest sees the weekend costs more before
+                        picking it, not after. */}
+                    {rate !== undefined && <span>${rate}</span>}
+                  </CalendarDayButton>
+                )
+              },
+            }}
             initialFocus
           />
+
+          <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setCheckIn(undefined)
+                setCheckOut(undefined)
+              }}
+              className="text-sm font-medium text-slate-700 underline underline-offset-4 hover:text-slate-900"
+            >
+              {copy.clearDates}
+            </button>
+            <Button type="button" onClick={() => setIsCalendarOpen(false)} className="rounded-lg">
+              {copy.close}
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
 
@@ -209,12 +301,14 @@ export function AvailabilityCard({ className }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="mt-3 w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+            className="w-full rounded-b-[14px] border border-slate-300 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[11px] font-medium text-slate-500">{copy.guests}</div>
-                <div className="mt-0.5 text-sm text-slate-800">{guestSummary}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-800">
+                  {copy.guests}
+                </div>
+                <div className="mt-0.5 text-sm text-slate-700">{guestSummary}</div>
               </div>
               <ChevronDown
                 className={cn(

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { PropertiesService } from './properties.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
 import { UserRole } from '@prisma/client'
@@ -17,6 +17,13 @@ export class PropertiesController {
   @Post(':slug/quote')
   getQuote(@Param('slug') slug: string, @Body() dto: QuoteRequestDto) {
     return this.propertiesService.getQuote(slug, dto)
+  }
+
+  /** Nightly rates and availability for the public calendar. */
+  @Public()
+  @Get(':slug/rates')
+  getRates(@Param('slug') slug: string, @Query('from') from: string, @Query('to') to: string) {
+    return this.propertiesService.getRates(slug, from, to)
   }
 
   @Public()

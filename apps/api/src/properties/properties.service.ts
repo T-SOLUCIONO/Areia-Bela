@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common'
-import { computeQuote, type QuoteBreakdown } from '@areia-bela/shared'
+import { computeQuote, nightsOf, rateForNight, type QuoteBreakdown } from '@areia-bela/shared'
 import type { ExtraPricingType, SeasonType } from '@prisma/client'
 import type { BlockedDate } from '@areia-bela/types'
 import { PrismaService } from '../prisma/prisma.service'
@@ -102,6 +102,80 @@ export class PropertiesService {
           seasonEndMonthDay: extra.seasonEndMonthDay,
         })),
     }
+  }
+
+  /**
+   * What each night costs, and whether it can be booked, across a range.
+   *
+   * Feeds the price under each day in the calendar. The rate has to come from
+   * here rather than being worked out in the browser for the same reason the
+   * total does: it is the figure the guest will be charged.
+   */
+  async getRates(slug: string, from: string, to: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { slug },
+      include: { priceRules: { where: { active: true } } },
+    })
+    if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    const rules = property.priceRules.map((rule) => ({
+      type: rule.type,
+      nightlyRate: Number(rule.nightlyRate),
+      startDate: rule.startDate?.toISOString() ?? null,
+      endDate: rule.endDate?.toISOString() ?? null,
+    }))
+
+    const taken = await this.takenNights(property.id, from, to)
+
+    return nightsOf(from, to).map((date) => ({
+      date,
+      ...rateForNight(date, rules),
+      available: !taken.has(date),
+    }))
+  }
+
+  /**
+   * Every night in the range that is already spoken for, whether by a booking
+   * or by a date the host blocked.
+   *
+   * Cancelled bookings free their nights back up; a pending one does not,
+   * because someone is paying for it right now.
+   */
+  private async takenNights(propertyId: string, from: string, to: string): Promise<Set<string>> {
+    const [bookings, blocked] = await Promise.all([
+      this.prisma.booking.findMany({
+        where: {
+          propertyId,
+          status: { not: 'CANCELLED' },
+          checkIn: { lt: new Date(to) },
+          checkOut: { gt: new Date(from) },
+        },
+        select: { checkIn: true, checkOut: true },
+      }),
+      this.prisma.blockedDate.findMany({
+        where: {
+          propertyId,
+          startDate: { lte: new Date(to) },
+          endDate: { gte: new Date(from) },
+        },
+        select: { startDate: true, endDate: true },
+      }),
+    ])
+
+    const nights = new Set<string>()
+    const iso = (date: Date) => date.toISOString().slice(0, 10)
+
+    for (const booking of bookings) {
+      // Check-out day is not a night: the next guest can arrive that morning.
+      for (const night of nightsOf(iso(booking.checkIn), iso(booking.checkOut))) nights.add(night)
+    }
+    for (const range of blocked) {
+      // A blocked range is inclusive of its end — the host meant that day too.
+      for (const night of nightsOf(iso(range.startDate), iso(range.endDate))) nights.add(night)
+      nights.add(iso(range.endDate))
+    }
+
+    return nights
   }
 
   /**
