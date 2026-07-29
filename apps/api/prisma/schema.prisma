@@ -19,6 +19,10 @@ model Property {
   maxGuests                  Int
   additionalGuestFeePerNight Decimal  @db.Decimal(10, 2)
   cleaningFee                Decimal  @db.Decimal(10, 2)
+  // Taken off the nights once a stay is long enough. Editable, because it is
+  // a commercial lever the host pulls, not a constant of the house.
+  weeklyDiscountPercent      Decimal  @default(10) @db.Decimal(5, 2)
+  weeklyDiscountNights       Int      @default(7)
   serviceFeePercent          Decimal  @db.Decimal(5, 2)
   taxesPercent               Decimal  @db.Decimal(5, 2)
   bedrooms                   Int

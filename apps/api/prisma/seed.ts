@@ -121,7 +121,7 @@ async function main() {
       key: 'pet',
       name: 'Mascota (gato o perro)',
       pricingType: 'PER_STAY',
-      price: 100,
+      price: 115,
       refundable: false,
     },
   ]

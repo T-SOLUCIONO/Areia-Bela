@@ -23,6 +23,12 @@ export class GuestCountsDto {
   @IsInt()
   @Min(0)
   infants!: number
+
+  /** Counted like Airbnb does: in the guest picker, priced as the pet fee. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pets?: number
 }
 
 export class QuoteRequestDto {
@@ -46,10 +52,10 @@ export class QuoteRequestDto {
   extraIds!: string[]
 
   /**
-   * Hours per hourly extra, keyed by its `key` — the nanny is charged by the
-   * hour, so without this there is no honest way to price her.
+   * Units per extra, keyed by its `key`. Hours for the nanny, animals for the
+   * pet fee — without it there is no honest way to price either.
    */
   @IsOptional()
   @IsObject()
-  extraHours?: Record<string, number>
+  extraUnits?: Record<string, number>
 }

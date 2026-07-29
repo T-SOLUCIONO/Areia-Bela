@@ -50,6 +50,8 @@ export type QuoteRequest = {
   checkOut: string
   guests: GuestCounts
   selectedExtraIds: string[]
+  /** Units per extra: hours for the nanny, animals for the pet fee. */
+  extraUnits?: Record<string, number>
 }
 
 /**
@@ -77,6 +79,7 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
           infants: input.guests.infants,
         },
         extraIds: input.selectedExtraIds,
+        extraUnits: input.extraUnits,
       }),
     })
     if (!response.ok) return null
@@ -115,6 +118,9 @@ export function serializeQuoteToSearchParams(quote: BookingQuote) {
     infants: String(quote.guests.infants),
     pets: String(quote.guests.pets),
     extras: quote.extras.map((extra) => extra.id).join(','),
+    // Quantities travel too: without them the checkout would re-price one pet
+    // for a party that brought two.
+    units: quote.extras.map((extra) => `${extra.id}:${extra.quantity}`).join(','),
   }).toString()
 }
 
@@ -137,6 +143,14 @@ export function parseQuoteRequestFromSearchParams(
       pets: count('pets'),
     },
     selectedExtraIds: (searchParams.get('extras') ?? '').split(',').filter(Boolean),
+    extraUnits: Object.fromEntries(
+      (searchParams.get('units') ?? '')
+        .split(',')
+        .filter(Boolean)
+        .map((pair) => pair.split(':'))
+        .filter(([id, units]) => id && Number(units) > 0)
+        .map(([id, units]) => [id, Number(units)]),
+    ),
   }
 }
 

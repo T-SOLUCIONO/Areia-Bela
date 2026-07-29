@@ -37,6 +37,9 @@ export interface PropertyPricingInput {
   additionalGuestFeePerNight: number
   includedGuests: number
   maxGuests: number
+  /** Taken off the nights once the stay reaches `weeklyDiscountNights`. */
+  weeklyDiscountPercent: number
+  weeklyDiscountNights: number
   extras: ExtraInput[]
 }
 
@@ -46,8 +49,11 @@ export interface ComputeQuoteInput {
   /** Adults + children. Infants never count towards capacity or price. */
   guests?: number
   selectedExtraIds: string[]
-  /** Hours booked for a PER_HOUR extra, keyed by extra id. */
-  extraHours?: Record<string, number>
+  /**
+   * How many units of an extra, keyed by its id. What a unit is depends on the
+   * extra: hours for the nanny, animals for the pet fee. Defaults to one.
+   */
+  extraUnits?: Record<string, number>
   pricing: PropertyPricingInput
 }
 
@@ -75,6 +81,8 @@ export interface QuoteBreakdown {
   nightly: QuoteNightLine[]
   extras: QuoteExtraLine[]
   subtotal: number
+  /** Positive when a discount applies; subtracted from the total. */
+  weeklyDiscount: number
   extrasTotal: number
   additionalGuestFee: number
   cleaningFee: number
@@ -149,16 +157,17 @@ export function extraAvailableOn(extra: ExtraInput, date: string): boolean {
 }
 
 /** How many units of an extra a stay buys, given how it is charged. */
-function quantityFor(extra: ExtraInput, nights: string[], hours: Record<string, number>): number {
+function quantityFor(extra: ExtraInput, nights: string[], units: Record<string, number>): number {
   switch (extra.pricingType) {
     case 'PER_STAY':
-      // Once, regardless of length. The pet fee used to be multiplied by the
-      // number of nights, so a week with a dog was billed $700 instead of $100.
-      return 1
+      // Once per unit, regardless of length: two dogs is two pet fees, but a
+      // fortnight with one dog is still one. This used to multiply by nights,
+      // so a week with a dog was billed seven times over.
+      return Math.max(0, units[extra.id] ?? 1)
     case 'PER_HOUR':
       // Only what was asked for. Zero means the guest picked the extra but no
       // hours, which costs nothing rather than silently billing an hour.
-      return Math.max(0, hours[extra.id] ?? 0)
+      return Math.max(0, units[extra.id] ?? 0)
     case 'PER_NIGHT':
     default:
       // Seasonal extras are only charged for the nights they are offered.
@@ -169,7 +178,7 @@ function quantityFor(extra: ExtraInput, nights: string[], hours: Record<string, 
 export function computeQuote(input: ComputeQuoteInput): QuoteBreakdown {
   const { pricing } = input
   const nights = nightsOf(input.checkIn, input.checkOut)
-  const hours = input.extraHours ?? {}
+  const units = input.extraUnits ?? {}
 
   const nightly: QuoteNightLine[] = nights.map((date) => ({
     date,
@@ -180,7 +189,7 @@ export function computeQuote(input: ComputeQuoteInput): QuoteBreakdown {
   const extras: QuoteExtraLine[] = pricing.extras
     .filter((extra) => input.selectedExtraIds.includes(extra.id))
     .map((extra) => {
-      const quantity = quantityFor(extra, nights, hours)
+      const quantity = quantityFor(extra, nights, units)
       return {
         id: extra.id,
         label: extra.label,
@@ -199,9 +208,16 @@ export function computeQuote(input: ComputeQuoteInput): QuoteBreakdown {
   const extraGuests = Math.max(0, (input.guests ?? pricing.includedGuests) - pricing.includedGuests)
   const additionalGuestFee = extraGuests * pricing.additionalGuestFeePerNight * nights.length
 
-  // Percentages apply to the nights and the guest surcharge — what the house
-  // costs — not to the extras or the cleaning fee.
-  const accommodation = subtotal + additionalGuestFee
+  // Off the nights only, the way a guest reads it: the cleaning fee and the
+  // extras are not discounted for staying longer.
+  const weeklyDiscount =
+    nights.length >= pricing.weeklyDiscountNights
+      ? Math.round(subtotal * (pricing.weeklyDiscountPercent / 100))
+      : 0
+
+  // Percentages apply to what the house costs after the discount — charging
+  // tax on a sum nobody pays is the kind of thing guests notice.
+  const accommodation = subtotal - weeklyDiscount + additionalGuestFee
   const serviceFee = Math.round(accommodation * (pricing.serviceFeePercent / 100))
   const taxes = Math.round(accommodation * (pricing.taxesPercent / 100))
 
@@ -211,6 +227,7 @@ export function computeQuote(input: ComputeQuoteInput): QuoteBreakdown {
     nightly,
     extras,
     subtotal,
+    weeklyDiscount,
     extrasTotal,
     additionalGuestFee,
     cleaningFee: pricing.cleaningFee,

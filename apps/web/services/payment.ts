@@ -22,11 +22,10 @@ export interface CheckoutSession {
 export interface CheckoutRequest {
   checkIn: string
   checkOut: string
-  adults: number
-  children: number
-  infants: number
-  pets: number
   extraIds: string[]
+  /** Units per extra — two dogs is two pet fees, and the route re-prices it. */
+  extraUnits: Record<string, number>
+  guests: { adults: number; children: number; infants: number; pets: number }
 }
 
 export async function createCheckoutSession(booking: CheckoutRequest): Promise<CheckoutSession> {

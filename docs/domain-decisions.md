@@ -24,7 +24,11 @@ el primer seed.
 | Piscina climatizada    | Por noche, temporada oct 1 – may 1 | $20/día   |
 | Niñera certificada RCP | Por hora, bajo pedido              | $20/hora  |
 | Huésped adicional (>8) | Por noche                          | $30/noche |
-| Mascota (gato o perro) | Por estancia, no reembolsable      | $100      |
+| Mascota (gato o perro) | Por estancia, no reembolsable      | $115      |
+
+**Descuento por estancia larga**: 10 % sobre las noches a partir de 7. Se
+aplica solo a las noches, no a la limpieza ni a los extras. Editable desde el
+panel (`Property.weeklyDiscountPercent` / `weeklyDiscountNights`).
 
 ## Penalizaciones / políticas (editable desde CMS, campos de `Property`)
 

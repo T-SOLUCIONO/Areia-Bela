@@ -39,7 +39,7 @@ export class PropertiesService {
       // Infants never count towards capacity or price.
       guests: dto.guests ? dto.guests.adults + dto.guests.children : undefined,
       selectedExtraIds: dto.extraIds,
-      extraHours: dto.extraHours,
+      extraUnits: dto.extraUnits,
       pricing: this.pricingInputFor(property),
     })
   }
@@ -55,6 +55,8 @@ export class PropertiesService {
     serviceFeePercent: unknown
     taxesPercent: unknown
     additionalGuestFeePerNight: unknown
+    weeklyDiscountPercent: unknown
+    weeklyDiscountNights: number
     maxGuests: number
     priceRules: Array<{
       type: SeasonType
@@ -83,6 +85,8 @@ export class PropertiesService {
       serviceFeePercent: Number(property.serviceFeePercent),
       taxesPercent: Number(property.taxesPercent),
       additionalGuestFeePerNight: Number(property.additionalGuestFeePerNight),
+      weeklyDiscountPercent: Number(property.weeklyDiscountPercent),
+      weeklyDiscountNights: property.weeklyDiscountNights,
       // The listing's headline capacity is what the nightly rate buys; anyone
       // above it is a surcharge, and nobody above maxGuests can book at all.
       includedGuests: property.maxGuests,

@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, format } from 'date-fns'
+import { addDays, format, subDays } from 'date-fns'
+import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { CalendarDays, ChevronDown, Minus, Plus, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@areia-bela/ui/button'
 import { Calendar } from '@areia-bela/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
 import {
+  currency,
   fetchQuote,
   getBlockedDateRanges,
   saveQuoteToStorage,
@@ -16,7 +18,9 @@ import {
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { useLanguage } from '@/components/language-provider'
+import { fill } from '@areia-bela/shared'
 import { translations } from '@/lib/i18n'
+import { propertyData } from '@/lib/property-data'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -27,12 +31,13 @@ export function AvailabilityCard({ className }: Props) {
   const router = useRouter()
   const { language } = useLanguage()
   const copy = translations[language].availability
+  const locale = { es, en: enUS, pt: ptBR, fr, de }[language]
   const today = new Date()
   const [checkIn, setCheckIn] = useState<Date | undefined>(addDays(today, 1))
   const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 4))
   const [guestsOpen, setGuestsOpen] = useState(false)
-  const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0 })
-  const { adults, children, infants } = guests
+  const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 })
+  const { adults, children, infants, pets } = guests
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
@@ -61,8 +66,10 @@ export function AvailabilityCard({ className }: Props) {
     void fetchQuote({
       checkIn: checkInIso,
       checkOut: checkOutIso,
-      guests: { adults, children, infants, pets: 0 },
-      selectedExtraIds: [],
+      guests: { adults, children, infants, pets },
+      // The pet fee is an extra priced by how many animals come along.
+      selectedExtraIds: pets > 0 ? ['pet'] : [],
+      extraUnits: pets > 0 ? { pet: pets } : {},
     }).then((result) => {
       if (cancelled) return
       setQuote(result)
@@ -74,8 +81,14 @@ export function AvailabilityCard({ className }: Props) {
     }
   }, [checkInIso, checkOutIso, adults, children, infants])
 
-  const guestTotal = guests.adults + guests.children
-  const guestSummary = `${guestTotal} ${guestTotal === 1 ? copy.guestOne : copy.guestMany}${guests.infants > 0 ? `, ${guests.infants} ${guests.infants === 1 ? copy.babiesOne : copy.babiesMany}` : ''}`
+  const guestTotal = adults + children
+  const guestSummary = [
+    `${guestTotal} ${guestTotal === 1 ? copy.guestOne : copy.guestMany}`,
+    infants > 0 && `${infants} ${infants === 1 ? copy.babiesOne : copy.babiesMany}`,
+    pets > 0 && `${pets} ${pets === 1 ? copy.petsOne : copy.petsMany}`,
+  ]
+    .filter(Boolean)
+    .join(', ')
 
   const handleReserve = () => {
     if (!quote) return
@@ -91,13 +104,24 @@ export function AvailabilityCard({ className }: Props) {
     })
   }
 
-  const guestRows = copy.guestRows.map((item, index) => ({
-    key: ['adults', 'children', 'infants'][index] as keyof typeof guests,
-    title: item.title,
-    description: item.description,
-  }))
+  const guestRows: Array<{
+    key: keyof typeof guests
+    title: string
+    description: string
+    hint?: string
+  }> = [
+    ...copy.guestRows.map((item, index) => ({
+      key: ['adults', 'children', 'infants'][index] as keyof typeof guests,
+      title: item.title,
+      description: item.description,
+    })),
+    // Pets belong here rather than in a list of extras: a guest thinks of the
+    // dog as part of the party, and the fee follows from the count.
+    { key: 'pets', title: copy.petsTitle, description: '', hint: copy.serviceAnimal },
+  ]
 
   const selectedRange = checkIn ? { from: checkIn, to: checkOut } : undefined
+  const cancellationDate = checkIn ? format(subDays(checkIn, 5), 'd MMM', { locale }) : ''
 
   return (
     <aside
@@ -106,13 +130,22 @@ export function AvailabilityCard({ className }: Props) {
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[15px] font-semibold text-[#173a57]">{copy.title}</p>
-        </div>
-        <div className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200/70">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        {quote ? (
+          <p className="text-[15px] text-slate-600">
+            <span className="text-[26px] font-semibold text-slate-900 underline decoration-slate-900/25 underline-offset-4">
+              {currency(quote.total)} USD
+            </span>{' '}
+            {quote.nights === 1
+              ? copy.perNightOne
+              : fill(copy.perNights, { count: String(quote.nights) })}
+          </p>
+        ) : (
+          <p className="text-[15px] text-slate-600">{copy.pickDates}</p>
+        )}
+        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200/70">
           {copy.guaranteed}
-        </div>
+        </span>
       </div>
 
       <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
@@ -232,6 +265,10 @@ export function AvailabilityCard({ className }: Props) {
                 </div>
               </div>
             ))}
+
+            <p className="border-t border-slate-100 pt-4 text-[13px] leading-6 text-slate-500">
+              {fill(copy.capacityNote, { max: String(propertyData.capacity) })}
+            </p>
           </div>
         </PopoverContent>
       </Popover>
@@ -257,17 +294,27 @@ export function AvailabilityCard({ className }: Props) {
         </p>
       )}
 
+      {quote && (
+        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-600">
+          {fill(copy.cancelBefore, { date: cancellationDate })}
+        </p>
+      )}
+
       <Button
         onClick={handleReserve}
         disabled={!quote || isPricing}
         variant="brand"
         size="lg"
-        className="mt-4 w-full text-sm font-semibold shadow-none"
+        className="mt-3 w-full text-sm font-semibold shadow-none"
       >
-        {copy.reserve}
+        {copy.reserveCta}
       </Button>
 
-      <div className="mt-4 flex items-start gap-2 text-sm text-slate-600">
+      {/* Says out loud that the button does not take money — the single line
+          that stops people hesitating over a booking button. */}
+      <p className="mt-3 text-center text-[13px] text-slate-500">{copy.noChargeYet}</p>
+
+      <div className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
         <span>{copy.footer}</span>
       </div>

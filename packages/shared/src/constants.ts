@@ -91,6 +91,16 @@ export function localeFromAcceptLanguage(header: string): SupportedLocale | null
   return match ? (match.tag as SupportedLocale) : null
 }
 
+/**
+ * Fills `{name}` placeholders in a translated string.
+ *
+ * Shared by both dictionaries: the guest site needs it for "for {count}
+ * nights", and the admin for "{count} photos".
+ */
+export function fill(template: string, values: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? `{${key}}`)
+}
+
 /** The same path under a different language. */
 export function pathForLocale(pathname: string, locale: SupportedLocale): string {
   const rest = stripLocale(pathname)

@@ -8,11 +8,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 interface CheckoutBody {
   checkIn?: string
   checkOut?: string
-  adults?: number
-  children?: number
-  infants?: number
-  pets?: number
+  guests?: { adults?: number; children?: number; infants?: number; pets?: number }
   extraIds?: string[]
+  extraUnits?: Record<string, number>
 }
 
 interface QuoteBreakdown {
@@ -47,10 +45,25 @@ export async function POST(req: Request) {
     }
 
     const extraIds = Array.isArray(body.extraIds) ? body.extraIds : []
+    const guests = body.guests ?? {}
+
     const quoteResponse = await fetch(`${API_URL}/properties/${PROPERTY_SLUG}/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ checkIn, checkOut, extraIds }),
+      body: JSON.stringify({
+        checkIn,
+        checkOut,
+        // The party size and the quantities change the total, so they have to
+        // reach the pricing endpoint too — otherwise the guest sees one figure
+        // and Stripe charges another.
+        guests: {
+          adults: Math.max(1, Number(guests.adults) || 1),
+          children: Math.max(0, Number(guests.children) || 0),
+          infants: Math.max(0, Number(guests.infants) || 0),
+        },
+        extraIds,
+        extraUnits: body.extraUnits ?? {},
+      }),
       cache: 'no-store',
     })
 
@@ -64,7 +77,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Could not price this stay' }, { status: 502 })
     }
 
-    const guests = Math.max(1, Number(body.adults) || 1) + Math.max(0, Number(body.children) || 0)
+    const partySize =
+      Math.max(1, Number(guests.adults) || 1) + Math.max(0, Number(guests.children) || 0)
     // Stripe rejects a relative return URL, and `origin` is absent on requests
     // that aren't browser CORS calls. Fall back to where this route is served.
     const origin = req.headers.get('origin') || new URL(req.url).origin
@@ -86,7 +100,7 @@ export async function POST(req: Request) {
       ],
       mode: 'payment',
       success_url: `${origin}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/checkout?checkin=${checkIn}&checkout=${checkOut}&adults=${guests}`,
+      cancel_url: `${origin}/checkout?checkin=${checkIn}&checkout=${checkOut}&adults=${partySize}`,
       // What the booking was, for the Fase 7 webhook that creates the Booking
       // row. Stripe caps each metadata value at 500 characters.
       metadata: {
@@ -94,9 +108,9 @@ export async function POST(req: Request) {
         checkIn,
         checkOut,
         nights: String(quote.nights),
-        guests: String(guests),
-        infants: String(Math.max(0, Number(body.infants) || 0)),
-        pets: String(Math.max(0, Number(body.pets) || 0)),
+        guests: String(partySize),
+        infants: String(Math.max(0, Number(guests.infants) || 0)),
+        pets: String(Math.max(0, Number(guests.pets) || 0)),
         extraIds: extraIds.join(',').slice(0, 500),
       },
     })

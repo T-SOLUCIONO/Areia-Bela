@@ -20,8 +20,10 @@ const PRICING: PropertyPricingInput = {
   additionalGuestFeePerNight: 30,
   includedGuests: 8,
   maxGuests: 8,
+  weeklyDiscountPercent: 10,
+  weeklyDiscountNights: 7,
   extras: [
-    { id: 'pet', label: 'Pet', price: 100, pricingType: 'PER_STAY' },
+    { id: 'pet', label: 'Pet', price: 115, pricingType: 'PER_STAY' },
     { id: 'certified-nanny', label: 'Nanny', price: 20, pricingType: 'PER_HOUR' },
     {
       id: 'heated-pool',
@@ -115,14 +117,24 @@ describe('extraAvailableOn', () => {
 })
 
 describe('computeQuote', () => {
-  it('prices a plain week', () => {
+  it('prices a short stay with no discount', () => {
+    // 3 × 300 = 900; service 12% = 108; tax 13% = 117; + 120 cleaning.
+    const result = quote({ checkIn: '2026-09-01', checkOut: '2026-09-04' })
+    expect(result.nights).toBe(3)
+    expect(result.subtotal).toBe(900)
+    expect(result.weeklyDiscount).toBe(0)
+    expect(result.total).toBe(1245)
+  })
+
+  it('prices a week with the long-stay discount', () => {
+    // 7 × 300 = 2100, less 10% = 1890; service 12% = 227; tax 13% = 246;
+    // + 120 cleaning.
     const result = quote()
-    // 7 × 300 = 2100; service 12% = 252; tax 13% = 273; + 120 cleaning.
-    expect(result.nights).toBe(7)
     expect(result.subtotal).toBe(2100)
-    expect(result.serviceFee).toBe(252)
-    expect(result.taxes).toBe(273)
-    expect(result.total).toBe(2745)
+    expect(result.weeklyDiscount).toBe(210)
+    expect(result.serviceFee).toBe(227)
+    expect(result.taxes).toBe(246)
+    expect(result.total).toBe(2483)
   })
 
   it('charges a per-stay extra once, not once per night', () => {
@@ -130,14 +142,14 @@ describe('computeQuote', () => {
     const result = quote({ selectedExtraIds: ['pet'] })
     const pet = result.extras.find((extra) => extra.id === 'pet')
 
-    expect(pet).toMatchObject({ quantity: 1, total: 100 })
-    expect(result.total).toBe(2845)
+    expect(pet).toMatchObject({ quantity: 1, total: 115 })
+    expect(result.total).toBe(2598)
   })
 
   it('charges an hourly extra by the hour', () => {
     const result = quote({
       selectedExtraIds: ['certified-nanny'],
-      extraHours: { 'certified-nanny': 4 },
+      extraUnits: { 'certified-nanny': 4 },
     })
     expect(result.extras[0]).toMatchObject({ quantity: 4, total: 80 })
   })
@@ -145,7 +157,12 @@ describe('computeQuote', () => {
   it('drops an hourly extra with no hours instead of billing one', () => {
     const result = quote({ selectedExtraIds: ['certified-nanny'] })
     expect(result.extras).toHaveLength(0)
-    expect(result.total).toBe(2745)
+    expect(result.total).toBe(2483)
+  })
+
+  it('charges the pet fee once per animal, not once per night', () => {
+    const result = quote({ selectedExtraIds: ['pet'], extraUnits: { pet: 2 } })
+    expect(result.extras[0]).toMatchObject({ quantity: 2, total: 230 })
   })
 
   it('does not charge a seasonal extra out of season', () => {
@@ -178,8 +195,8 @@ describe('computeQuote', () => {
 
     // Two extra guests × $30 × 7 nights.
     expect(result.additionalGuestFee).toBe(420)
-    // The surcharge is part of what the house costs, so it is taxed.
-    expect(result.serviceFee).toBe(Math.round((2100 + 420) * 0.12))
+    // Taxed on the discounted nights plus the surcharge.
+    expect(result.serviceFee).toBe(Math.round((2100 - 210 + 420) * 0.12))
   })
 
   it('does not charge for guests at or under the included count', () => {
@@ -206,6 +223,30 @@ describe('computeQuote', () => {
     expect(result.subtotal).toBe(1060)
     // The headline "per night" is the average, rounded.
     expect(result.pricePerNight).toBe(353)
+  })
+
+  it('does not discount a stay one night short of the threshold', () => {
+    const six = quote({ checkIn: '2026-09-01', checkOut: '2026-09-07' })
+    expect(six.nights).toBe(6)
+    expect(six.weeklyDiscount).toBe(0)
+
+    const seven = quote({ checkIn: '2026-09-01', checkOut: '2026-09-08' })
+    expect(seven.weeklyDiscount).toBeGreaterThan(0)
+  })
+
+  it('discounts only the nights, not the cleaning fee or the extras', () => {
+    const result = quote({ selectedExtraIds: ['pet'] })
+    // 10% of 2100, and nothing off the $120 cleaning or the $115 pet fee.
+    expect(result.weeklyDiscount).toBe(210)
+    expect(result.cleaningFee).toBe(120)
+    expect(result.extrasTotal).toBe(115)
+  })
+
+  it('does not tax a sum nobody pays', () => {
+    // Charging tax on the pre-discount subtotal is the kind of thing guests
+    // notice on an invoice.
+    const result = quote()
+    expect(result.taxes).toBe(Math.round((result.subtotal - result.weeklyDiscount) * 0.13))
   })
 
   it('is zero-length rather than negative when the dates are backwards', () => {
