@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { computeQuote, type QuoteBreakdown } from '@areia-bela/shared'
+import type { ExtraPricingType, SeasonType } from '@prisma/client'
 import type { BlockedDate } from '@areia-bela/types'
 import { PrismaService } from '../prisma/prisma.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
@@ -28,31 +29,75 @@ export class PropertiesService {
       throw new NotFoundException(`Property "${slug}" not found`)
     }
 
-    // Only the flat base rate is wired up today (matches the current UI,
-    // which has no season-aware pricing yet). WEEKEND/HIGH PriceRule rows
-    // can exist in the table but aren't applied until that logic lands
-    // (Fase 6 calendar/booking work) — see docs/database.md.
-    const baseRule = property.priceRules.find((rule) => rule.type === 'LOW')
-    if (!baseRule) {
+    if (!property.priceRules.some((rule) => rule.type === 'LOW')) {
       throw new InternalServerErrorException(`Property "${slug}" has no base price rule configured`)
     }
 
     return computeQuote({
       checkIn: dto.checkIn,
       checkOut: dto.checkOut,
+      // Infants never count towards capacity or price.
+      guests: dto.guests ? dto.guests.adults + dto.guests.children : undefined,
       selectedExtraIds: dto.extraIds,
-      pricing: {
-        pricePerNight: Number(baseRule.nightlyRate),
-        cleaningFee: Number(property.cleaningFee),
-        serviceFeePercent: Number(property.serviceFeePercent),
-        taxesPercent: Number(property.taxesPercent),
-        extras: property.extras.map((extra) => ({
+      extraHours: dto.extraHours,
+      pricing: this.pricingInputFor(property),
+    })
+  }
+
+  /**
+   * Turns the stored property into what computeQuote needs.
+   *
+   * One place, used by both the quote endpoint and booking creation, so a
+   * guest can never be quoted one figure and charged another.
+   */
+  private pricingInputFor(property: {
+    cleaningFee: unknown
+    serviceFeePercent: unknown
+    taxesPercent: unknown
+    additionalGuestFeePerNight: unknown
+    maxGuests: number
+    priceRules: Array<{
+      type: SeasonType
+      nightlyRate: unknown
+      startDate: Date | null
+      endDate: Date | null
+    }>
+    extras: Array<{
+      key: string
+      name: string
+      price: unknown
+      pricingType: ExtraPricingType
+      seasonStartMonthDay: string | null
+      seasonEndMonthDay: string | null
+      active: boolean
+    }>
+  }) {
+    return {
+      priceRules: property.priceRules.map((rule) => ({
+        type: rule.type,
+        nightlyRate: Number(rule.nightlyRate),
+        startDate: rule.startDate?.toISOString() ?? null,
+        endDate: rule.endDate?.toISOString() ?? null,
+      })),
+      cleaningFee: Number(property.cleaningFee),
+      serviceFeePercent: Number(property.serviceFeePercent),
+      taxesPercent: Number(property.taxesPercent),
+      additionalGuestFeePerNight: Number(property.additionalGuestFeePerNight),
+      // The listing's headline capacity is what the nightly rate buys; anyone
+      // above it is a surcharge, and nobody above maxGuests can book at all.
+      includedGuests: property.maxGuests,
+      maxGuests: property.maxGuests,
+      extras: property.extras
+        .filter((extra) => extra.active)
+        .map((extra) => ({
           id: extra.key,
           label: extra.name,
-          pricePerNight: Number(extra.price),
+          price: Number(extra.price),
+          pricingType: extra.pricingType,
+          seasonStartMonthDay: extra.seasonStartMonthDay,
+          seasonEndMonthDay: extra.seasonEndMonthDay,
         })),
-      },
-    })
+    }
   }
 
   /**

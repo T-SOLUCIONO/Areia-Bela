@@ -1,79 +1,221 @@
 /**
- * Server-side mirror of apps/web/lib/booking.ts's buildQuote(). Kept as a
- * pure function (no DB, no framework) so it can run identically from the
- * NestJS quote endpoint and be unit-tested against the client calculation
- * without spinning up a database.
+ * What a stay costs. A pure function — no database, no framework — so the API
+ * can price a quote and price a booking with the same code, and so it can be
+ * tested without a database.
+ *
+ * This is the only place a total is ever computed. The browser asks for one;
+ * it never works one out (CLAUDE.md: price is server-authoritative).
  */
 
+export type ExtraPricingType = 'PER_NIGHT' | 'PER_HOUR' | 'PER_STAY'
+export type SeasonType = 'LOW' | 'HIGH' | 'WEEKEND'
+
+export interface PriceRuleInput {
+  type: SeasonType
+  nightlyRate: number
+  /** ISO dates. Null on the recurring WEEKEND rule, which has no range. */
+  startDate?: string | null
+  endDate?: string | null
+}
+
+export interface ExtraInput {
+  id: string
+  label: string
+  price: number
+  pricingType: ExtraPricingType
+  /** "MM-DD". The heated pool is only offered part of the year. */
+  seasonStartMonthDay?: string | null
+  seasonEndMonthDay?: string | null
+}
+
 export interface PropertyPricingInput {
-  pricePerNight: number
+  priceRules: PriceRuleInput[]
   cleaningFee: number
   serviceFeePercent: number
   taxesPercent: number
-  extras: Array<{ id: string; label: string; pricePerNight: number }>
+  /** Charged per night for each guest above `includedGuests`. */
+  additionalGuestFeePerNight: number
+  includedGuests: number
+  maxGuests: number
+  extras: ExtraInput[]
 }
 
 export interface ComputeQuoteInput {
   checkIn: string
   checkOut: string
+  /** Adults + children. Infants never count towards capacity or price. */
+  guests?: number
   selectedExtraIds: string[]
+  /** Hours booked for a PER_HOUR extra, keyed by extra id. */
+  extraHours?: Record<string, number>
   pricing: PropertyPricingInput
 }
 
 export interface QuoteExtraLine {
   id: string
   label: string
-  pricePerNight: number
+  /** The unit price; what a unit *is* depends on `pricingType`. */
+  price: number
+  pricingType: ExtraPricingType
+  quantity: number
   total: number
+}
+
+export interface QuoteNightLine {
+  date: string
+  rate: number
+  season: SeasonType
 }
 
 export interface QuoteBreakdown {
   nights: number
+  /** The average, for the "$X × N nights" line. Rates can differ per night. */
   pricePerNight: number
+  /** Every night with the rate that applied, so a total is always explainable. */
+  nightly: QuoteNightLine[]
   extras: QuoteExtraLine[]
   subtotal: number
   extrasTotal: number
+  additionalGuestFee: number
   cleaningFee: number
   serviceFee: number
   taxes: number
   total: number
 }
 
+const DAY_MS = 86_400_000
+
 export function getNightsBetween(checkIn: string, checkOut: string): number {
-  const start = Date.parse(checkIn)
-  const end = Date.parse(checkOut)
-  const diffDays = Math.round((end - start) / 86_400_000)
+  const diffDays = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / DAY_MS)
   return Math.max(0, diffDays)
 }
 
+/** Every night of the stay. Check-out is not a night, so it is excluded. */
+export function nightsOf(checkIn: string, checkOut: string): string[] {
+  const nights: string[] = []
+  const start = Date.parse(checkIn)
+
+  for (let index = 0; index < getNightsBetween(checkIn, checkOut); index += 1) {
+    nights.push(new Date(start + index * DAY_MS).toISOString().slice(0, 10))
+  }
+
+  return nights
+}
+
+const isWeekend = (date: string) => {
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay()
+  return day === 5 || day === 6 // Friday and Saturday nights.
+}
+
+const within = (date: string, start?: string | null, end?: string | null) =>
+  Boolean(start && end && date >= start.slice(0, 10) && date <= end.slice(0, 10))
+
+/**
+ * The rate for one night.
+ *
+ * A dated HIGH rule wins over the recurring WEEKEND one: a weekend inside peak
+ * season should be charged at the peak rate, not the weekend rate. LOW is the
+ * base and applies whenever nothing else does.
+ */
+export function rateForNight(
+  date: string,
+  rules: PriceRuleInput[],
+): { rate: number; season: SeasonType } {
+  const high = rules.find(
+    (rule) => rule.type === 'HIGH' && within(date, rule.startDate, rule.endDate),
+  )
+  if (high) return { rate: high.nightlyRate, season: 'HIGH' }
+
+  const weekend = rules.find((rule) => rule.type === 'WEEKEND')
+  if (weekend && isWeekend(date)) return { rate: weekend.nightlyRate, season: 'WEEKEND' }
+
+  const low = rules.find((rule) => rule.type === 'LOW')
+  return { rate: low?.nightlyRate ?? 0, season: 'LOW' }
+}
+
+/**
+ * Whether a seasonal extra is available for a date.
+ *
+ * The window is stored as "MM-DD" and may wrap the new year — the heated pool
+ * runs 10-01 to 05-01 — so a plain `start <= date <= end` comparison would
+ * make it available for exactly none of the year.
+ */
+export function extraAvailableOn(extra: ExtraInput, date: string): boolean {
+  const { seasonStartMonthDay: start, seasonEndMonthDay: end } = extra
+  if (!start || !end) return true
+
+  const monthDay = date.slice(5, 10)
+  return start <= end ? monthDay >= start && monthDay <= end : monthDay >= start || monthDay <= end
+}
+
+/** How many units of an extra a stay buys, given how it is charged. */
+function quantityFor(extra: ExtraInput, nights: string[], hours: Record<string, number>): number {
+  switch (extra.pricingType) {
+    case 'PER_STAY':
+      // Once, regardless of length. The pet fee used to be multiplied by the
+      // number of nights, so a week with a dog was billed $700 instead of $100.
+      return 1
+    case 'PER_HOUR':
+      // Only what was asked for. Zero means the guest picked the extra but no
+      // hours, which costs nothing rather than silently billing an hour.
+      return Math.max(0, hours[extra.id] ?? 0)
+    case 'PER_NIGHT':
+    default:
+      // Seasonal extras are only charged for the nights they are offered.
+      return nights.filter((night) => extraAvailableOn(extra, night)).length
+  }
+}
+
 export function computeQuote(input: ComputeQuoteInput): QuoteBreakdown {
-  const nights = getNightsBetween(input.checkIn, input.checkOut)
   const { pricing } = input
-  const subtotal = pricing.pricePerNight * nights
+  const nights = nightsOf(input.checkIn, input.checkOut)
+  const hours = input.extraHours ?? {}
+
+  const nightly: QuoteNightLine[] = nights.map((date) => ({
+    date,
+    ...rateForNight(date, pricing.priceRules),
+  }))
+  const subtotal = nightly.reduce((sum, night) => sum + night.rate, 0)
 
   const extras: QuoteExtraLine[] = pricing.extras
     .filter((extra) => input.selectedExtraIds.includes(extra.id))
-    .map((extra) => ({
-      id: extra.id,
-      label: extra.label,
-      pricePerNight: extra.pricePerNight,
-      total: extra.pricePerNight * nights,
-    }))
-  const extrasTotal = extras.reduce((acc, extra) => acc + extra.total, 0)
+    .map((extra) => {
+      const quantity = quantityFor(extra, nights, hours)
+      return {
+        id: extra.id,
+        label: extra.label,
+        price: extra.price,
+        pricingType: extra.pricingType,
+        quantity,
+        total: extra.price * quantity,
+      }
+    })
+    // A seasonal extra outside its window, or an hourly one with no hours,
+    // costs nothing — and a zero line on an invoice invites a support email.
+    .filter((line) => line.total > 0)
 
-  const serviceFee = Math.round(subtotal * (pricing.serviceFeePercent / 100))
-  const taxes = Math.round(subtotal * (pricing.taxesPercent / 100))
-  const total = subtotal + extrasTotal + pricing.cleaningFee + serviceFee + taxes
+  const extrasTotal = extras.reduce((sum, extra) => sum + extra.total, 0)
+
+  const extraGuests = Math.max(0, (input.guests ?? pricing.includedGuests) - pricing.includedGuests)
+  const additionalGuestFee = extraGuests * pricing.additionalGuestFeePerNight * nights.length
+
+  // Percentages apply to the nights and the guest surcharge — what the house
+  // costs — not to the extras or the cleaning fee.
+  const accommodation = subtotal + additionalGuestFee
+  const serviceFee = Math.round(accommodation * (pricing.serviceFeePercent / 100))
+  const taxes = Math.round(accommodation * (pricing.taxesPercent / 100))
 
   return {
-    nights,
-    pricePerNight: pricing.pricePerNight,
+    nights: nights.length,
+    pricePerNight: nights.length > 0 ? Math.round(subtotal / nights.length) : 0,
+    nightly,
     extras,
     subtotal,
     extrasTotal,
+    additionalGuestFee,
     cleaningFee: pricing.cleaningFee,
     serviceFee,
     taxes,
-    total,
+    total: accommodation + extrasTotal + pricing.cleaningFee + serviceFee + taxes,
   }
 }

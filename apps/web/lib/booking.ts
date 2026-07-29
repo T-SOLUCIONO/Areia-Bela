@@ -17,9 +17,24 @@ export type BookingQuote = {
   guests: GuestCounts
   pricePerNight: number
   originalPricePerNight: number
-  extras: Array<{ id: string; label: string; pricePerNight: number; total: number }>
+  /**
+   * `price` is a unit price whose unit depends on `pricingType`: a night, an
+   * hour, or the whole stay. The pet fee is per stay, and treating every extra
+   * as per-night billed a week with a dog at $700 instead of $100.
+   */
+  extras: Array<{
+    id: string
+    label: string
+    price: number
+    pricingType: 'PER_NIGHT' | 'PER_HOUR' | 'PER_STAY'
+    quantity: number
+    total: number
+  }>
+  /** Every night with the rate that applied, so a total is explainable. */
+  nightly: Array<{ date: string; rate: number; season: 'LOW' | 'HIGH' | 'WEEKEND' }>
   subtotal: number
   extrasTotal: number
+  additionalGuestFee: number
   cleaningFee: number
   serviceFee: number
   taxes: number
@@ -56,6 +71,11 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
       body: JSON.stringify({
         checkIn: input.checkIn,
         checkOut: input.checkOut,
+        guests: {
+          adults: input.guests.adults,
+          children: input.guests.children,
+          infants: input.guests.infants,
+        },
         extraIds: input.selectedExtraIds,
       }),
     })
