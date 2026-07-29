@@ -111,6 +111,13 @@ export const translations = {
       serviceAnimal: 'Bringing a service animal?',
       capacityNote:
         'This place can host up to {max} guests, not counting infants. Let your host know if you are bringing more than 2 pets.',
+      serviceAnimalTitle: 'Service animals',
+      serviceAnimalBody:
+        'Service animals are not pets, so there is no need to add them here and no fee applies.',
+      serviceAnimalNote:
+        'Travelling with an emotional support animal? Tell Angélica when you book and she will let you know how it works at the house.',
+      serviceAnimalAlt: 'A guest arriving at the house with their dog',
+      understood: 'Got it',
       close: 'Close',
       clearDates: 'Clear dates',
       nightsSelected: '{count} nights',
@@ -228,6 +235,13 @@ export const translations = {
       serviceAnimal: '¿Traes a un animal de servicio?',
       capacityNote:
         'En este alojamiento se pueden quedar {max} huéspedes como máximo, sin incluir a los bebés. Si vas a llevar más de 2 mascotas, comunícaselo a tu anfitriona.',
+      serviceAnimalTitle: 'Animales de servicio',
+      serviceAnimalBody:
+        'Los animales de servicio no se consideran mascotas, así que no hace falta que los agregues aquí ni pagan cargo.',
+      serviceAnimalNote:
+        '¿Viajas con un animal de apoyo emocional? Cuéntaselo a Angélica al reservar y te dirá cómo funciona en la casa.',
+      serviceAnimalAlt: 'Una huésped llegando a la casa con su perro',
+      understood: 'Entendido',
       close: 'Cerrar',
       clearDates: 'Borrar fechas',
       nightsSelected: '{count} noches',
@@ -345,6 +359,13 @@ export const translations = {
       serviceAnimal: 'Traz um animal de assistência?',
       capacityNote:
         'Esta acomodação recebe até {max} hóspedes, sem contar bebês. Avise a anfitriã se for levar mais de 2 animais.',
+      serviceAnimalTitle: 'Animais de assistência',
+      serviceAnimalBody:
+        'Animais de assistência não são considerados animais de estimação, então não precisa adicioná-los aqui nem pagar taxa.',
+      serviceAnimalNote:
+        'Viaja com um animal de apoio emocional? Conte para a Angélica ao reservar e ela explica como funciona na casa.',
+      serviceAnimalAlt: 'Uma hóspede chegando à casa com seu cachorro',
+      understood: 'Entendi',
       close: 'Fechar',
       clearDates: 'Limpar datas',
       nightsSelected: '{count} noites',
@@ -462,6 +483,13 @@ export const translations = {
       serviceAnimal: "Vous venez avec un animal d'assistance ?",
       capacityNote:
         "Ce logement accueille jusqu'à {max} voyageurs, bébés non compris. Prévenez votre hôtesse si vous venez avec plus de 2 animaux.",
+      serviceAnimalTitle: "Animaux d'assistance",
+      serviceAnimalBody:
+        "Les animaux d'assistance ne sont pas considérés comme des animaux de compagnie : inutile de les ajouter ici, et aucun frais ne s'applique.",
+      serviceAnimalNote:
+        'Vous voyagez avec un animal de soutien émotionnel ? Dites-le à Angélica au moment de réserver, elle vous expliquera comment cela se passe à la maison.',
+      serviceAnimalAlt: 'Une voyageuse arrivant à la maison avec son chien',
+      understood: 'Compris',
       close: 'Fermer',
       clearDates: 'Effacer les dates',
       nightsSelected: '{count} nuits',
@@ -579,6 +607,13 @@ export const translations = {
       serviceAnimal: 'Bringen Sie ein Assistenztier mit?',
       capacityNote:
         'Diese Unterkunft bietet Platz für bis zu {max} Gäste, Babys nicht mitgezählt. Sagen Sie Ihrer Gastgeberin Bescheid, wenn Sie mehr als 2 Tiere mitbringen.',
+      serviceAnimalTitle: 'Assistenztiere',
+      serviceAnimalBody:
+        'Assistenztiere gelten nicht als Haustiere — Sie müssen sie hier nicht angeben, und es fällt keine Gebühr an.',
+      serviceAnimalNote:
+        'Reisen Sie mit einem emotionalen Unterstützungstier? Sagen Sie es Angélica bei der Buchung, dann erklärt sie Ihnen, wie es im Haus gehandhabt wird.',
+      serviceAnimalAlt: 'Ein Gast, der mit seinem Hund im Haus ankommt',
+      understood: 'Verstanden',
       close: 'Schließen',
       clearDates: 'Daten löschen',
       nightsSelected: '{count} Nächte',

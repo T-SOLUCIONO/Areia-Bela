@@ -5,7 +5,9 @@ import { addDays, differenceInCalendarDays, format, subDays } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { ChevronDown, Minus, Plus, ShieldCheck, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@areia-bela/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@areia-bela/ui/dialog'
 import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
 import {
@@ -37,6 +39,7 @@ export function AvailabilityCard({ className }: Props) {
   const [checkIn, setCheckIn] = useState<Date | undefined>(addDays(today, 1))
   const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 4))
   const [guestsOpen, setGuestsOpen] = useState(false)
+  const [serviceAnimalOpen, setServiceAnimalOpen] = useState(false)
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 })
   const { adults, children, infants, pets } = guests
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
@@ -324,48 +327,120 @@ export function AvailabilityCard({ className }: Props) {
           align="start"
           sideOffset={10}
         >
-          <div className="space-y-5 px-5 py-5">
-            {guestRows.map((item) => (
-              <div key={item.key} className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[22px] font-semibold leading-tight text-slate-900">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-[16px] leading-tight text-slate-500">
-                    {item.description}
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    aria-label={`Decrease ${item.title}`}
-                    disabled={guests[item.key] <= (item.key === 'adults' ? 1 : 0)}
-                    onClick={() => updateGuest(item.key, -1)}
-                    className="grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-400 transition enabled:hover:bg-slate-200 enabled:hover:text-slate-700 disabled:opacity-50"
-                  >
-                    <Minus className="h-5 w-5" />
-                  </button>
-                  <span className="min-w-6 text-center text-[24px] text-slate-900">
-                    {guests[item.key]}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Increase ${item.title}`}
-                    onClick={() => updateGuest(item.key, 1)}
-                    className="grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="px-6 py-5">
+            {guestRows.map((item, index) => {
+              const value = guests[item.key]
+              const floor = item.key === 'adults' ? 1 : 0
+              // Infants and pets don't take a bed, so only adults and children
+              // count against the house's capacity.
+              const atCapacity =
+                (item.key === 'adults' || item.key === 'children') &&
+                adults + children >= propertyData.capacity
 
-            <p className="border-t border-slate-100 pt-4 text-[13px] leading-6 text-slate-500">
+              return (
+                <div
+                  key={item.key}
+                  className={cn(
+                    'flex items-center justify-between gap-4 py-5',
+                    index > 0 && 'border-t border-slate-200',
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[17px] font-medium leading-tight text-slate-900">
+                      {item.title}
+                    </p>
+                    {item.description && (
+                      <p className="mt-1 text-[15px] leading-tight text-slate-500">
+                        {item.description}
+                      </p>
+                    )}
+                    {item.hint && (
+                      <button
+                        type="button"
+                        onClick={() => setServiceAnimalOpen(true)}
+                        className="mt-1 text-left text-[15px] leading-tight text-slate-700 underline underline-offset-2 hover:text-slate-900"
+                      >
+                        {item.hint}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      aria-label={`${item.title} −`}
+                      disabled={value <= floor}
+                      onClick={() => updateGuest(item.key, -1)}
+                      className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition enabled:hover:border-slate-800 enabled:hover:text-slate-900 disabled:border-slate-200 disabled:text-slate-300"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-6 text-center text-[16px] tabular-nums text-slate-900">
+                      {value}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`${item.title} +`}
+                      disabled={atCapacity}
+                      onClick={() => updateGuest(item.key, 1)}
+                      className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition enabled:hover:border-slate-800 enabled:hover:text-slate-900 disabled:border-slate-200 disabled:text-slate-300"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+
+            <p className="border-t border-slate-200 pt-5 text-[13px] leading-6 text-slate-500">
               {fill(copy.capacityNote, { max: String(propertyData.capacity) })}
             </p>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setGuestsOpen(false)}
+                className="text-[15px] font-medium text-slate-900 underline underline-offset-4"
+              >
+                {copy.close}
+              </button>
+            </div>
           </div>
         </PopoverContent>
       </Popover>
+
+      {/* Says plainly that a service animal is not a pet and carries no fee —
+          the question a guest would otherwise have to email to ask. */}
+      <Dialog open={serviceAnimalOpen} onOpenChange={setServiceAnimalOpen}>
+        <DialogContent className="max-w-lg gap-0 overflow-hidden rounded-[22px] p-0">
+          <div className="relative aspect-[7/6] w-full bg-slate-100">
+            <Image
+              src="/images/mascota.png"
+              alt={copy.serviceAnimalAlt}
+              fill
+              sizes="(max-width: 640px) 100vw, 512px"
+              className="object-cover"
+            />
+          </div>
+
+          <div className="space-y-4 p-6">
+            <DialogHeader className="space-y-0">
+              <DialogTitle className="text-left font-serif text-2xl text-[#173a57]">
+                {copy.serviceAnimalTitle}
+              </DialogTitle>
+            </DialogHeader>
+
+            <p className="text-[15px] leading-7 text-slate-600">{copy.serviceAnimalBody}</p>
+            <p className="text-[15px] leading-7 text-slate-600">{copy.serviceAnimalNote}</p>
+
+            <div className="flex justify-end pt-1">
+              <Button type="button" onClick={() => setServiceAnimalOpen(false)}>
+                {copy.understood}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {checkIn && checkOut && quote && (
         <PriceBreakdownCard
