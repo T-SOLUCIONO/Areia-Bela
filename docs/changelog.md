@@ -655,3 +655,791 @@ pnpm test      ✅ (73 tests)
 Las tres pantallas responden 200 y **cero coincidencias** de "Room", "piso" o
 "habitación" en todo `/admin`. Precios muestra las cifras reales; mantenimiento
 lista las zonas; el calendario abre en el mes actual con sus controles.
+
+## 19. Fase 5 — CMS: el sitio se edita desde el panel
+
+Antes de esta fase, cambiar una frase del sitio de huéspedes era editar un
+`.ts` y desplegar. Ahora el contenido vive en la base de datos y se edita desde
+`/admin`.
+
+### Backend (commit `c234298`)
+
+Cuatro modelos nuevos, justificados aquí porque `domain-guard` exige declarar
+toda entidad fuera de la lista canónica:
+
+- `CMSPage` — los doce slugs que `packages/types` ya fijaba. Contenido
+  bilingüe en dos columnas por campo (`titleEs`/`titleEn`, `bodyEs`/`bodyEn`)
+  en vez de un JSON: mantiene las columnas tipadas y consultables, y el
+  producto solo va a ser ES/EN.
+- `FAQ` — pregunta, respuesta, tema y orden.
+- `GalleryImage` — URL, texto alternativo bilingüe y orden.
+- `SiteSettings` — fila única con `id` fijo `"site"`, igual que `Property`.
+
+Ninguno es una entidad de negocio: son contenido editorial del sitio. No
+introducen inventario, ni habitaciones, ni multi-propiedad.
+
+Reglas de acceso:
+
+- **Lectura pública, escritura autenticada.** El sitio de huéspedes lee este
+  contenido sin sesión; editarlo exige superadmin o manager.
+- Las lecturas de editor (`/cms/admin/*`, que incluyen borradores) las puede
+  hacer **cualquier rol con sesión, viewer incluido**: ver el panel es
+  justamente para lo que existe ese rol, y un texto sin publicar no es un
+  secreto frente al equipo. Solo se estrechan las escrituras.
+- Reordenar galería y FAQs recibe la lista completa y la escribe en una
+  transacción: un fallo a medias no deja la numeración rota.
+- Los extras **se desactivan, no se borran**: las reservas pasadas los
+  referencian por `BookingExtra` y eliminarlos reescribiría el historial.
+- `PATCH /properties/:slug` es el endpoint que faltaba para devolver las
+  pestañas de ajustes que se quitaron en la fase anterior por no tener dónde
+  guardar.
+
+Galería: subida a Vercel Blob, con escritura en disco local cuando no hay
+`BLOB_READ_WRITE_TOKEN` (para poder trabajar sin cuenta) y aviso por log,
+porque en un host efímero esos archivos desaparecen en cada despliegue. Valida
+tipo y tamaño, y renombra con un prefijo aleatorio. Al borrar, primero la fila
+y luego el archivo: un blob huérfano es más barato que una fila rota.
+`apps/web/public/uploads/` quedó en `.gitignore`.
+
+**Hueco declarado, no tapado**: el listing scrapeado solo existe en inglés, así
+que el seed pone ese mismo texto en las columnas en español y el editor lo
+marca como pendiente de traducir. Inventar copy de marketing en español sería
+peor que enseñarle al anfitrión exactamente qué le falta.
+
+### Panel
+
+- **Sitio web** (`/admin/content`), sección nueva del menú:
+  - **Textos**: los doce slugs en una lista con marca de traducido/pendiente,
+    y el editor en dos columnas — español a la izquierda, inglés a la derecha.
+    Se editan en paralelo porque traducir es leer una columna mientras se
+    escribe la otra. No deja guardar con un idioma vacío: publicar media
+    traducción es justo el fallo que esta pantalla existe para evitar.
+  - **Preguntas**: alta, edición, borrado y reorden.
+  - **Fotos**: subida múltiple, texto alternativo en los dos idiomas,
+    publicar/ocultar, borrar con confirmación y reorden por arrastre **o** por
+    flechas (arrastrar solo no es accesible con teclado). La primera foto es la
+    portada, y lo dice.
+- **Ajustes** recupera dos pestañas, ahora sí conectadas: **La casa**
+  (capacidad, cargos, horarios, días de basura, dirección) y **Contacto y SEO**
+  (correo, teléfono, WhatsApp, títulos y descripciones para buscadores,
+  enlaces a redes). Cada campo llega a la base de datos; era exactamente lo que
+  faltaba cuando se borraron los 26 campos que no guardaban nada.
+- **Precios** deja de leer cifras del `datos.json` y lee la propiedad real,
+  incluida la tarifa base desde `PriceRule`. Los extras se editan en un modal
+  (precio, unidad de cobro, temporada, reembolsable, a pedido) y se pueden
+  dejar de ofrecer.
+
+### Sitio de huéspedes
+
+De poco sirve un editor cuyo texto no ve nadie, así que el sitio ya consume el
+CMS:
+
+- `generateMetadata` toma título y descripción de `SiteSettings`, por idioma.
+- La galería usa las fotos de `GalleryImage` cuando las hay.
+- Sección nueva "Todo sobre la casa" con las páginas publicadas y las preguntas
+  frecuentes, renderizada **en el servidor**: un texto que aparece después de
+  la hidratación es invisible para los buscadores.
+- Teléfono, correo y redes del pie salen de `SiteSettings`.
+
+Todo con respaldo: si el API no responde, el sitio cae a la copia de
+`lib/property-data.ts` en vez de romperse. Una página de reservas que devuelve
+500 porque parpadeó un servicio de textos es peor que una con palabras algo
+viejas.
+
+### Dashboard e informes, sin cifras inventadas
+
+El panel abría con cuatro tarjetas y tres gráficas de series inventadas. No hay
+`Booking` en la base todavía, así que no había nada que medir.
+
+- El dashboard ahora muestra cuatro cifras **reales** (noches libres en 30
+  días, tarifa base, fotos publicadas, secciones por traducir), cada una
+  enlazada a la pantalla donde se cambia, y un estado vacío honesto donde
+  estaban las gráficas.
+- **Informes** eran 339 líneas de ficción: $752.000 de ingresos, comisiones de
+  Expedia y rendimiento por "Presidential Suite" en el panel de una casa de
+  tres dormitorios que no está en ninguno de esos canales. Además de falso, el
+  desglose por cuarto y la mezcla de canales son el modelo de hotel que
+  `CLAUDE.md` prohíbe. Sustituido por un estado vacío que dice cuándo llegan
+  las cifras (Fase 6, con reservas reales).
+
+Limpieza asociada: se fueron `revenue-chart`, `occupancy-chart` y
+`channel-chart` (sin consumidor y con la forma de los datos falsos),
+`services/reservations.ts` (una API simulada con `roomId`/`roomType`/`channel`)
+y los últimos exports huérfanos de `lib/mock-data.ts` — `rooms`, `channels`,
+`seasonalPricing`, `dailyStats`, `channelStats`, `generateAvailability`,
+`reservations`, `guests`, `coupons` y `reviews`. El archivo pasa de 637 a 155
+líneas y ya solo conserva lo que alguien lee.
+
+Además: `hsl(var(--primary))` quedaba de la paleta anterior en informes y en
+`packages/ui/src/sidebar.tsx`. Con los tokens en hexadecimal esa función es
+inválida, así que esas gráficas y ese borde se dibujaban sin color. Corregido a
+`var(--primary)`.
+
+### Diferido
+
+- **La copia de marketing de la portada** (hero, tarjetas de comodidades,
+  reseñas, sección de la anfitriona) sigue en `lib/i18n.ts`. Llevarla al CMS es
+  rediseñar esa página, no conectar un campo; el contenido largo, las preguntas
+  y el SEO —que es lo que el anfitrión cambia— ya se editan.
+- **Optimización de imágenes**: `next.config.mjs` tiene `images.unoptimized`,
+  así que las fotos se sirven tal cual se suben. Queda para Fase 8, con el
+  resto del trabajo de rendimiento.
+- **Tarifas por temporada**: se muestran si existen, pero crearlas y aplicarlas
+  a una cotización es Fase 6.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (85 tests, 12 nuevos de CmsService)
+```
+
+Contra el API levantado, con un superadmin temporal creado y borrado para la
+prueba:
+
+- Escrituras de páginas, FAQs, ajustes, propiedad y extras → 200; las mismas
+  como `VIEWER` → **403**; sin sesión → **401**.
+- Lecturas de editor como `VIEWER` → 200 (es lo que se corrigió al detectar
+  que el dashboard le quedaba en blanco a ese rol).
+- Subida de imagen real → 200 y archivo en disco; borrado → 204 y archivo
+  eliminado; subir un `.txt` → **400** con el motivo.
+- Reorden de FAQs → 200; borrado → 204.
+- `GET /es` y `GET /en` devuelven el título del CMS en `<title>` y traen las
+  preguntas y las secciones **en el HTML**, no tras hidratar.
+
+## 20. La portada entera, editable desde el panel
+
+Fase 5 dejó editables el SEO, la galería, las secciones largas, las preguntas y
+el contacto. Faltaba lo más visible: la portada, con su texto incrustado en
+unas 500 líneas de objetos bilingües dentro del componente más `lib/i18n.ts`.
+Cambiar una frase del hero era editar un `.ts` y desplegar. Ya no.
+
+### Modelo de datos
+
+Tres modelos nuevos, justificados aquí porque `domain-guard` exige declarar
+toda entidad fuera de la lista canónica. Ninguno es de negocio: son contenido
+editorial, sin relación con `Booking` ni `Customer`.
+
+- **`ContentSection`** — una fila por sección de la portada (ocho claves fijas),
+  con las ranuras de texto que puede usar: antetítulo, título, subtítulo,
+  cuerpo, botón, una cifra destacada, una imagen y un enlace. Las que no usa
+  quedan en cadena vacía; columnas nulables dirían lo mismo con más
+  comprobaciones.
+- **`ContentItem`** — los cinco listados de la página (insignias del hero,
+  tarjetas, etiquetas de servicios, puntos cercanos y cifras de la anfitriona)
+  son todos "icono + imagen opcional + una etiqueta y un texto bilingües, en un
+  orden". Un solo modelo los cubre, y por eso también comparten **un solo
+  editor** en vez de cinco casi idénticos que habría que mantener sincronizados.
+- **`Review`** — aparte porque su forma sí es distinta: nota, autor y foto.
+
+`SiteSettings` gana `logoUrl`, que usan cabecera y pie.
+
+### Reglas que impone el servidor
+
+- **O los dos idiomas, o ninguno.** El DTO no puede comprobarlo (solo ve campos
+  opcionales), así que el servicio compara lo que llega contra lo guardado y
+  devuelve 400 si un campo queda cojo. Es la misma regla de las páginas, ahora
+  aplicable a un formulario donde la mayoría de las ranuras van vacías.
+- **Una sola reseña destacada.** Promover una demota a la anterior en el
+  servidor; no es algo que el navegador deba recordar hacer.
+- El orden de los ítems es **por lista, no por sección**: añadir una insignia no
+  la manda al final por culpa de las tarjetas que viven en la misma sección.
+
+### Traducción asistida
+
+Botón "traducir" en cada campo bilingüe. Llama a la API de Claude y **deja la
+propuesta en el input**; el anfitrión la lee y decide si guarda.
+
+Deliberadamente no es automático. `CLAUDE.md` prohíbe inventar traducciones, y
+una traducción automática que llega al huésped sin que nadie la lea es
+exactamente eso. Con el botón, la máquina propone y una persona responde por el
+texto. Sin `ANTHROPIC_API_KEY` el botón no aparece —un control que solo da error
+es peor que ninguno— y escribir los dos idiomas a mano sigue funcionando igual.
+
+Se usa Sonnet, no Opus: son cadenas cortas de marketing y el modelo barato y
+rápido sobra. Al modelo se le dice explícitamente que esto es una casa y no un
+hotel, para que no traduzca "habitaciones" ni "recepción".
+
+### Panel
+
+Pestaña **Portada** nueva en `/admin/content`, con las ocho secciones en una
+lista lateral y, para cada una, solo las ranuras que esa sección usa: el
+formulario se genera de una tabla de composición en vez de haber ocho
+formularios distintos.
+
+- **Selector de iconos** visual con 41 iconos elegidos para una casa de playa.
+  El anfitrión no escribe `PawPrint` a mano, y el conjunto acotado evita que la
+  portada derive en una sopa de iconos.
+- **Subida de imágenes** por campo (tarjetas, retrato de la anfitriona, foto de
+  cada huésped, logo), reutilizando el almacenamiento de la galería. Van por una
+  ruta aparte a propósito: pertenecen a un campo, no a la cuadrícula pública de
+  fotos, así que no deben aparecer en ella.
+- **Pestaña Reseñas**: alta, edición, foto, estrellas, fecha, verificada,
+  destacada, ocultar y reordenar.
+- **Ocultar secciones enteras**, que era el pedido concreto sobre las reseñas.
+- El **logo** se cambia en Ajustes → Contacto y SEO.
+
+### Sitio de huéspedes
+
+Hero, tarjetas, servicios, reseñas, ubicación (incluido el enlace del mapa),
+reserva directa, anfitriona, pie y logo salen del CMS, renderizados en el
+servidor. Todo con respaldo a la copia local si el API no responde.
+
+El título del hero se escribe como una frase y el componente le aplica la
+tipografía de marca a las últimas palabras, como hacía la versión de tres líneas
+incrustada. El anfitrión escribe texto; no tiene que pensar en saltos de línea.
+
+### Seed
+
+`pnpm --filter @areia-bela/api seed:landing` mueve a la base el texto que ya
+estaba vivo, más las cuatro reseñas reales del listing. Idempotente: las
+secciones hacen upsert y los ítems y reseñas se buscan por su clave natural
+antes de insertar, así que correrlo dos veces no duplica ni pisa una edición.
+
+**Huecos declarados**: los nombres de los servicios existen solo en español en
+el listing, y las reseñas solo en inglés. Esas filas se siembran con el texto de
+origen en ambos lados. No se rellenan con traducción automática porque nadie la
+habría leído; para eso está el botón, que deja a una persona en medio.
+
+### Diferido
+
+- **El cotizador sigue calculando en el navegador.** `lib/booking.ts:32` usa el
+  `datos.json` estático y nadie llama a `POST /properties/:slug/quote`, que ya
+  existe. Rompe la regla de precio autoritativo en el servidor y hace que lo que
+  se edita en Ajustes no le llegue al huésped. Es Fase 6 y merece su propio
+  cambio; se deja anotado, no tapado.
+- Optimización de imágenes (`images.unoptimized` sigue puesto): Fase 8.
+- El editor de textos sigue sin vista previa ni autoguardado.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (95 tests, 10 nuevos)
+```
+
+Contra el API levantado, con un superadmin temporal creado y borrado para la
+prueba:
+
+- Escrituras de secciones, ítems y reseñas → 200/204; como `VIEWER` → **403**;
+  sin sesión → **401**. Las lecturas de editor como `VIEWER` → 200.
+- `PATCH` de una sección con un solo idioma → **400** con el campo que falta.
+- Promover una segunda reseña destacada deja **exactamente una** destacada.
+- Sin `ANTHROPIC_API_KEY`: `translation-status` responde `configured: false` y
+  `POST /cms/translate` → **503** con el motivo.
+- Correr el seed dos veces: `0 elementos nuevos, 0 reseñas nuevas`.
+- `GET /es` y `GET /en` traen las insignias, las tarjetas, el desglose de notas,
+  las cifras de la anfitriona y el texto del pie **en el HTML**.
+
+Una nota de método: la primera verificación dio media pantalla en blanco y el
+motivo no era el código sino un `next-server` viejo sirviendo el bundle
+anterior. Reiniciarlo lo arregló. Es la segunda vez que pasa en este repo.
+
+## 21. El precio deja de calcularse en el navegador
+
+Al probar la portada editable salió el fallo de fondo: podías cambiar la tarifa
+de limpieza en Ajustes y al huésped se le seguía cobrando la vieja. Tirando de
+ahí apareció algo peor.
+
+### El agujero
+
+`apps/web/app/api/checkout/route.ts` le pasaba a Stripe el `totalPrice` que
+llegaba en el cuerpo de la petición, tal cual. Y ese total viajaba desde el
+cotizador hasta el checkout **en la query string**. Editar la URL a
+`?total=1` era una forma que funcionaba de pagar un dólar por una semana.
+
+`lib/booking.ts` calculaba el precio en el navegador con las cifras del
+`datos.json` incluido en el bundle. De ahí los dos síntomas: el precio no
+cambiaba al editarlo, y era el que dijera el navegador.
+
+`CLAUDE.md` lo prohíbe explícitamente: _"El precio es siempre autoritativo en el
+servidor. El frontend nunca envía un total que el backend acepte sin
+recalcular."_ El endpoint `POST /properties/:slug/quote` existía desde Fase 3 y
+no lo llamaba nadie.
+
+### El arreglo
+
+- `buildQuote()` se va; en su lugar `fetchQuote()` le pregunta al API.
+- **A la URL solo viajan las entradas** —fechas, huéspedes, extras—, nunca un
+  importe. Manipularlas ya no significa nada: te cotizan bien esas fechas.
+- El checkout **vuelve a pedir el precio** al cargar, en vez de creerle a la
+  query string.
+- La ruta de Stripe **cotiza contra el API** y cobra esa cifra. Si el API no
+  responde devuelve 502: negarse a cobrar es mejor que adivinar un precio.
+- El cotizador ya no dibuja un precio de relleno mientras carga. Un precio
+  provisional es un precio equivocado; dice que está consultando.
+
+De paso, tres cosas que aparecieron al tocarlo:
+
+- `origin` vacío generaba URLs de retorno relativas y Stripe las rechazaba.
+  Ahora cae al origen de la propia petición.
+- La ruta devolvía el mensaje de error de Stripe al navegador; puede nombrar
+  configuración interna y el huésped no puede hacer nada con él.
+- `services/payment.ts` tenía cuatro funciones simuladas sin ningún consumidor,
+  una de ellas decidía si un pago salía bien con `Math.random() > 0.05`.
+  Eliminadas: el cobro de verdad es Fase 7, y dinero simulado es peor que nada.
+- `roomId` / `roomName` / `roomType: 'casa'` en los metadatos de Stripe, restos
+  del modelo de hotel. Sustituidos por los datos de la estadía que la Fase 7
+  necesita para crear el `Booking` desde el webhook.
+
+### `verify-quote-parity.ts`, eliminado
+
+Ese script comparaba la `buildQuote()` del cliente con la `computeQuote()` del
+servidor para probar que no divergían. Ya no hay dos implementaciones: el
+cliente pregunta. La paridad pasó de comprobarse a ser estructural, y mantener
+un script que corre una función que ya no existe habría sido deuda. Anotado
+también en `docs/database.md`, que lo citaba como criterio de salida de Fase 3.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (95 tests)
+```
+
+Contra el API y Stripe de prueba reales:
+
+- El API cotiza 7 noches en **$2745**.
+- Se manda al checkout esa estadía **con `total: 1` y `totalPrice: 1`** en el
+  cuerpo. La sesión de Stripe creada cobra `amount_total: 274500` centavos, es
+  decir **$2745**. El importe del navegador se ignora por completo.
+- Fechas inválidas → **400**.
+- Cambiar la tarifa de limpieza a $200 en Ajustes: la cotización pasa de $2745 a
+  **$2825** en la petición siguiente, sin desplegar. Restaurada a $120.
+
+## 22. Cinco idiomas, escritos una sola vez
+
+El panel pedía cada texto dos veces, en español y en inglés. Eso funcionaba con
+dos idiomas y no sobrevive a cinco: el anfitrión habría escrito cada frase cinco
+veces, y `ContentSection` sola habría llegado a cuarenta columnas.
+
+Ahora **se escribe una vez, en español**, y el sitio muestra el idioma que pida
+el visitante: español, inglés, portugués, francés o alemán.
+
+### El modelo
+
+Las columnas `…Es`/`…En` se colapsan a una sola —la del idioma en que se
+escribe— y aparece `Translation`: una fila por (registro, campo, idioma).
+
+El texto fuente **no** está en esa tabla; sigue en su propio modelo. Así una
+fila ausente significa exactamente "todavía sin traducir", y el sitio cae a la
+fuente. Un huésped leyendo español en una página en francés es mejor que uno
+leyendo una página en blanco.
+
+`entity`/`entityId` son una referencia suelta a propósito: una clave foránea de
+verdad habría exigido una tabla puente por modelo, y esta tabla no tiene
+significado propio que proteger.
+
+Dos reglas evitan que esto falle en silencio:
+
+- **`sourceHash`.** Cada traducción guarda el hash del texto del que salió. Si
+  el anfitrión edita el español, la traducción queda caducada y el sitio vuelve
+  a la fuente. Sin eso, editar una frase dejaba cuatro traducciones viejas que
+  se veían perfectamente bien y decían otra cosa.
+- **`isMachine`.** Una traducción que una persona corrigió no se vuelve a
+  sobrescribir.
+
+La migración **conserva lo ya escrito**: se escribió a mano en SQL en vez de
+dejar que Prisma tirara las columnas, así que las 65 traducciones al inglés que
+ya existían pasaron a `Translation` marcadas como humanas.
+
+### El panel
+
+Un campo por texto, con un globo que avisa de que se traducirá solo. El botón
+"traducir" manual desaparece: existía para rellenar la segunda columna, y ya no
+hay segunda columna.
+
+Cuando `ANTHROPIC_API_KEY` no está configurada, `/admin/content` lo dice con un
+aviso. Sin él, el anfitrión escribiría en español, vería el sitio en español
+para los otros cuatro idiomas, y no tendría forma de saber que la causa es una
+clave que falta y no un error.
+
+El panel en sí **se queda en español e inglés**: es la herramienta del equipo,
+no el sitio de huéspedes. `AdminLanguage` es ahora un tipo aparte de `Language`.
+
+### El sitio
+
+`GET /cms/site?locale=xx` devuelve la página entera ya en un idioma: seis
+consultas y una resolución, en vez de que cada componente resuelva lo suyo. El
+modelo no se llama en tiempo de petición — el texto ya está guardado.
+
+Los textos fijos de la interfaz (navegación, botones, el cotizador) siguen en
+`lib/i18n.ts` porque son parte del producto, no contenido del anfitrión. El
+portugués, el francés y el alemán de ahí son **traducciones automáticas que
+nadie ha revisado**, y el comentario del archivo lo dice: para una docena de
+etiquetas estándar de un sitio de reservas es un intercambio aceptable, y
+corregir una es cambiar una línea. Las palabras del anfitrión nunca funcionan
+así: esas se traducen al guardar y quedan marcadas.
+
+El selector de idioma pasa de cinco píldoras a un desplegable con el nombre de
+cada idioma. A dos idiomas una fila de botones era ordenada; a cinco satura la
+cabecera, y el nombre completo es lo que un visitante busca.
+
+El asistente de chat solo tiene respuestas escritas en español e inglés, y sus
+palabras clave no coincidirían con texto en francés de todos modos, así que en
+los otros tres idiomas responde con la frase de traspaso —traducida— que dice
+que contestará una persona. Es el resultado honesto.
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (103 tests, 8 nuevos de TranslationService)
+```
+
+- Migración aplicada sobre datos reales: **65 traducciones conservadas**, cero
+  perdidas. El inglés del hero sigue ahí y marcado como humano.
+- `GET /cms/site` en los cinco idiomas: `es` da la fuente, `en` da la traducción
+  migrada, y `pt`/`fr`/`de` caen a la fuente porque aún no hay clave.
+- Las cinco rutas del sitio responden 200 y la interfaz sale en su idioma.
+- Insertada a mano una traducción al francés: el sitio la sirve. Editado después
+  el español: el sitio **deja de servirla** y muestra el texto nuevo, que es la
+  garantía que da el `sourceHash`. Ambas pruebas revertidas.
+- Los tres seeds corridos dos veces: sin duplicados.
+
+### Diferido
+
+- **No se ha traducido nada de verdad todavía**: hace falta `ANTHROPIC_API_KEY`
+  en `apps/api/.env`. En cuanto esté, guardar cualquier texto lo traduce a los
+  cuatro idiomas restantes. La maquinaria está probada; lo que falta es la clave.
+- La traducción corre al guardar, en segundo plano. Con muchos campos eso son
+  varias llamadas seguidas; si llega a molestar, la siguiente parada es una cola.
+- El panel no muestra todavía qué está traducido y qué no, ni permite corregir
+  una traducción concreta. `isMachine` ya existe en la base para soportarlo.
+
+## 23. El traductor pasa a ser intercambiable, y gratis por defecto
+
+Casar el sitio con un proveedor de pago fue una decisión mía sin preguntar.
+Ahora hay tres y se eligen por variable de entorno.
+
+|                         | Coste                          | Cuándo                                                                                              |
+| ----------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **DeepL** (por defecto) | Gratis, 500.000 caracteres/mes | Lo normal. Es además la mejor calidad para estos cinco idiomas                                      |
+| **LibreTranslate**      | Gratis, autoalojado            | Cuando los textos no deban salir del propio servidor                                                |
+| **Claude**              | De pago, centavos              | Cuando importe el contexto: es el único al que se le puede decir que esto es una casa y no un hotel |
+
+Para dimensionarlo: el sitio entero son **103 textos, 9.788 caracteres**.
+Traducirlo todo a los cuatro idiomas gasta el **8% del cupo mensual gratuito**
+de DeepL, y después solo se retraduce lo que se edita.
+
+`selectProvider()` toma el primero que esté configurado, DeepL primero, y
+`TRANSLATION_PROVIDER` fuerza uno. Si se fuerza uno que no está configurado
+devuelve nada en vez de usar otro en silencio: si alguien pidió un servicio
+concreto, mandar sus textos a otro sin avisar no es una cortesía.
+
+### Detalles que cuestan una tarde si no se saben
+
+- Las claves gratuitas de DeepL terminan en `:fx` y **dan 404 contra el host de
+  pago**. El código detecta el sufijo y enruta solo.
+- DeepL rechaza `EN` a secas como destino. Se pide `EN-US`, y `PT-BR` para
+  portugués: los brasileños son la mayoría de los visitantes lusófonos a
+  Florida. Ambas decisiones están en una constante, no repartidas.
+- `preserve_formatting` activado, porque varios campos dependen de los saltos
+  de línea.
+- El 456 de DeepL ("cupo agotado") se traduce a un mensaje que lo dice, porque
+  la solución es esperar al mes siguiente, no depurar.
+- LibreTranslate: se normaliza la barra final de la URL y se omite `api_key`
+  del cuerpo cuando no hay, en vez de mandarlo vacío.
+
+### El panel dice quién traduce
+
+El aviso de `/admin/content` ya no solo dice si está encendido: nombra el
+proveedor. A qué empresa le llegan los textos del anfitrión no debería tener
+que deducirse leyendo la configuración del despliegue.
+
+El API también lo anuncia al arrancar (`Translating with DeepL`).
+
+### Verificación
+
+```
+pnpm build     ✅
+pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅
+pnpm test      ✅ (116 tests, 13 nuevos de proveedores)
+```
+
+- Arrancado sin claves: `Translation is off`. Con `DEEPL_API_KEY`:
+  `Translating with DeepL`.
+- **Con una clave de DeepL inválida, guardar una sección devuelve 200** y el log
+  dice `Could not translate … DeepL: Forbidden` con el enlace a su
+  documentación. Que el traductor esté caído no puede impedir que el anfitrión
+  guarde sus propias palabras.
+- Los tests cubren el enrutado de host por sufijo de clave, `EN-US`/`PT-BR`, el
+  456 de cupo y la barra final de LibreTranslate — que es justo lo que se rompe
+  en silencio.
+
+## 24. DeepL mudaba la casa a Rusia
+
+Con la clave puesta y las 416 traducciones generadas, la primera revisión del
+resultado encontró esto:
+
+```
+fr: Saint-Pétersbourg, Floride, États-Unis
+pt: Casa inteira com piscina aquecida em São Petersburgo
+```
+
+DeepL tradujo el topónimo. "Saint-Pétersbourg" y "São Petersburgo" son la
+ciudad rusa: un huésped francés leía que la casa está en Rusia, junto a la
+palabra "Floride". Es exactamente la clase de detalle que hace desconfiar de un
+sitio de reservas.
+
+### Tres intentos, dos descartados
+
+**`ignore_tags`.** Envolver el nombre en una etiqueta que DeepL ignora. Los
+nombres sobrevivieron, pero se rompió la gramática alrededor, porque el modelo
+dejó de ver la palabra con la que tenía que concordar:
+
+```
+fr: près d'Madeira Beach     pt: perto dMadeira Beach     fr: à l'St. Petersburg
+```
+
+Cambié un error por uno peor: éste se ve roto a simple vista. Descartado.
+
+**Glosario.** Es la respuesta propia de DeepL a este problema, y los cuatro
+pares la soportan. Pero al crearlos:
+
+```
+fr: creado     de: Too many glossaries     pt: Too many glossaries
+```
+
+**El plan gratuito permite exactamente un glosario por cuenta**, así que no
+puede cubrir cuatro idiomas de destino. Descartado, y anotado aquí para que
+nadie lo intente otra vez.
+
+**Aprender y revertir.** Lo que quedó, y que no depende de nada: se traduce
+cada nombre por separado una vez, se aprende en qué lo convierte DeepL, y se
+sustituye de vuelta en el resultado. DeepL sigue viendo la frase entera, así
+que la gramática sale bien; solo se restaura el sustantivo. En la práctica solo
+el francés lo traducía.
+
+Se aprende una vez por idioma y se cachea: seis términos por cuatro idiomas,
+veinticuatro llamadas cortas por proceso.
+
+De paso apareció que DeepL también quita el punto de las abreviaturas —
+"St. Petersburg" volvía como "St Petersburg" en francés y alemán. Eso no es
+traducir, es normalizar, y gana la forma que escribió el anfitrión.
+
+### Un bug que encontró un test
+
+Tener a la vez `'St. Petersburg'` y `'St Petersburg'` en la lista hacía que las
+dos entradas se pisaran el mapeo, y el resultado perdía el punto. Solo se lista
+la forma canónica; la variante sin puntuación se deriva.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (120 tests, 6 nuevos)
+```
+
+Contra la API real de DeepL, los tres idiomas que fallaban:
+
+```
+fr: Ton petit coin de paradis avec piscine près de Madeira Beach
+    St. Petersburg, Floride, États-Unis
+pt: Seu refúgio com piscina perto de Madeira Beach
+    St. Petersburg, Flórida, Estados Unidos
+de: Dein Rückzugsort mit Pool in der Nähe von Madeira Beach
+    St. Petersburg, Florida, USA
+```
+
+Gramática natural y nombres propios intactos. Las traducciones automáticas se
+borraron y regeneraron; las escritas por personas —el inglés original migrado—
+no se tocaron, que es para lo que existe `isMachine`.
+
+## 25. Cambiar de idioma llevaba a un 404
+
+Reportado al usarlo: estando en el sitio y eligiendo otro idioma, la URL pasaba
+a `/en/pt` o `/pt/fr` y la página no existía.
+
+### La causa
+
+Dos sitios navegaban a la vez. `setLanguage()` del proveedor ya lo hacía bien,
+recorriendo `SUPPORTED_LOCALES`. Pero `changeLanguage()` de la cabecera lo
+llamaba **y además hacía su propio `router.push`**, con una copia de la lógica
+escrita cuando solo había dos idiomas:
+
+```ts
+if (segments[1] === 'en' || segments[1] === 'es') segments[1] = next
+else segments.splice(1, 0, next) // ← desde /pt inserta en vez de reemplazar
+```
+
+Desde `/pt`, `/fr` o `/de` caía en el `else` y **añadía** el idioma nuevo
+delante del viejo. La segunda navegación pisaba a la primera, así que ganaba la
+rota.
+
+Es un fallo de la migración a cinco idiomas: actualicé `SUPPORTED_LOCALES` y el
+proveedor, y no vi que la cabecera tenía su propia copia. Duplicar esa lógica
+fue el error original; el idioma nuevo solo lo hizo visible.
+
+### El arreglo
+
+La cabecera deja de navegar por su cuenta y llama a `setLanguage`. `router` y
+`pathname` quedaron sin uso allí y se van con ella.
+
+`stripLocale` y una nueva `pathForLocale` se mueven a `@areia-bela/shared`,
+junto a `SUPPORTED_LOCALES`: es su sitio, y así lo que necesite convertir una
+ruta a otro idioma la importa en vez de rederivarla.
+
+### Sobre el test
+
+Escribí primero un `.spec.ts` en `apps/web` y luego lo borré: **la app web no
+tiene runner de tests**, así que habría sido un archivo que nadie ejecuta, que
+es peor que no tener test. Moviendo las funciones a `shared` sí se pueden
+probar desde `apps/api`, que es el único paquete con Jest hoy (montarlo en web
+es Fase 8, y queda anotado en el propio spec).
+
+El test recorre las **25 combinaciones** de idioma origen/destino y afirma que
+ninguna produce dos segmentos de idioma.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (138 tests, 18 nuevos)
+```
+
+- Las cinco rutas de idioma y las profundas (`/fr/checkout`) responden 200.
+- Las rutas rotas (`/en/pt`, `/es/en`, `/pt/fr`, `/de/es`) siguen dando 404,
+  que es lo correcto: no deben existir. Lo que se arregló es que el selector ya
+  no las genera.
+- La 404 sale **en el idioma de la ruta** en los cinco casos.
+
+## 26. "Todo sobre la casa", rehecha
+
+Comentario del usuario al verla: parece hecha por alguien junior, está mal
+colocada y rompe el esquema. Tenía razón, y el motivo es concreto.
+
+### Por qué desentonaba
+
+Todas las secciones de la portada hablan el mismo idioma visual: tarjeta blanca
+`rounded-[32px]` sobre crema, borde `white/70`, sombra larga y suave, antetítulo
+en versalitas con icono, títulos en navy `#173a57`, ancho de 1440px.
+
+Esta sección **no usaba nada de eso**: era un acordeón desnudo, sin tarjeta ni
+sombra, en una columna centrada de `max-w-3xl` dentro de una página que ocupa 1440. No es que estuviera fea por dentro; es que no pertenecía.
+
+### Por qué no una página aparte ni un modal
+
+Se evaluaron las dos, que era lo que el usuario proponía:
+
+- **Página aparte**: ahí viven las normas, las mascotas y la piscina — el
+  contenido que convence de reservar y el que posiciona en buscadores.
+  Esconderlo tras un clic pierde las dos cosas.
+- **Modal**: ya es un acordeón. Un modal encima serían dos capas de esconder lo
+  mismo, y un modal es para una tarea, no para leer prosa larga.
+
+### Qué se hizo
+
+- **Se viste como sus vecinas**: la misma tarjeta, sombra, antetítulo con icono
+  y navy que la sección de servicios, que es su hermana más cercana —las dos
+  son la mitad práctica de la página.
+- **Se movió** de entre reseñas y ubicación a justo después de servicios. Lo
+  práctico queda junto, y un muro de prosa deja de cortar el paso de los
+  testimonios al mapa y al botón de reservar.
+- **Dos columnas** en escritorio: la casa a la izquierda, las preguntas a la
+  derecha. Aprovecha el ancho en vez de apilar una debajo de la otra y estirar
+  la página una pantalla más.
+
+De paso, sus rótulos (`Conviene saber`, `La casa`, `Preguntas frecuentes`)
+estaban escritos a mano en español e inglés, así que en portugués, francés y
+alemán caían al español. Pasan a `lib/i18n.ts` en los cinco idiomas, como el
+resto de la interfaz.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (138 tests)
+```
+
+- Orden de anclas en el documento: `gallery → amenities → details → reviews →
+location`.
+- Los rótulos salen en su idioma en los cinco: "Conviene saber", "Good to know",
+  "Bom saber", "Bon à savoir", "Gut zu wissen".
+
+## 27. La portada, auditada en cinco idiomas
+
+Revisando el sitio con los cinco idiomas puestos aparecieron tres cosas.
+
+### El cotizador, el modal y el pie seguían en dos idiomas
+
+El patrón era siempre el mismo:
+
+```ts
+{
+  isEnglish ? 'Cleaning fee' : 'Tarifa de limpieza'
+}
+```
+
+Un ternario no puede representar cinco idiomas. Con `pt`, `fr` o `de` caía
+siempre a la rama española, así que un huésped francés veía la portada en
+francés y el desglose del precio en español.
+
+La raíz era un **prop booleano**: `PriceBreakdownCard` y `HostResponseBadges`
+recibían `isEnglish: boolean`, que en realidad significaba "inglés o español".
+Pasa a `language: Language`, lo que obliga a cada llamante a decir cuál es.
+
+Migrados a `lib/i18n.ts` en los cinco idiomas: el desglose de precio completo
+(noches, limpieza, servicio, impuestos, cancelación, descuento), el modal de
+contacto con la anfitriona, la barra de reserva del móvil, el pie, las
+etiquetas de la anfitriona, el asistente de chat y los `aria-label` de la
+cabecera. **Cero ternarios de dos idiomas** en toda la portada.
+
+### El idioma elegido se perdía al volver
+
+`detectLocale` en el middleware tenía el mismo fallo:
+
+```ts
+const saved = request.cookies.get('areia_bela_language')?.value
+if (saved === 'es' || saved === 'en') return saved // ← 'pt' se ignora
+```
+
+Elegir portugués guardaba la cookie que el middleware luego ignoraba, así que
+al volver a una ruta sin prefijo el sitio salía en español. De paso el nombre
+de la cookie estaba escrito a mano en vez de usar `LANGUAGE_COOKIE`.
+
+Ahora usa la constante y `isSupportedLocale`. Y la negociación de
+`Accept-Language` pasa de dos `startsWith` a un lector que respeta los valores
+`q` y descarta la región: `fr-CA;q=0.9` es francés, y `en;q=0.3,de;q=0.9` da
+alemán aunque el inglés vaya primero. Vive en `@areia-bela/shared` para poder
+probarlo.
+
+### "Todo sobre la casa", con más carácter
+
+- **Un icono por sección**, dentro de un círculo que se invierte a navy al
+  abrirse. Once filas idénticas de texto navy son un muro; el icono es lo que
+  permite encontrar la política de mascotas sin leer cada título.
+- **Un contador** junto a cada encabezado de columna: once secciones son
+  muchas para abrir a ciegas.
+- **Un halo de color** de marca en la esquina, como el de la galería, para que
+  un bloque alto de texto no se lea como una caja blanca.
+- El panel abierto **se alinea con el texto**, no con el icono.
+
+### Verificación
+
+```
+pnpm build     ✅   pnpm lint      ✅ (0 errores)
+pnpm typecheck ✅   pnpm test      ✅ (143 tests, 5 nuevos)
+```
+
+- Cookie `pt` entrando a `/` con el navegador en español → sitio en portugués.
+- Sin cookie y navegador en alemán → sitio en alemán.
+- Las cadenas del cotizador y del modal están en el bundle de cliente de `fr`,
+  `de` y `pt` (no se ven por `curl` porque el precio llega por fetch y el modal
+  solo monta al abrirse).
+
+### Diferido, con su tamaño
+
+**Checkout (33) y confirmación (34) siguen con ternarios de dos idiomas.** No
+son la portada, pero es un hueco real del flujo: un huésped francés reserva y
+el checkout le sale en español. Son 67 cadenas × 3 idiomas nuevos; se declara
+aquí en vez de dejarlo pasar en silencio.

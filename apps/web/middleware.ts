@@ -4,19 +4,22 @@ import {
   ADMIN_LOGIN_PATH,
   PUBLIC_ADMIN_PATHS,
   DEFAULT_LOCALE,
+  LANGUAGE_COOKIE,
   SUPPORTED_LOCALES,
+  isSupportedLocale,
+  localeFromAcceptLanguage,
   type SupportedLocale,
 } from '@areia-bela/shared'
 
 function detectLocale(request: NextRequest): SupportedLocale {
-  // A previously chosen language wins over the browser header.
-  const saved = request.cookies.get('areia_bela_language')?.value
-  if (saved === 'es' || saved === 'en') return saved
+  // A previously chosen language wins over the browser header. This used to
+  // compare against a hard-coded `'es' | 'en'`, so picking Portuguese saved a
+  // cookie the middleware then ignored — the choice was lost on the next visit
+  // to a path without a locale prefix.
+  const saved = request.cookies.get(LANGUAGE_COOKIE)?.value
+  if (saved && isSupportedLocale(saved)) return saved
 
-  const acceptLanguage = (request.headers.get('accept-language') ?? '').toLowerCase()
-  if (acceptLanguage.startsWith('es')) return 'es'
-  if (acceptLanguage.startsWith('en')) return 'en'
-  return DEFAULT_LOCALE
+  return localeFromAcceptLanguage(request.headers.get('accept-language') ?? '') ?? DEFAULT_LOCALE
 }
 
 /**

@@ -12,15 +12,78 @@ cp apps/web/.env.example apps/web/.env
 
 ## apps/api
 
-| Variable              | Requerida       | Propósito                                                                                                                                                                                                                    |
-| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`        | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                    |
-| `PORT`                | no              | Puerto del API. Default `3001`.                                                                                                                                                                                              |
-| `JWT_ACCESS_SECRET`   | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                 |
-| `TOTP_ENCRYPTION_KEY` | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación. |
-| `CORS_ORIGINS`        | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                           |
-| `ADMIN_SEED_PASSWORD` | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                               |
-| `NODE_ENV`            | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                          |
+| Variable                | Requerida       | Propósito                                                                                                                                                                                                                                 |
+| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                                 |
+| `PORT`                  | no              | Puerto del API. Default `3001`.                                                                                                                                                                                                           |
+| `JWT_ACCESS_SECRET`     | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                              |
+| `TOTP_ENCRYPTION_KEY`   | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación.              |
+| `CORS_ORIGINS`          | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
+| `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
+| `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
+| `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
+| `ANTHROPIC_API_KEY`     | en producción   | Traduce el contenido del sitio a inglés, portugués, francés y alemán cuando el anfitrión guarda. Sin ella nada se rompe: el sitio muestra el idioma en que se escribió, y el panel lo avisa con un aviso visible.                         |
+
+### Almacenamiento de imágenes (Vercel Blob)
+
+La galería del panel sube archivos a Vercel Blob. Para activarlo:
+
+1. En el proyecto de Vercel, Storage → Create → Blob.
+2. Copiar el token de lectura/escritura que genera y ponerlo en
+   `BLOB_READ_WRITE_TOKEN` del API (no del frontend: la subida es server-side).
+
+Sin token no hace falta cuenta para trabajar en local; la carpeta
+`apps/web/public/uploads/` está en `.gitignore` para que esas pruebas no se
+commiteen.
+
+### Traducción automática del sitio
+
+El anfitrión escribe **una sola vez**, en español. Al guardar, el API traduce
+ese texto a inglés, portugués, francés y alemán con la API de Claude y lo
+guarda. El sitio de huéspedes sirve el idioma que pida el visitante; nunca
+llama al modelo en tiempo de petición.
+
+#### Qué proveedor elegir
+
+|                         | Coste                          | Calidad                           | Notas                                                                                                    |
+| ----------------------- | ------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **DeepL** (recomendado) | Gratis, 500.000 caracteres/mes | La mejor para estos cinco idiomas | El sitio entero son ~39.000 caracteres, así que retraducirlo todo gasta el 8% del cupo mensual           |
+| **LibreTranslate**      | Gratis, sin cuenta             | Un escalón por debajo             | Autoalojado: los textos no salen de tu servidor. `docker run -p 5000:5000 libretranslate/libretranslate` |
+| **Claude**              | De pago (centavos)             | Muy buena, y con contexto         | El único al que se le puede decir "esto es una casa, no un hotel"                                        |
+
+Para DeepL: crear cuenta gratuita en deepl.com/pro-api, copiar la clave (las
+del plan gratuito terminan en `:fx`) y ponerla en `DEEPL_API_KEY`. El código
+detecta el sufijo y usa el host correcto — las claves gratuitas dan 404 contra
+el host de pago, que es una forma confusa de descubrir el error.
+
+**Nombres propios.** DeepL traduce topónimos: convirtió "St. Petersburg" en
+"Saint-Pétersbourg", que es la ciudad rusa. La lista `PROTECTED_TERMS` de
+`apps/api/src/cms/translation-providers.ts` los protege — se traduce cada uno
+por separado una vez para aprender en qué los convierte, y se revierte en el
+resultado. **Si añades un nombre propio nuevo al contenido** (otro punto de
+interés, una marca), agrégalo a esa lista.
+
+No se usa el glosario de DeepL, que sería lo natural: **el plan gratuito
+permite un solo glosario por cuenta** y hacen falta cuatro, uno por idioma de
+destino. Está documentado en `docs/changelog.md` §24 para que no se reintente.
+
+LibreTranslate no tiene un mecanismo equivalente. Claude no lo necesita: se le
+dice en el prompt, y no cometió este error.
+
+Sin ninguna clave:
+
+- `GET /cms/admin/translation-status` responde `{"configured": false}`.
+- `/admin/content` muestra un aviso explicando que está apagada, y cuando sí lo está, **dice qué proveedor traduce**: a quién le llegan los textos no debería deducirse de la configuración del despliegue.
+- El sitio sigue funcionando y muestra el español a todos los idiomas. Se
+  degrada, no se rompe.
+
+Dos reglas que evitan fallos silenciosos:
+
+- Cada traducción guarda el hash del texto del que salió. Si el anfitrión edita
+  el original, la traducción queda **caducada** y el sitio cae a la fuente en
+  vez de mostrar la traducción de un texto que ya no existe.
+- Una traducción que una persona editó (`isMachine: false`) no se vuelve a
+  sobrescribir.
 
 ### Correo (Brevo)
 

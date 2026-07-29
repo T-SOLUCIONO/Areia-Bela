@@ -1,6 +1,6 @@
 // Areia Bela — whole-home rental (1 Property). See docs/domain-decisions.md.
-// Scope note: no CMSPage/SiteSettings/Gallery/FAQ (Fase 5 CMS) tables yet —
-// that phase hasn't started. User/RefreshToken landed in Fase 4 (auth).
+// User/RefreshToken landed in Fase 4 (auth); CMSPage/SiteSettings/GalleryImage/
+// FAQ in Fase 5 (CMS).
 
 generator client {
   provider = "prisma-client-js"
@@ -14,10 +14,8 @@ datasource db {
 model Property {
   id                         String   @id @default(cuid())
   slug                       String   @unique
-  nameEs                     String
-  nameEn                     String
-  descriptionEs              String
-  descriptionEn              String
+  name  String
+  description  String
   maxGuests                  Int
   additionalGuestFeePerNight Decimal  @db.Decimal(10, 2)
   cleaningFee                Decimal  @db.Decimal(10, 2)
@@ -97,8 +95,7 @@ model Extra {
   propertyId          String
   property            Property         @relation(fields: [propertyId], references: [id])
   key                 String
-  nameEs              String
-  nameEn              String
+  name  String
   pricingType         ExtraPricingType
   price               Decimal          @db.Decimal(10, 2)
   refundable          Boolean          @default(true)
@@ -232,4 +229,240 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 5 (CMS). Everything a host can edit without a developer.
+//
+// Content is stored **once**, in the language it was written in (DEFAULT_LOCALE).
+// Every other language lives in Translation below.
+//
+// It used to be two columns per field (…Es/…En). That worked for two languages
+// and fell apart at five: the host would have written every sentence five
+// times, and ContentSection alone would have carried forty columns. The host
+// now writes once and the site serves whichever language the visitor picked.
+// ---------------------------------------------------------------------------
+
+enum CMSPageSlug {
+  ABOUT_SPACE
+  ACCOMMODATION
+  LIVING_AREAS
+  KITCHEN_DINING
+  BEDROOMS_BATHROOMS
+  OUTDOOR_LIFE
+  AMENITIES
+  LOCATION
+  GUEST_ACCESS
+  HOUSE_RULES
+  FAQS
+  POLICIES
+}
+
+model CMSPage {
+  id        String      @id @default(cuid())
+  slug      CMSPageSlug @unique
+  title  String
+  body  String
+  published Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum FAQCategory {
+  PETS
+  TRASH
+  POOL
+  PARTIES
+  GENERAL
+}
+
+model FAQ {
+  id         String      @id @default(cuid())
+  question  String
+  answer  String
+  category   FAQCategory @default(GENERAL)
+  sortOrder  Int         @default(0)
+  published  Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([category, sortOrder])
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt  String
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+// Single row, like Property. `id` is pinned to a constant so upserts can find
+// it without a lookup, and so a second row can't be created by accident.
+model SiteSettings {
+  id               String   @id @default("site")
+  contactEmail     String
+  contactPhone     String
+  whatsapp         String
+  seoTitle  String
+  seoDescription  String
+  instagramUrl     String?
+  facebookUrl      String?
+  airbnbUrl        String?
+  // Header and footer share one mark; null falls back to the bundled PNG.
+  logoUrl          String?
+  updatedAt        DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Landing page content.
+//
+// CMSPage above holds the long prose a guest reads. These three hold the
+// landing page itself: its section headings, the repeated card/badge/stat
+// lists, and the testimonials.
+//
+// Two models instead of one per section: the page has five different lists
+// (hero badges, feature cards, amenities, nearby highlights, host stats) that
+// are all "icon + optional image + a bilingual label and body, in an order".
+// One ContentItem covers all five, so they also share one editor. Review is
+// separate because it genuinely has a different shape — a rating, an author
+// and a photo.
+// ---------------------------------------------------------------------------
+
+enum ContentSectionKey {
+  HERO
+  FEATURES
+  AMENITIES
+  REVIEWS
+  LOCATION
+  DIRECT_BOOKING
+  HOST
+  FOOTER
+}
+
+model ContentSection {
+  id  String            @id @default(cuid())
+  key ContentSectionKey @unique
+
+  // Not every section uses every slot — an empty string means "don't render".
+  // Nullable columns would say the same thing with more null checks.
+  eyebrow  String @default("")
+  title  String @default("")
+  subtitle  String @default("")
+  body  String @default("")
+  ctaLabel  String @default("")
+  ctaHref    String @default("")
+
+  // The one headline figure a section can carry: the review score, the host's
+  // years hosting. Kept as text because "5.0" and "< 1 hour" are both valid.
+  statValue   String @default("")
+  statLabel  String @default("")
+
+  imageUrl String? // host portrait, section background
+  linkUrl  String? // map embed for LOCATION
+
+  // REVIEWS unpublished hides the whole block, which is what the host asked
+  // for: a section with nothing worth showing shouldn't render an empty frame.
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ContentItem[]
+}
+
+enum ContentItemKind {
+  HERO_BADGE
+  FEATURE_CARD
+  AMENITY
+  LOCATION_HIGHLIGHT
+  HOST_STAT
+  REVIEW_RATING
+}
+
+model ContentItem {
+  id        String          @id @default(cuid())
+  sectionId String
+  section   ContentSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  kind      ContentItemKind
+
+  icon     String  @default("") // lucide-react name, picked from a curated list
+  imageUrl String?
+  label  String
+  body  String  @default("")
+  // Host stats ("10+", "100%") and review sub-scores ("4.9").
+  value    String  @default("")
+
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId, kind, sortOrder])
+}
+
+// Guest testimonials shown on the landing page. Editorial content, not part of
+// the booking domain: it has no relation to Booking or Customer, and deleting
+// one changes the page, never a reservation.
+model Review {
+  id             String  @id @default(cuid())
+  authorName     String
+  authorPhotoUrl String?
+  rating         Int     @default(5)
+  text  String
+  // Free text ("noviembre de 2025"): the source listing gives no exact dates,
+  // and inventing them would be inventing data.
+  stayedAt  String  @default("")
+  verified       Boolean @default(true)
+  // The one pulled out into the large quote block at the top.
+  featured       Boolean @default(false)
+
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// Translations.
+//
+// One row per (record, field, language). The source text itself is not here —
+// it stays on its own model, in DEFAULT_LOCALE — so a missing row simply means
+// "not translated yet" and the site falls back to the source. A guest reading
+// Spanish on a French page is better than a guest reading a blank one.
+//
+// `entity` and `entityId` are a loose reference on purpose: a real foreign key
+// would need one join table per model, and this table has no meaning of its
+// own to protect. Rows are cleaned up with the record that owns them.
+// ---------------------------------------------------------------------------
+
+model Translation {
+  id       String @id @default(cuid())
+  entity   String // "ContentSection", "Review", …
+  entityId String
+  field    String // "title", "body", …
+  locale   String // never DEFAULT_LOCALE: that text lives on the record
+  text     String
+
+  /**
+   * SHA-256 of the source text this was translated from.
+   *
+   * Without it, editing the Spanish would silently leave four stale
+   * translations that still look fine. The resolver compares this against the
+   * current source and treats a mismatch as untranslated.
+   */
+  sourceHash String
+
+  /** False once a human has edited it, so re-translation stops overwriting. */
+  isMachine Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entity, entityId, field, locale])
+  @@index([entity, entityId, locale])
 }

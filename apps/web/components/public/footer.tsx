@@ -7,12 +7,28 @@ import { Button } from '@areia-bela/ui/button'
 import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
 import { useLanguage } from '@/components/language-provider'
+import { useSiteContent } from '@/components/public/site-content-provider'
 import { translations } from '@/lib/i18n'
 
 export function Footer() {
   const { language } = useLanguage()
   const copy = translations[language].footer
-  const perNight = language === 'en' ? '/ night' : '/ noche'
+  const perNight = translations[language].quote.perNight
+
+  // Contact details are editable in /admin/settings; the bundled values are
+  // the fallback when the API is unreachable.
+  const content = useSiteContent()
+  const settings = content?.settings
+  const logo = settings?.logoUrl ?? '/areia-bela-logo.png'
+  const phone = settings?.contactPhone || propertyInfo.phone
+  const email = settings?.contactEmail || propertyInfo.email
+  const footerSection = content?.sections.FOOTER
+  const description = footerSection ? footerSection.body || copy.description : copy.description
+  const social = [
+    { href: settings?.instagramUrl, label: 'Instagram' },
+    { href: settings?.facebookUrl, label: 'Facebook' },
+    { href: settings?.airbnbUrl, label: 'Airbnb' },
+  ].filter((link): link is { href: string; label: string } => Boolean(link.href))
 
   return (
     <footer className="border-t border-border/70 bg-card/70 backdrop-blur">
@@ -21,14 +37,14 @@ export function Footer() {
           <div className="space-y-4">
             <div>
               <Image
-                src="/areia-bela-logo.png"
+                src={logo}
                 alt="Areia Bela"
                 width={220}
                 height={72}
                 className="h-auto w-[200px]"
               />
             </div>
-            <p className="max-w-md text-sm leading-6 text-muted-foreground">{copy.description}</p>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
@@ -36,13 +52,28 @@ export function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                <span>{propertyInfo.phone}</span>
+                <span>{phone}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                <span>{propertyInfo.email}</span>
+                <span>{email}</span>
               </div>
             </div>
+            {social.length > 0 && (
+              <div className="flex flex-wrap gap-4 pt-1 text-sm">
+                {social.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">

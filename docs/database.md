@@ -138,20 +138,14 @@ POST /properties/areia-bela/quote
 ```
 
 **Verificación del criterio de salida** ("el quote server-side coincide con la
-UI actual"): `apps/web/scripts/verify-quote-parity.ts` ejecuta la
-`buildQuote()` real del cliente y la `computeQuote()` real del servidor con los
-mismos 4 casos de prueba (distintas fechas, con y sin extra), usando los
-mismos números reales de `datos.json`. Corrido y verde en esta sesión:
+UI actual"): en su momento `apps/web/scripts/verify-quote-parity.ts` corría la
+`buildQuote()` del cliente y la `computeQuote()` del servidor con los mismos
+casos y comparaba los números. Los cuatro coincidían (`total=1620`, `1700`,
+`2885`, `495`).
 
-```
-$ npx tsx apps/web/scripts/verify-quote-parity.ts
-OK   {"checkIn":"2026-08-10","checkOut":"2026-08-14","extraIds":[]} -> total=1620
-OK   {"checkIn":"2026-08-10","checkOut":"2026-08-14","extraIds":["heated-pool"]} -> total=1700
-OK   {"checkIn":"2026-12-24","checkOut":"2026-12-31","extraIds":["heated-pool"]} -> total=2885
-OK   {"checkIn":"2026-09-01","checkOut":"2026-09-02","extraIds":[]} -> total=495
-
-Todos los 4 casos coinciden entre buildQuote() (cliente) y computeQuote() (servidor).
-```
+Ese script **ya no existe**: el cliente dejó de calcular el precio y ahora pide
+la cotización al API, así que no hay dos implementaciones que puedan divergir.
+La paridad pasó de comprobarse a ser estructural. Ver `docs/changelog.md`.
 
 **Actualización — probado end-to-end contra una Postgres real** (después de que
 nos dieras credenciales de una instancia accesible desde este entorno,
@@ -173,8 +167,8 @@ $ curl -X POST .../properties/no-existe/quote ...   -> 404
 $ curl -X POST .../properties/areia-bela/quote -d '{"checkIn":"no-es-fecha",...}'   -> 400
 ```
 
-`total: 1700` y `total: 1620` son exactamente los mismos números que produjo
-`verify-quote-parity.ts` de forma aislada — confirma que el `Controller` →
+`total: 1700` y `total: 1620` son exactamente los mismos números que producía
+la UI cuando calculaba por su cuenta — confirma que el `Controller` →
 `ValidationPipe`/DTO → `Service` → `PrismaService` → Postgres → `computeQuote()`
 completo funciona y sigue coincidiendo con la UI. 404 para propiedad
 inexistente y 400 para input inválido, ambos correctos.

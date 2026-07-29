@@ -11,6 +11,7 @@ import { propertyData } from '@/lib/property-data'
 import { RESPONSE_TIME_CLAUSE } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
+import { translations } from '@/lib/i18n'
 
 const contact = {
   phone: '+1 (727) 555-3043',
@@ -22,7 +23,7 @@ const contact = {
 export function ContactSection() {
   const [sent, setSent] = useState(false)
   const { language } = useLanguage()
-  const isEnglish = language === 'en'
+  const copy = translations[language].contact
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -48,13 +49,13 @@ export function ContactSection() {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-[#174d7a]/70">
-              {isEnglish ? 'Message the host' : 'Escribe a tu anfitriona'}
+              {copy.title}
             </p>
             <h2 className="truncate font-serif text-2xl text-[#173a57]">
               {propertyData.host.firstName}
             </h2>
             <p className="text-sm text-slate-500">
-              {isEnglish ? 'Host since' : 'Anfitriona desde'} {propertyData.hostSinceYear}
+              {copy.hostSince} {propertyData.hostSinceYear}
             </p>
           </div>
         </div>
@@ -63,7 +64,7 @@ export function ContactSection() {
           isSuperhost={propertyData.host.isSuperhost}
           responseTime={propertyData.hostResponseTime}
           responseRate={propertyData.host.responseRateWithoutNa}
-          isEnglish={isEnglish}
+          language={language}
           className="mt-4"
         />
       </div>
@@ -76,9 +77,7 @@ export function ContactSection() {
             className="flex flex-col items-center gap-1.5 rounded-[16px] border border-slate-200 py-3 text-center transition-colors hover:border-slate-300 hover:bg-slate-50"
           >
             <Phone className="h-4 w-4 text-[#174d7a]" />
-            <span className="text-xs font-medium text-slate-600">
-              {isEnglish ? 'Call' : 'Llamar'}
-            </span>
+            <span className="text-xs font-medium text-slate-600">{copy.call}</span>
           </a>
           <a
             href={`mailto:${contact.email}`}
@@ -101,7 +100,7 @@ export function ContactSection() {
         <div className="my-7 flex items-center gap-3">
           <span className="h-px flex-1 bg-slate-100" />
           <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-            {isEnglish ? 'or send a message' : 'o envía un mensaje'}
+            {copy.orMessage}
           </span>
           <span className="h-px flex-1 bg-slate-100" />
         </div>
@@ -110,12 +109,10 @@ export function ContactSection() {
           <div className="flex flex-col items-center gap-3 rounded-[20px] bg-emerald-50 px-6 py-10 text-center">
             <CheckCircle2 className="h-9 w-9 text-emerald-600" />
             <div>
-              <p className="font-semibold text-emerald-900">
-                {isEnglish ? 'Message sent' : 'Mensaje enviado'}
-              </p>
+              <p className="font-semibold text-emerald-900">{copy.sent}</p>
               <p className="mt-1 text-sm text-emerald-700">
                 {propertyData.host.firstName}{' '}
-                {RESPONSE_TIME_CLAUSE[isEnglish ? 'en' : 'es'][propertyData.hostResponseTime]}
+                {RESPONSE_TIME_CLAUSE[language][propertyData.hostResponseTime]}
               </p>
             </div>
           </div>
@@ -123,12 +120,12 @@ export function ContactSection() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="contact-name">{isEnglish ? 'Name' : 'Nombre'}</Label>
+                <Label htmlFor="contact-name">{copy.name}</Label>
                 <Input
                   id="contact-name"
                   required
                   type="text"
-                  placeholder={isEnglish ? 'Your name' : 'Tu nombre'}
+                  placeholder={copy.namePlaceholder}
                   className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
                 />
               </div>
@@ -138,26 +135,24 @@ export function ContactSection() {
                   id="contact-email"
                   required
                   type="email"
-                  placeholder={isEnglish ? 'you@email.com' : 'tu@email.com'}
+                  placeholder={copy.emailPlaceholder}
                   className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contact-message">{isEnglish ? 'Message' : 'Mensaje'}</Label>
+              <Label htmlFor="contact-message">{copy.message}</Label>
               <Textarea
                 id="contact-message"
                 required
                 rows={4}
-                placeholder={
-                  isEnglish ? 'Tell us your dates or questions' : 'Cuéntanos tus fechas o dudas'
-                }
+                placeholder={copy.messagePlaceholder}
                 className="resize-none rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
               />
             </div>
             <Button type="submit" variant="brand" size="lg" className="w-full font-semibold">
               <Send className="h-4 w-4" />
-              {isEnglish ? 'Send message' : 'Enviar mensaje'}
+              {copy.send}
             </Button>
           </form>
         )}

@@ -7,6 +7,7 @@ import { MailModule } from './mail/mail.module'
 import { PropertiesModule } from './properties/properties.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
+import { CmsModule } from './cms/cms.module'
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module'
     PropertiesModule,
     AuthModule,
     UsersModule,
+    CmsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

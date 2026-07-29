@@ -11,3 +11,6 @@ dist
 .DS_Store
 .claude/settings.local.json
 *.tsbuildinfo
+
+# Local dev image uploads (StorageService fallback when BLOB_READ_WRITE_TOKEN is unset)
+apps/web/public/uploads/
