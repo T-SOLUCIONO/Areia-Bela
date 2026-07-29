@@ -17,9 +17,24 @@ export type BookingQuote = {
   guests: GuestCounts
   pricePerNight: number
   originalPricePerNight: number
-  extras: Array<{ id: string; label: string; pricePerNight: number; total: number }>
+  /**
+   * `price` is a unit price whose unit depends on `pricingType`: a night, an
+   * hour, or the whole stay. The pet fee is per stay, and treating every extra
+   * as per-night billed a week with a dog at $700 instead of $100.
+   */
+  extras: Array<{
+    id: string
+    label: string
+    price: number
+    pricingType: 'PER_NIGHT' | 'PER_HOUR' | 'PER_STAY'
+    quantity: number
+    total: number
+  }>
+  /** Every night with the rate that applied, so a total is explainable. */
+  nightly: Array<{ date: string; rate: number; season: 'LOW' | 'HIGH' | 'WEEKEND' }>
   subtotal: number
   extrasTotal: number
+  additionalGuestFee: number
   cleaningFee: number
   serviceFee: number
   taxes: number
@@ -35,6 +50,8 @@ export type QuoteRequest = {
   checkOut: string
   guests: GuestCounts
   selectedExtraIds: string[]
+  /** Units per extra: hours for the nanny, animals for the pet fee. */
+  extraUnits?: Record<string, number>
 }
 
 /**
@@ -56,7 +73,13 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
       body: JSON.stringify({
         checkIn: input.checkIn,
         checkOut: input.checkOut,
+        guests: {
+          adults: input.guests.adults,
+          children: input.guests.children,
+          infants: input.guests.infants,
+        },
         extraIds: input.selectedExtraIds,
+        extraUnits: input.extraUnits,
       }),
     })
     if (!response.ok) return null
@@ -95,6 +118,9 @@ export function serializeQuoteToSearchParams(quote: BookingQuote) {
     infants: String(quote.guests.infants),
     pets: String(quote.guests.pets),
     extras: quote.extras.map((extra) => extra.id).join(','),
+    // Quantities travel too: without them the checkout would re-price one pet
+    // for a party that brought two.
+    units: quote.extras.map((extra) => `${extra.id}:${extra.quantity}`).join(','),
   }).toString()
 }
 
@@ -117,6 +143,42 @@ export function parseQuoteRequestFromSearchParams(
       pets: count('pets'),
     },
     selectedExtraIds: (searchParams.get('extras') ?? '').split(',').filter(Boolean),
+    extraUnits: Object.fromEntries(
+      (searchParams.get('units') ?? '')
+        .split(',')
+        .filter(Boolean)
+        .map((pair) => pair.split(':'))
+        .filter(([id, units]) => id && Number(units) > 0)
+        .map(([id, units]) => [id, Number(units)]),
+    ),
+  }
+}
+
+export type NightRate = {
+  date: string
+  rate: number
+  season: 'LOW' | 'HIGH' | 'WEEKEND'
+  available: boolean
+}
+
+/**
+ * What each night costs, for the price under each day in the calendar.
+ *
+ * Comes from the API like everything else about money: showing a guest a rate
+ * the server would not honour is worse than showing none.
+ */
+export async function fetchNightRates(from: string, to: string): Promise<NightRate[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return []
+
+  try {
+    const response = await fetch(
+      `${apiUrl}/properties/${PROPERTY_SLUG}/rates?from=${from}&to=${to}`,
+    )
+    if (!response.ok) return []
+    return (await response.json()) as NightRate[]
+  } catch {
+    return []
   }
 }
 

@@ -716,7 +716,6 @@ export const adminCopy = {
 
 export type AdminCopy = (typeof adminCopy)['en']
 
-/** Fills `{name}` placeholders — the only interpolation the dictionary needs. */
-export function fill(template: string, values: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? `{${key}}`)
-}
+// `fill` moved to @areia-bela/shared: the guest site needs the same helper,
+// and the admin dictionary is the wrong place for both to import it from.
+export { fill } from '@areia-bela/shared'

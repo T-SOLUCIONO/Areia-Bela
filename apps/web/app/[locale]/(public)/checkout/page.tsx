@@ -123,11 +123,11 @@ function CheckoutForm() {
       const session = await createCheckoutSession({
         checkIn: quote.checkIn,
         checkOut: quote.checkOut,
-        adults: quote.guests.adults,
-        children: quote.guests.children,
-        infants: quote.guests.infants,
-        pets: quote.guests.pets,
+        guests: quote.guests,
         extraIds: quote.extras.map((extra: BookingQuote['extras'][number]) => extra.id),
+        extraUnits: Object.fromEntries(
+          quote.extras.map((extra: BookingQuote['extras'][number]) => [extra.id, extra.quantity]),
+        ),
       })
 
       window.location.href = session.url
