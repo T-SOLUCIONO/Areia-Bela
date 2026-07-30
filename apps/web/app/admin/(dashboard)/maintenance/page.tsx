@@ -177,7 +177,7 @@ export default function MaintenancePage() {
                 aria-label={t.header.search}
               />
             </div>
-            <Button variant="brand" size="sm" onClick={() => toast.info(t.calendar.comingSoon)}>
+            <Button variant="brand" size="sm" onClick={() => toast.info(t.maintenance.comingSoon)}>
               <Plus className="h-4 w-4" />
               {t.maintenance.addTask}
             </Button>

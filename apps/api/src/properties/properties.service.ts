@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -11,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
 import { UpdatePropertyDto } from './dto/update-property.dto'
 import { CreateExtraDto, UpdateExtraDto } from './dto/extra.dto'
+import { CreateBlockedDateDto } from './dto/blocked-date.dto'
 
 @Injectable()
 export class PropertiesService {
@@ -246,9 +248,7 @@ export class PropertiesService {
     return extra
   }
 
-  // Read-only for now: exposes BlockedDate ranges so the public calendar can
-  // disable them. Booking creation, hold/pay/confirm, and conflict validation
-  // beyond this exclusion land in Fase 6 — see docs/migration-plan.md.
+  /** BlockedDate ranges, so both calendars can grey them out. */
   async getBlockedDates(slug: string): Promise<BlockedDate[]> {
     const property = await this.prisma.property.findUnique({ where: { slug } })
 
@@ -267,5 +267,64 @@ export class PropertiesService {
       endDate: blockedDate.endDate.toISOString(),
       reason: blockedDate.reason ?? undefined,
     }))
+  }
+
+  /**
+   * Takes dates off the market for a reason that is not a booking: maintenance,
+   * the host's own stay, a week held for family.
+   *
+   * Refuses to cover a live booking. Nothing in the database stops that — the
+   * exclusion constraint guards bookings against each other, not against
+   * BlockedDate — so a guest with a paid stay would simply vanish from the
+   * calendar while their booking still existed.
+   */
+  async blockDates(slug: string, dto: CreateBlockedDateDto): Promise<BlockedDate> {
+    const property = await this.prisma.property.findUnique({ where: { slug } })
+    if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    const start = new Date(dto.startDate)
+    const end = new Date(dto.endDate)
+    if (end < start) {
+      throw new BadRequestException('endDate cannot be before startDate')
+    }
+
+    const clash = await this.prisma.booking.findFirst({
+      where: {
+        propertyId: property.id,
+        status: { not: 'CANCELLED' },
+        NOT: { status: 'PENDING', expiresAt: { lt: new Date() } },
+        // A booking ends the morning of checkOut, so a block starting that day
+        // does not overlap it.
+        checkIn: { lte: end },
+        checkOut: { gt: start },
+      },
+      select: { reference: true },
+    })
+    if (clash) {
+      throw new ConflictException(`Those dates hold booking ${clash.reference}`)
+    }
+
+    const created = await this.prisma.blockedDate.create({
+      data: {
+        propertyId: property.id,
+        startDate: start,
+        endDate: end,
+        reason: dto.reason,
+      },
+    })
+
+    return {
+      id: created.id,
+      propertyId: created.propertyId,
+      startDate: created.startDate.toISOString(),
+      endDate: created.endDate.toISOString(),
+      reason: created.reason ?? undefined,
+    }
+  }
+
+  /** Puts the nights back on sale. */
+  async unblockDates(id: string): Promise<void> {
+    const deleted = await this.prisma.blockedDate.deleteMany({ where: { id } })
+    if (!deleted.count) throw new NotFoundException('Blocked range not found')
   }
 }

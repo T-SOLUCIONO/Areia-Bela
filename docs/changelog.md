@@ -1815,3 +1815,79 @@ pnpm typecheck ✅   pnpm test ✅ (208 tests, 2 nuevos)
 `stripe listen --forward-to localhost:3001/bookings/stripe-webhook`; en
 producción, del panel de Stripe. Sin él las reservas se quedan en `PENDING`
 para siempre y hay que confirmarlas a mano.
+
+---
+
+## 32. El calendario del panel, que solo contaba media historia
+
+Dos huecos reportados: las reservas no aparecían en el calendario del admin, y
+bloquear fechas a mano no existía.
+
+### Faltaba media capa
+
+El calendario cargaba `blocked-dates` y nada más. Una reserva pagada dejaba el
+día pintado como libre, así que la única pantalla donde la anfitriona mira
+"¿qué tengo este mes?" no mostraba lo único que le importa.
+
+Ahora carga las dos cosas, y **las distingue**: verde para reservada, con el
+nombre del huésped en la celda; el color de marca para bloqueada. No son lo
+mismo — una es dinero y alguien llegando, la otra es una decisión suya — y
+"no disponible" a secas no dice si puede hacer algo al respecto.
+
+### Bloquear no estaba construido
+
+`getBlockedDates` era de solo lectura y el botón "Bloquear fechas" mostraba un
+aviso de "próximamente". Faltaban las dos rutas:
+
+- `POST /properties/:slug/blocked-dates` — rango y motivo
+- `DELETE /properties/blocked-dates/:id` — libera las noches
+
+**El bloqueo se niega a tapar una reserva viva.** Nada en la base lo impedía:
+la restricción de exclusión protege reservas entre sí, no contra `BlockedDate`.
+Sin esa comprobación, la anfitriona podía hacer desaparecer del calendario a un
+huésped que ya pagó, mientras su reserva seguía existiendo. Ahora devuelve 409
+nombrando la reserva que estorba.
+
+Un `hold` vencido no cuenta como estorbo: un checkout abandonado no es razón
+para impedirle cerrar la semana.
+
+En la interfaz: dos clics (primera noche, última noche) en vez de arrastrar —
+arrastrar es mejor con ratón e inservible en el teléfono que la anfitriona
+lleva encima. Pide un motivo opcional, porque dentro de tres meses "¿por qué
+está cerrado octubre?" merece respuesta. Un clic en un día bloqueado lo libera,
+tras confirmar.
+
+Un `VIEWER` ve el calendario pero no cierra la casa.
+
+### De paso
+
+La pantalla de mantenimiento usaba `calendar.comingSoon` para su propio botón
+sin construir. Al desaparecer esa cadena se le dio la suya, que además dice la
+verdad concreta: las tareas de mantenimiento no están hechas y ese botón no
+hace nada a propósito.
+
+### Verificación
+
+Contra el API real:
+
+```
+bloquear 10–14 sep                → 201, con motivo
+el calendario público             → esos cinco días dejan de estar disponibles
+un huésped reserva 11–13 sep      → 409
+bloquear sobre AB-JJYK9R          → 409 "Those dates hold booking AB-JJYK9R"
+liberar el rango                  → 204, el 11 vuelve a estar libre
+VIEWER bloqueando                 → 403
+VIEWER leyendo el calendario      → 200
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (216 tests, 8 nuevos)
+```
+
+### Diferido
+
+- **El calendario del panel muestra un mes.** Para bloquear un rango que cruza
+  meses hay que navegar entre ellos con la selección a medias, y funciona, pero
+  es incómodo. Dos meses lado a lado como en el cotizador sería mejor.
+- **No se puede editar el motivo de un bloqueo** sin liberarlo y rehacerlo.
