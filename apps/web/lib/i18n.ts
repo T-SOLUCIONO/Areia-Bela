@@ -36,6 +36,9 @@ export const translations = {
       language: 'Language',
     },
     contact: {
+      sending: 'Sending...',
+      sendFailed:
+        'Your message could not be sent. Please try again, or write to the address above.',
       superhost: 'Superhost',
       responseRate: 'response rate',
       title: 'Message the host',
@@ -160,6 +163,9 @@ export const translations = {
       language: 'Idioma',
     },
     contact: {
+      sending: 'Enviando...',
+      sendFailed:
+        'No se pudo enviar tu mensaje. Inténtalo otra vez o escribe a la dirección de arriba.',
       superhost: 'Superanfitriona',
       responseRate: 'de respuesta',
       title: 'Escribe a tu anfitriona',
@@ -284,6 +290,9 @@ export const translations = {
       language: 'Idioma',
     },
     contact: {
+      sending: 'Enviando...',
+      sendFailed:
+        'Não foi possível enviar sua mensagem. Tente de novo ou escreva para o endereço acima.',
       superhost: 'Superanfitriã',
       responseRate: 'de resposta',
       title: 'Escreva para a anfitriã',
@@ -408,6 +417,9 @@ export const translations = {
       language: 'Langue',
     },
     contact: {
+      sending: 'Envoi...',
+      sendFailed:
+        "Votre message n'a pas pu être envoyé. Réessayez ou écrivez à l'adresse ci-dessus.",
       superhost: 'Superhôtesse',
       responseRate: 'de réponse',
       title: 'Écrivez à votre hôtesse',
@@ -532,6 +544,9 @@ export const translations = {
       language: 'Sprache',
     },
     contact: {
+      sending: 'Wird gesendet...',
+      sendFailed:
+        'Ihre Nachricht konnte nicht gesendet werden. Versuchen Sie es erneut oder schreiben Sie an die Adresse oben.',
       superhost: 'Superhost',
       responseRate: 'Antwortrate',
       title: 'Schreiben Sie Ihrer Gastgeberin',

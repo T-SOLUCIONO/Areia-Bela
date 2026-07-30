@@ -9,11 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@arei
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@areia-bela/ui/empty'
 import { Skeleton } from '@areia-bela/ui/skeleton'
 import { getBlockedDateRanges } from '@/lib/booking'
-import { cms, needsTranslation, type CMSPage, type PropertySettings } from '@/lib/cms-client'
+import { cms, type CMSPage, type PropertySettings } from '@/lib/cms-client'
 import { HouseTimeline } from '@/components/admin/house-timeline'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 
 const HORIZON_DAYS = 30
+
+/** The twelve CMSPage slugs the guest site can render. */
+const TOTAL_SECTIONS = 12
 
 /**
  * Every figure on this page comes from the database. The revenue and occupancy
@@ -57,8 +60,11 @@ export default function AdminDashboardPage() {
   }, [])
 
   const baseRate = property?.priceRules.find((rule) => rule.type === 'LOW' && rule.active)
-  const written = pages?.filter((page) => page.body.trim()) ?? []
-  const untranslated = written.filter(needsTranslation).length
+  // Sections with nothing written yet: the tile that used to count
+  // untranslated ones lost its meaning when the site moved to one source
+  // language, and this is the number a host can actually act on.
+  const written = pages?.filter((page) => page.body.trim()).length ?? 0
+  const unwritten = Math.max(0, TOTAL_SECTIONS - written)
 
   const stats = [
     {
@@ -82,8 +88,8 @@ export default function AdminDashboardPage() {
       href: '/admin/content',
     },
     {
-      label: isEnglish ? 'Sections to translate' : 'Secciones por traducir',
-      value: pages === null ? null : String(untranslated),
+      label: isEnglish ? 'Sections still empty' : 'Secciones sin escribir',
+      value: pages === null ? null : String(unwritten),
       icon: Languages,
       href: '/admin/content',
     },

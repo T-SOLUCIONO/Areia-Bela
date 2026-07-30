@@ -22,7 +22,13 @@ cp apps/web/.env.example apps/web/.env
 | `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
 | `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
 | `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
-| `ANTHROPIC_API_KEY`     | en producción   | Traduce el contenido del sitio a inglés, portugués, francés y alemán cuando el anfitrión guarda. Sin ella nada se rompe: el sitio muestra el idioma en que se escribió, y el panel lo avisa con un aviso visible.                         |
+| `DEEPL_API_KEY`         | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
+| `TRANSLATION_PROVIDER`  | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
+| `LIBRETRANSLATE_URL`    | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
+| `ANTHROPIC_API_KEY`     | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
+| `TWILIO_ACCOUNT_SID`    | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
+| `TWILIO_AUTH_TOKEN`     | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
+| `TWILIO_WHATSAPP_FROM`  | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
 ### Almacenamiento de imágenes (Vercel Blob)
 
@@ -84,6 +90,33 @@ Dos reglas que evitan fallos silenciosos:
   vez de mostrar la traducción de un texto que ya no existe.
 - Una traducción que una persona editó (`isMachine: false`) no se vuelve a
   sobrescribir.
+
+### Avisos por WhatsApp (opcional)
+
+Los avisos de reserva, cancelación y mensajes salen **siempre por correo** con
+la misma cuenta de Brevo. WhatsApp es un canal añadido y necesita tres
+variables; sin ellas, el panel lo dice y todo sigue llegando por correo.
+
+| Variable               | Propósito                            |
+| ---------------------- | ------------------------------------ |
+| `TWILIO_ACCOUNT_SID`   | Cuenta de Twilio                     |
+| `TWILIO_AUTH_TOKEN`    | Su token                             |
+| `TWILIO_WHATSAPP_FROM` | El número emisor, con código de país |
+
+Se eligió Twilio y no la API de Meta directamente porque Meta exige una cuenta
+de empresa verificada y una plantilla aprobada por cada tipo de mensaje que
+inicie el negocio, y eso son días de trámite. Con el _sandbox_ de Twilio se
+envía hoy mismo. Cambiar de proveedor es reemplazar una clase en
+`apps/api/src/notifications/notification-channels.ts`.
+
+**La regla de las 24 horas** aplica con cualquier proveedor: fuera de una
+ventana que abra el destinatario, solo entrega una plantilla aprobada. Para el
+número de la anfitriona se resuelve respondiendo una vez al sandbox. Por eso
+nada de esto escribe a un huésped: eso sí necesitaría plantillas.
+
+**A dónde llegan** se edita en Ajustes → Contacto y SEO. Son campos aparte de
+los públicos: la dirección a la que escribe un huésped rara vez es a la que la
+anfitriona quiere que la despierten. Si se dejan vacíos, se usan los públicos.
 
 ### Correo (Brevo)
 

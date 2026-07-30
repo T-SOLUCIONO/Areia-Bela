@@ -8,6 +8,7 @@ import { PropertiesModule } from './properties/properties.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { CmsModule } from './cms/cms.module'
+import { NotificationsModule } from './notifications/notifications.module'
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CmsModule } from './cms/cms.module'
     AuthModule,
     UsersModule,
     CmsModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

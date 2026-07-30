@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react'
 import Image from 'next/image'
-import { Mail, MessageCircle, Phone, Send, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Loader2, Mail, MessageCircle, Phone, Send } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
@@ -10,6 +10,7 @@ import { Textarea } from '@areia-bela/ui/textarea'
 import { propertyData } from '@/lib/property-data'
 import { RESPONSE_TIME_CLAUSE } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
+import { API_URL } from '@/lib/api-client'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
 import { translations } from '@/lib/i18n'
 
@@ -22,13 +23,44 @@ const contact = {
 
 export function ContactSection() {
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [failed, setFailed] = useState(false)
   const { language } = useLanguage()
   const copy = translations[language].contact
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  /**
+   * Sends the message.
+   *
+   * This used to set "sent" and clear the form without contacting anyone: a
+   * guest was told their message had arrived when nothing had been sent and
+   * nobody had been told. It now only says so once the API accepted it.
+   */
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSent(true)
-    event.currentTarget.reset()
+    const form = event.currentTarget
+    const data = new FormData(form)
+
+    setSending(true)
+    setFailed(false)
+    try {
+      const response = await fetch(`${API_URL}/notifications/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(data.get('name') ?? ''),
+          email: String(data.get('email') ?? ''),
+          message: String(data.get('message') ?? ''),
+        }),
+      })
+      if (!response.ok) throw new Error(String(response.status))
+
+      setSent(true)
+      form.reset()
+    } catch {
+      setFailed(true)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -117,12 +149,13 @@ export function ContactSection() {
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="contact-name">{copy.name}</Label>
                 <Input
                   id="contact-name"
+                  name="name"
                   required
                   type="text"
                   placeholder={copy.namePlaceholder}
@@ -133,6 +166,7 @@ export function ContactSection() {
                 <Label htmlFor="contact-email">Email</Label>
                 <Input
                   id="contact-email"
+                  name="email"
                   required
                   type="email"
                   placeholder={copy.emailPlaceholder}
@@ -144,15 +178,32 @@ export function ContactSection() {
               <Label htmlFor="contact-message">{copy.message}</Label>
               <Textarea
                 id="contact-message"
+                name="message"
                 required
                 rows={4}
                 placeholder={copy.messagePlaceholder}
                 className="resize-none rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
               />
             </div>
-            <Button type="submit" variant="brand" size="lg" className="w-full font-semibold">
-              <Send className="h-4 w-4" />
-              {copy.send}
+            {failed && (
+              <p className="rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700">
+                {copy.sendFailed}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              variant="brand"
+              size="lg"
+              disabled={sending}
+              className="w-full font-semibold"
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {sending ? copy.sending : copy.send}
             </Button>
           </form>
         )}

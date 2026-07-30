@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
+import { Switch } from '@areia-bela/ui/switch'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { Skeleton } from '@areia-bela/ui/skeleton'
@@ -23,6 +24,11 @@ const BLANK: Settings = {
   facebookUrl: null,
   airbnbUrl: null,
   logoUrl: null,
+  notifyEmail: '',
+  notifyWhatsapp: '',
+  notifyOnBooking: true,
+  notifyOnCancel: true,
+  notifyOnMessage: true,
 }
 
 export function SiteSettings() {
@@ -30,6 +36,11 @@ export function SiteSettings() {
   const [stored, setStored] = useState<Settings | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [status, setStatus] = useState<{
+    email: boolean
+    whatsapp: boolean
+    whatsappConfigured: boolean
+  } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +56,9 @@ export function SiteSettings() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
+    // Says whether each channel can actually reach anyone, so an address typed
+    // here isn't mistaken for a working alert.
+    cms.notificationStatus().then(setStatus, () => setStatus(null))
   }, [load])
 
   if (!draft || !stored) {
@@ -133,6 +147,57 @@ export function SiteSettings() {
               {draft.seoDescription.length} / 155
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="font-serif text-base">{t.site.notifyTitle}</h3>
+          <p className="text-sm text-muted-foreground">{t.site.notifySubtitle}</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="notifyEmail">{t.site.notifyEmail}</Label>
+            <Input
+              id="notifyEmail"
+              type="email"
+              placeholder={draft.contactEmail}
+              value={draft.notifyEmail}
+              onChange={(e) => edit({ notifyEmail: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              {status?.email ? t.site.notifyEmailOn : t.site.notifyEmailOff}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="notifyWhatsapp">{t.site.notifyWhatsapp}</Label>
+            <Input
+              id="notifyWhatsapp"
+              inputMode="numeric"
+              placeholder={draft.whatsapp}
+              value={draft.notifyWhatsapp}
+              onChange={(e) => edit({ notifyWhatsapp: e.target.value.replace(/\D/g, '') })}
+            />
+            <p className="text-xs text-muted-foreground">
+              {status?.whatsappConfigured ? t.site.notifyWhatsappOn : t.site.notifyWhatsappOff}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-xl border bg-muted/30 p-4">
+          {(
+            [
+              ['notifyOnBooking', t.site.notifyOnBooking],
+              ['notifyOnCancel', t.site.notifyOnCancel],
+              ['notifyOnMessage', t.site.notifyOnMessage],
+            ] as const
+          ).map(([key, label]) => (
+            <Label key={key} className="flex items-center gap-2 text-sm font-normal">
+              <Switch checked={draft[key]} onCheckedChange={(on) => edit({ [key]: on })} />
+              {label}
+            </Label>
+          ))}
         </div>
       </section>
 

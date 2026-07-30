@@ -64,6 +64,14 @@ export class UpdateSiteSettingsDto {
   @IsOptional() @IsUrl() airbnbUrl?: string
   // Not @IsUrl: the dev storage fallback returns a relative "/uploads/…" path.
   @IsOptional() @IsString() logoUrl?: string | null
+
+  // Where the host is told about bookings. Empty falls back to the public
+  // fields above, so one address does not have to be typed twice.
+  @IsOptional() @IsString() notifyEmail?: string
+  @IsOptional() @IsString() notifyWhatsapp?: string
+  @IsOptional() @IsBoolean() notifyOnBooking?: boolean
+  @IsOptional() @IsBoolean() notifyOnCancel?: boolean
+  @IsOptional() @IsBoolean() notifyOnMessage?: boolean
 }
 
 // --- Landing page content ----------------------------------------------------

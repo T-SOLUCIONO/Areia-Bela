@@ -54,6 +54,11 @@ export interface SiteSettings {
   facebookUrl: string | null
   airbnbUrl: string | null
   logoUrl: string | null
+  notifyEmail: string
+  notifyWhatsapp: string
+  notifyOnBooking: boolean
+  notifyOnCancel: boolean
+  notifyOnMessage: boolean
 }
 
 export interface Extra {
@@ -130,11 +135,6 @@ export type PropertyUpdate = Partial<
 /** Same Decimal-to-number conversion as PropertyUpdate, for the extra's price. */
 export type ExtraUpdate = Partial<Omit<Extra, 'id' | 'key' | 'price'> & { price: number }>
 
-/** True when a page still carries the same text in both languages. */
-export function needsTranslation(page: CMSPage): boolean {
-  return page.body.trim() === page.body.trim()
-}
-
 export const cms = {
   pages: () => apiFetch<CMSPage[]>('/cms/admin/pages'),
   savePage: (slug: CMSPageSlug, body: Partial<CMSPage>) =>
@@ -158,6 +158,12 @@ export const cms = {
       method: 'PATCH',
       body: JSON.stringify({ ids }),
     }),
+
+  /** Which channels can actually reach the host right now. */
+  notificationStatus: () =>
+    apiFetch<{ email: boolean; whatsapp: boolean; whatsappConfigured: boolean }>(
+      '/notifications/status',
+    ),
 
   settings: () => apiFetch<SiteSettings | null>('/cms/settings'),
   saveSettings: (body: SiteSettings) =>

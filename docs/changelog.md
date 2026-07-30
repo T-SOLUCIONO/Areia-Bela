@@ -1443,3 +1443,104 @@ pnpm typecheck ✅   pnpm test      ✅ (143 tests, 5 nuevos)
 son la portada, pero es un hueco real del flujo: un huésped francés reserva y
 el checkout le sale en español. Son 67 cadenas × 3 idiomas nuevos; se declara
 aquí en vez de dejarlo pasar en silencio.
+
+---
+
+## 28. Avisos de reservas, mensajes y cancelaciones
+
+Pedido: que las reservas, los mensajes y las cancelaciones lleguen a Angélica
+por correo o WhatsApp, y que ella pueda cambiar el destino desde el panel.
+
+### El formulario de contacto no enviaba nada
+
+Antes de construir los avisos hubo que arreglar lo que ya existía. El
+`handleSubmit` de `ContactSection` era esto, completo:
+
+```ts
+event.preventDefault()
+setSent(true)
+event.currentTarget.reset()
+```
+
+Un huésped escribía, veía "Mensaje enviado" en verde, y no había ninguna
+petición: nadie recibía nada. Los `<input>` tampoco tenían atributo `name`, así
+que aunque se hubiera enviado, el `FormData` habría ido vacío.
+
+Ahora `POST /notifications/contact` y el verde solo aparece si el API aceptó.
+Si falla, se dice.
+
+### Cómo salen
+
+Dos canales detrás de una interfaz, como ya se hizo con los traductores:
+
+| Canal    | Proveedor                                | Requiere                                                          |
+| -------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| Correo   | Brevo (el mismo del reset de contraseña) | Nada nuevo                                                        |
+| WhatsApp | Twilio                                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` |
+
+**El correo siempre funciona.** WhatsApp es un añadido: sin las variables de
+Twilio no se rompe nada y el panel dice, en su propia sección, qué canal está
+activo — no se deduce de la configuración del despliegue.
+
+Se eligió Twilio y no la API de Meta porque Meta exige empresa verificada y una
+plantilla aprobada por cada mensaje que inicie el negocio. Cambiar de proveedor
+es reemplazar una clase en `notification-channels.ts`.
+
+### Tres decisiones que no son obvias
+
+**Un canal caído no tumba una reserva.** `deliver()` envía a todos los destinos
+en paralelo, atrapa cada fallo por separado y lo registra. Si Brevo está caído,
+el huésped ya pagó y las fechas ya están tomadas: devolver un error por un aviso
+que rebotó desharía algo que sí salió bien.
+
+**El destino de los avisos es un campo aparte del público.** `notifyEmail` y
+`notifyWhatsapp` no son `contactEmail` ni `whatsapp`: la dirección a la que
+escribe un huésped rara vez es a la que la anfitriona quiere que la despierten a
+las 3 de la mañana. Si se dejan vacíos, se usan los públicos.
+
+**Nada de esto escribe a un huésped.** Fuera de una ventana de 24 h que abra el
+destinatario, WhatsApp solo entrega plantillas aprobadas. Para el número de la
+anfitriona eso se resuelve respondiendo una vez; para huéspedes desconocidos
+haría falta un catálogo de plantillas, y no se va a fingir que existe.
+
+### En el panel
+
+Ajustes → Contacto y SEO: a dónde llegan los avisos, tres interruptores
+(reserva, cancelación, mensaje) y el estado real de cada canal.
+
+### Limpieza
+
+`needsTranslation()` comparaba `page.body.trim() === page.body.trim()` — un
+campo consigo mismo — desde que las dos columnas de idioma se fundieron en una.
+Siempre devolvía `true`, y el panel decía "12 secciones por traducir" pasara lo
+que pasara. La tarjeta ahora cuenta secciones **sin escribir**, que es un número
+sobre el que se puede actuar.
+
+`docs/env.md` seguía anunciando `ANTHROPIC_API_KEY` como la variable de
+traducción cuando DeepL ya era el proveedor recomendado (§23).
+
+### Verificación
+
+Contra el API real, no simulado:
+
+```
+mensaje del formulario   → HTTP 204 + "Sent ... over Email" en el log
+validación               → HTTP 400, 3 errores de campo
+límite 3 / 10 min        → 204, luego 429
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (188 tests, 13 nuevos)
+```
+
+El endpoint es público y **siempre responde 204**, exista o no la
+configuración: un formulario de contacto que distingue casos es un sondeador de
+configuración. El límite es por IP, 3 cada 10 minutos.
+
+### Diferido
+
+- **Los avisos van solo en español.** Los recibe la anfitriona, no el huésped.
+- **Sin reintentos ni cola.** Un fallo se registra y se pierde. Con el volumen
+  de una casa, una cola sería infraestructura por adelantado; queda anotado.
+- **El huésped no recibe confirmación por WhatsApp** — ver la regla de 24 h.
