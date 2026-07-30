@@ -2,96 +2,160 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { addDays, isWithinInterval, startOfDay } from 'date-fns'
-import { CalendarDays, DollarSign, Images, Languages, LineChart } from 'lucide-react'
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isBefore,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+} from 'date-fns'
+import { enUS, es as esLocale } from 'date-fns/locale'
+import {
+  ArrowRight,
+  CalendarDays,
+  Clock,
+  DollarSign,
+  PawPrint,
+  TrendingUp,
+  UserCheck,
+  Users,
+} from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@areia-bela/ui/empty'
 import { Skeleton } from '@areia-bela/ui/skeleton'
+import { apiFetch } from '@/lib/api-client'
 import { getBlockedDateRanges } from '@/lib/booking'
-import { cms, type CMSPage, type PropertySettings } from '@/lib/cms-client'
 import { HouseTimeline } from '@/components/admin/house-timeline'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { fill } from '@/lib/admin-i18n'
 
 const HORIZON_DAYS = 30
 
-/** The twelve CMSPage slugs the guest site can render. */
-const TOTAL_SECTIONS = 12
+interface Reservation {
+  id: string
+  reference: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  guests: number
+  pets: number
+  total: number
+  status: string
+  expiresAt: string | null
+  guestName: string
+}
 
 /**
- * Every figure on this page comes from the database. The revenue and occupancy
- * charts that used to live here plotted invented series: there is no Booking
- * data yet, so they are replaced by a stated gap rather than a plausible one.
- * They come back in Fase 6, against real bookings.
+ * What the host needs on opening the panel, in the order she needs it: who is
+ * arriving, how full the month is, what has been paid.
+ *
+ * Every figure comes from real bookings. The revenue and occupancy charts that
+ * used to sit here plotted invented series and were replaced by a stated gap
+ * until there was something true to show; this is that gap filled in.
  */
 export default function AdminDashboardPage() {
-  const { language } = useAdminLanguage()
-  const isEnglish = language === 'en'
+  const { language, t } = useAdminLanguage()
+  const copy = t.dashboard
+  const locale = language === 'en' ? enUS : esLocale
 
-  const [property, setProperty] = useState<PropertySettings | null>(null)
-  const [pages, setPages] = useState<CMSPage[] | null>(null)
-  const [photoCount, setPhotoCount] = useState<number | null>(null)
-  const [freeNights, setFreeNights] = useState<number | null>(null)
+  const [bookings, setBookings] = useState<Reservation[] | null>(null)
+  const [blockedNights, setBlockedNights] = useState<number | null>(null)
 
   useEffect(() => {
-    const today = startOfDay(new Date())
-    const horizon = Array.from({ length: HORIZON_DAYS }, (_, i) => addDays(today, i))
+    // Two independent reads; a failure in one should not blank the other.
+    void apiFetch<Reservation[]>('/bookings').then(setBookings, () => setBookings([]))
 
-    // Four independent reads; a failure in one shouldn't blank the others, so
-    // each tile falls back to its own dash.
-    void cms.property().then(setProperty, () => setProperty(null))
-    void cms.pages().then(setPages, () => setPages([]))
-    void cms.gallery().then(
-      (images) => setPhotoCount(images.filter((i) => i.published).length),
-      () => setPhotoCount(null),
-    )
+    const start = startOfDay(new Date())
+    const horizon = Array.from({ length: HORIZON_DAYS }, (_, i) => addDays(start, i))
     void getBlockedDateRanges().then(
       (ranges) =>
-        setFreeNights(
-          horizon.filter(
-            (day) =>
-              !ranges.some((r) =>
-                isWithinInterval(day, { start: startOfDay(r.from), end: startOfDay(r.to) }),
-              ),
+        setBlockedNights(
+          horizon.filter((day) =>
+            ranges.some((r) =>
+              isWithinInterval(day, { start: startOfDay(r.from), end: startOfDay(r.to) }),
+            ),
           ).length,
         ),
-      () => setFreeNights(null),
+      () => setBlockedNights(null),
     )
   }, [])
 
-  const baseRate = property?.priceRules.find((rule) => rule.type === 'LOW' && rule.active)
-  // Sections with nothing written yet: the tile that used to count
-  // untranslated ones lost its meaning when the site moved to one source
-  // language, and this is the number a host can actually act on.
-  const written = pages?.filter((page) => page.body.trim()).length ?? 0
-  const unwritten = Math.max(0, TOTAL_SECTIONS - written)
+  const today = startOfDay(new Date())
+  const horizonEnd = addDays(today, HORIZON_DAYS)
+
+  const live = (bookings ?? []).filter((b) => b.status !== 'CANCELLED')
+  const paid = live.filter((b) => b.status !== 'PENDING')
+
+  const upcoming = paid
+    .filter((b) => !isBefore(parseISO(b.checkOut), today))
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+
+  const next = upcoming[0]
+  const daysToNext = next ? differenceInCalendarDays(parseISO(next.checkIn), today) : null
+
+  // Nights of the coming month that already belong to someone. Counted per
+  // night rather than per booking: one that straddles the edge only occupies
+  // the part inside the window.
+  const bookedNights = paid.reduce((count, booking) => {
+    const from = parseISO(booking.checkIn)
+    const to = parseISO(booking.checkOut)
+    let nights = 0
+    for (let day = from; isBefore(day, to); day = addDays(day, 1)) {
+      if (!isBefore(day, today) && isBefore(day, horizonEnd)) nights += 1
+    }
+    return count + nights
+  }, 0)
+
+  const revenueAhead = paid
+    .filter((b) => {
+      const checkIn = parseISO(b.checkIn)
+      return !isBefore(checkIn, today) && isBefore(checkIn, horizonEnd)
+    })
+    .reduce((sum, b) => sum + b.total, 0)
+
+  const collected = paid
+    .filter((b) => isBefore(parseISO(b.checkIn), today))
+    .reduce((sum, b) => sum + b.total, 0)
+
+  // Holds in flight: money that is not hers yet, and the one number here that
+  // can change in the next twenty minutes.
+  const holds = live.filter(
+    (b) => b.status === 'PENDING' && b.expiresAt && new Date(b.expiresAt) > new Date(),
+  )
+
+  const loading = bookings === null
 
   const stats = [
     {
-      label: isEnglish
-        ? `Nights free, next ${HORIZON_DAYS}`
-        : `Noches libres, próximas ${HORIZON_DAYS}`,
-      value: freeNights === null ? null : String(freeNights),
+      label: copy.occupancy,
+      value: String(bookedNights),
+      hint: fill(copy.ofNights, { total: String(HORIZON_DAYS) }),
       icon: CalendarDays,
       href: '/admin/calendar',
     },
     {
-      label: isEnglish ? 'Base rate' : 'Tarifa base',
-      value: baseRate ? `$${Number(baseRate.nightlyRate).toFixed(0)}` : null,
+      label: copy.confirmedRevenue,
+      value: `$${revenueAhead.toLocaleString()}`,
+      hint: undefined,
+      icon: TrendingUp,
+      href: '/admin/reservations',
+    },
+    {
+      label: copy.thisYear,
+      value: `$${collected.toLocaleString()}`,
+      hint: undefined,
       icon: DollarSign,
-      href: '/admin/pricing',
+      href: '/admin/reservations',
     },
     {
-      label: isEnglish ? 'Photos on the site' : 'Fotos en el sitio',
-      value: photoCount === null ? null : String(photoCount),
-      icon: Images,
-      href: '/admin/content',
-    },
-    {
-      label: isEnglish ? 'Sections still empty' : 'Secciones sin escribir',
-      value: pages === null ? null : String(unwritten),
-      icon: Languages,
-      href: '/admin/content',
+      label: copy.awaitingPayment,
+      value: holds.length ? String(holds.length) : '—',
+      hint: holds.length ? undefined : copy.awaitingNone,
+      icon: Clock,
+      href: '/admin/reservations',
     },
   ]
 
@@ -100,6 +164,63 @@ export default function AdminDashboardPage() {
       {/* Leads with the one thing this business has that a hotel doesn't: a
           single unit, so time is the axis. */}
       <HouseTimeline />
+
+      {/* The next arrival gets a card to itself. It is the question the host
+          opens this page to answer, and a tile among four buries it. */}
+      <Card>
+        <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary">
+              <UserCheck className="h-6 w-6 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {copy.nextArrival}
+              </p>
+              {loading ? (
+                <Skeleton className="mt-2 h-8 w-56" />
+              ) : next ? (
+                <>
+                  <p className="font-serif text-2xl text-foreground">{next.guestName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {format(parseISO(next.checkIn), 'EEEE d MMMM', { locale })} ·{' '}
+                    {fill(copy.staying, {
+                      nights: String(next.nights),
+                      guests: String(next.guests),
+                    })}
+                    {next.pets > 0 && (
+                      <span className="ml-2 inline-flex items-center gap-1">
+                        <PawPrint className="h-3.5 w-3.5" />
+                        {next.pets}
+                      </span>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-serif text-2xl text-foreground">{copy.nobodyBooked}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{copy.nobodyBookedLead}</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {!loading && next && daysToNext !== null && (
+            <div className="shrink-0 rounded-[20px] bg-[#f7f2ea] px-6 py-4 text-center">
+              <p className="font-serif text-3xl tabular-nums text-[#173a57]">
+                {daysToNext === 0 ? '·' : daysToNext}
+              </p>
+              <p className="mt-0.5 text-xs text-[#174d7a]/80">
+                {daysToNext === 0
+                  ? copy.arrivesToday
+                  : daysToNext === 1
+                    ? copy.arrivesTomorrow
+                    : fill(copy.arrivesIn, { count: String(daysToNext) })}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
@@ -113,10 +234,13 @@ export default function AdminDashboardPage() {
                   <p className="truncate text-sm text-muted-foreground">{stat.label}</p>
                   {/* Serif for the figure: it is the one number per tile that
                       matters, and it ties the panel to the brand's display face. */}
-                  {stat.value === null ? (
+                  {loading ? (
                     <Skeleton className="mt-1 h-8 w-16" />
                   ) : (
                     <p className="font-serif text-2xl tabular-nums text-foreground">{stat.value}</p>
+                  )}
+                  {stat.hint && !loading && (
+                    <p className="text-xs text-muted-foreground">{stat.hint}</p>
                   )}
                 </div>
               </CardContent>
@@ -125,34 +249,91 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+      {/* Only shown when there is something to do about it. An empty "needs
+          attention" panel trains people to stop reading it. */}
+      {!loading && (holds.length > 0 || (blockedNights ?? 0) > 0) && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-serif text-base text-amber-900">
+              {copy.needsAttention}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-amber-900/90">
+            {holds.map((hold) => (
+              <p key={hold.id}>
+                {fill(copy.holdExpiring, {
+                  name: hold.guestName,
+                  dates: `${format(parseISO(hold.checkIn), 'd MMM', { locale })} – ${format(
+                    parseISO(hold.checkOut),
+                    'd MMM',
+                    { locale },
+                  )}`,
+                  time: hold.expiresAt ? format(parseISO(hold.expiresAt), 'HH:mm') : '',
+                })}
+              </p>
+            ))}
+            {(blockedNights ?? 0) > 0 && (
+              <p>{fill(copy.blockedAhead, { count: String(blockedNights) })}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle className="font-serif text-lg">
-            {isEnglish ? 'Revenue and occupancy' : 'Ingresos y ocupación'}
-          </CardTitle>
-          <CardDescription>
-            {isEnglish
-              ? 'Measured from real bookings, once there are any to measure'
-              : 'Se calculan con reservas reales, en cuanto haya alguna'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Empty>
-            <EmptyMedia variant="icon">
-              <LineChart aria-hidden />
-            </EmptyMedia>
-            <EmptyTitle>{isEnglish ? 'No bookings yet' : 'Todavía no hay reservas'}</EmptyTitle>
-            <EmptyDescription>
-              {isEnglish
-                ? 'Bookings are not stored yet, so there is nothing to chart. These figures arrive with the booking system, and they will be real when they do.'
-                : 'Todavía no se guardan reservas, así que no hay nada que graficar. Estas cifras llegan con el sistema de reservas, y cuando lleguen serán reales.'}
-            </EmptyDescription>
-            <Button asChild variant="outline" className="mt-4">
-              <Link href="/admin/calendar">
-                {isEnglish ? 'See availability' : 'Ver disponibilidad'}
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="font-serif text-lg">{copy.upcomingTitle}</CardTitle>
+            <CardDescription>{copy.upcomingLead}</CardDescription>
+          </div>
+          {upcoming.length > 0 && (
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/admin/reservations">
+                {copy.viewAll}
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-          </Empty>
+          )}
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-14" />
+              ))}
+            </div>
+          ) : upcoming.length === 0 ? (
+            <Empty>
+              <EmptyMedia variant="icon">
+                <Users aria-hidden />
+              </EmptyMedia>
+              <EmptyTitle>{copy.noUpcoming}</EmptyTitle>
+              <EmptyDescription>{copy.noUpcomingLead}</EmptyDescription>
+              <Button asChild variant="outline" className="mt-4">
+                <Link href="/admin/calendar">{t.calendar.blockDates}</Link>
+              </Button>
+            </Empty>
+          ) : (
+            <ul className="divide-y divide-border">
+              {upcoming.slice(0, 5).map((booking) => (
+                <li key={booking.id} className="flex items-center justify-between gap-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">{booking.guestName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(parseISO(booking.checkIn), 'd MMM', { locale })} –{' '}
+                      {format(parseISO(booking.checkOut), 'd MMM', { locale })} ·{' '}
+                      {fill(copy.staying, {
+                        nights: String(booking.nights),
+                        guests: String(booking.guests),
+                      })}
+                    </p>
+                  </div>
+                  <p className="shrink-0 font-serif text-lg tabular-nums text-foreground">
+                    ${booking.total.toLocaleString()}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

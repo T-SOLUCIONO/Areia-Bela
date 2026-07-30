@@ -45,6 +45,10 @@ export function AvailabilityCard({ className }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
   const [rates, setRates] = useState<Map<string, number>>(new Map())
+  // Nights already taken, by a booking or by the host. The endpoint has always
+  // returned this; the card used to keep only the price and throw it away, so
+  // a guest could pick a week that was sold and only find out at checkout.
+  const [unavailable, setUnavailable] = useState<Set<string>>(new Set())
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
 
   useEffect(() => {
@@ -56,6 +60,7 @@ export function AvailabilityCard({ className }: Props) {
     const to = format(addDays(today, 365), 'yyyy-MM-dd')
     fetchNightRates(from, to).then((nights) => {
       setRates(new Map(nights.map((night) => [night.date, night.rate])))
+      setUnavailable(new Set(nights.filter((night) => !night.available).map((n) => n.date)))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -251,9 +256,18 @@ export function AvailabilityCard({ className }: Props) {
               setCheckIn(range?.from)
               setCheckOut(range?.to)
             }}
-            disabled={[{ before: today }, ...blockedRanges]}
+            disabled={[
+              { before: today },
+              ...blockedRanges,
+              // Booked nights. Blocked ranges come from a different endpoint
+              // and cover only what the host closed by hand.
+              (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd')),
+            ]}
             modifiers={{
-              blocked: blockedRanges,
+              blocked: [
+                ...blockedRanges,
+                (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd')),
+              ],
               previewRange:
                 checkIn && !checkOut && hoverDate && hoverDate > checkIn
                   ? { from: checkIn, to: hoverDate }
@@ -268,13 +282,16 @@ export function AvailabilityCard({ className }: Props) {
             className="w-full [--cell-size:3rem]"
             components={{
               DayButton: (dayProps) => {
-                const rate = rates.get(format(dayProps.day.date, 'yyyy-MM-dd'))
+                const iso = format(dayProps.day.date, 'yyyy-MM-dd')
+                const rate = rates.get(iso)
+                const taken = unavailable.has(iso)
                 return (
                   <CalendarDayButton {...dayProps}>
                     {dayProps.day.date.getDate()}
                     {/* Shown so a guest sees the weekend costs more before
-                        picking it, not after. */}
-                    {rate !== undefined && <span>${rate}</span>}
+                        picking it, not after. A night that cannot be booked
+                        has no price worth quoting. */}
+                    {rate !== undefined && !taken && <span>${rate}</span>}
                   </CalendarDayButton>
                 )
               },
@@ -358,7 +375,7 @@ export function AvailabilityCard({ className }: Props) {
                       <button
                         type="button"
                         onClick={() => setServiceAnimalOpen(true)}
-                        className="mt-1 text-left text-[15px] leading-tight text-slate-700 underline underline-offset-2 hover:text-slate-900"
+                        className="cursor-pointer mt-1 text-left text-[15px] leading-tight text-slate-700 underline underline-offset-2 hover:text-slate-900"
                       >
                         {item.hint}
                       </button>

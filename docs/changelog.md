@@ -1891,3 +1891,87 @@ pnpm typecheck ✅   pnpm test ✅ (216 tests, 8 nuevos)
   meses hay que navegar entre ellos con la selección a medias, y funciona, pero
   es incómodo. Dos meses lado a lado como en el cotizador sería mejor.
 - **No se puede editar el motivo de un bloqueo** sin liberarlo y rehacerlo.
+
+---
+
+## 33. El calendario ofrecía fechas vendidas
+
+Un 409 al reservar, con las fechas de una reserva confirmada. La respuesta era
+correcta — esa semana ya estaba pagada — pero el huésped **nunca debió poder
+elegirla**.
+
+### La causa
+
+```tsx
+disabled={[{ before: today }, ...blockedRanges]}
+```
+
+Solo los bloqueos del anfitrión. Las reservas no aparecían, así que una semana
+vendida se veía igual que una libre y el 409 llegaba al final del formulario,
+después de escribir nombre, correo y teléfono.
+
+Peor: el componente **ya pedía la disponibilidad**. `GET /rates` devuelve
+`available` por noche desde siempre; la tarjeta se quedaba con el precio y
+tiraba ese campo:
+
+```ts
+setRates(new Map(nights.map((night) => [night.date, night.rate])))
+```
+
+Ahora conserva las dos cosas. Una noche tomada aparece tachada, no se puede
+seleccionar, y no muestra precio — cotizar algo que no está a la venta no
+ayuda a nadie. El 409 sigue ahí como última línea, que es donde debe estar.
+
+### Huéspedes
+
+La pantalla llevaba un cartel de "aparecerán aquí cuando haya reservas". Ya las
+hay, así que se construyó: `GET /customers`, con estadías, noches, lo gastado y
+la próxima llegada de cada uno. Quien repite lleva una marca — es la reserva
+más barata que esta casa va a conseguir.
+
+**Una fila de `Customer` no es un huésped.** Se escribe en cuanto alguien
+empieza un checkout, así que un carrito abandonado deja una detrás. La lista
+excluye a quien no tenga ninguna reserva que sobreviviera; una lista inflada
+con gente que nunca vino es una lista que nadie mira. Y solo suma dinero con
+`paidAt`: un hold en vuelo no es ingreso.
+
+### El panel
+
+Las cuatro cifras eran noches libres, tarifa base, fotos y secciones sin
+escribir. Tres de las cuatro son de mantenimiento del sitio, no de llevar una
+casa.
+
+Ahora, en el orden en que hacen falta:
+
+- **La próxima llegada**, en su propia tarjeta con quién, cuándo, cuántas
+  noches y cuántos días faltan. Es la pregunta por la que se abre el panel;
+  como una casilla entre cuatro quedaba enterrada.
+- Noches reservadas de las próximas 30, confirmado de los próximos 30 días,
+  cobrado hasta hoy, y cuántos están pagando **ahora mismo** — el único número
+  aquí que puede cambiar en veinte minutos.
+- Un aviso de "para mirar" con los holds en vuelo y las noches bloqueadas, que
+  **solo aparece cuando hay algo que hacer**. Un panel de alertas siempre
+  visible y siempre vacío enseña a no leerlo.
+- La lista de próximas llegadas, en lugar de la tarjeta que decía "no hay
+  reservas todavía" y ya no era verdad.
+
+### Verificación
+
+```
+rates 30 jul – 4 ago      → 31 jul, 1 y 2 ago no seleccionables, sin precio
+GET /customers            → Erick Giraldo · 1 estadía · 3 noches · $1245
+un Customer sin reservas  → no aparece en la lista
+cifras del panel          → próxima llegada en 1 día · 3/30 noches · $1245
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (220 tests, 4 nuevos)
+```
+
+### Diferido
+
+- **Las notas por huésped no se pueden editar.** El campo `notes` existe en
+  `Customer` y se muestra, pero no hay dónde escribirlo.
+- **El panel calcula en el navegador** a partir de `/bookings`. Con una casa es
+  trivial; con años de historial convendría un endpoint que agregue.
