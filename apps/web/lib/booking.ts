@@ -39,6 +39,15 @@ export type BookingQuote = {
   serviceFee: number
   taxes: number
   total: number
+  /**
+   * Set when the stay is priced but not bookable because of its length. The
+   * quote still carries a total — the guest needs to see what a valid stay
+   * costs, not an error where the price should be.
+   */
+  stayLength?:
+    | { kind: 'tooShort'; minNights: number; nights: number }
+    | { kind: 'tooLong'; maxNights: number; nights: number }
+    | null
 }
 
 export const getNights = (checkIn: string, checkOut: string) =>
@@ -179,6 +188,34 @@ export async function fetchNightRates(from: string, to: string): Promise<NightRa
     return (await response.json()) as NightRate[]
   } catch {
     return []
+  }
+}
+
+/**
+ * How short and how long a stay may be.
+ *
+ * Read so the calendar can refuse a too-short range before the guest fills in
+ * a form. The server validates it again on the way to payment — this is a
+ * convenience, not the rule.
+ */
+export async function fetchStayLimits(): Promise<{ minNights: number; maxNights: number }> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const fallback = { minNights: 1, maxNights: 365 }
+  if (!apiUrl) return fallback
+
+  try {
+    const response = await fetch(`${apiUrl}/properties/${PROPERTY_SLUG}`, { cache: 'no-store' })
+    if (!response.ok) return fallback
+
+    const property = (await response.json()) as { minNights?: number; maxNights?: number }
+    return {
+      minNights: property.minNights ?? fallback.minNights,
+      maxNights: property.maxNights ?? fallback.maxNights,
+    }
+  } catch {
+    // Fail-soft, like the rest of this file: the calendar still works, and the
+    // server refuses anything it should not accept.
+    return fallback
   }
 }
 

@@ -23,6 +23,10 @@ model Property {
   // a commercial lever the host pulls, not a constant of the house.
   weeklyDiscountPercent      Decimal  @default(10) @db.Decimal(5, 2)
   weeklyDiscountNights       Int      @default(7)
+  // Commercial levers, like the discount above: the real listing allows a
+  // single night and up to a year, but the host changes these by season.
+  minNights                  Int      @default(1)
+  maxNights                  Int      @default(365)
   serviceFeePercent          Decimal  @db.Decimal(5, 2)
   taxesPercent               Decimal  @db.Decimal(5, 2)
   bedrooms                   Int

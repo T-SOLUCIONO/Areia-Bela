@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   MinLength,
 } from 'class-validator'
@@ -25,6 +26,13 @@ export class UpdatePropertyDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) maxGuests?: number
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) bedrooms?: number
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) bathrooms?: number
+
+  // How long a stay may be, and when it starts earning the long-stay discount.
+  // Commercial levers the host pulls, not constants of the house.
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) minNights?: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) maxNights?: number
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) weeklyDiscountPercent?: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(2) weeklyDiscountNights?: number
 
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) additionalGuestFeePerNight?: number
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) cleaningFee?: number

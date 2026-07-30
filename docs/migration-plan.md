@@ -67,15 +67,19 @@ Fase 6.
 
 ## Fase 6 — Sistema de reservas
 
-- Calendario tipo Airbnb (2 meses, hover range, fechas bloqueadas desde API) para **una sola propiedad**.
-- Validación de conflictos, mínimo de noches, temporada de piscina climatizada.
-- Flujo completo: quote → hold → pay → confirm.
+- Calendario tipo Airbnb (2 meses, hover range, fechas bloqueadas desde API) para **una sola propiedad**. ✅
+- Validación de conflictos, mínimo de noches, temporada de piscina climatizada. ✅
+- Flujo completo: quote → hold → pay → confirm. ✅
 
 **Criterio de salida:** dos peticiones simultáneas por la misma semana dejan
 exactamente una reserva; un `hold` vencido devuelve sus noches al calendario;
 el `Booking` pasa a `CONFIRMED` solo con un webhook de Stripe firmado, nunca
 desde el navegador; la anfitriona ve las reservas y puede cancelarlas desde
 `/admin/reservations`; `pnpm build/lint/typecheck/test` en verde.
+
+**Cumplido** en `docs/changelog.md` §29 a §36. Queda pendiente del usuario una
+sola cosa para que el flujo corra de punta a punta sin intervención:
+`STRIPE_WEBHOOK_SECRET` con un valor real (ver `docs/env.md`).
 
 ## Fase 7 — Stripe completo
 

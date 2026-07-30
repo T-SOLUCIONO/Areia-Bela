@@ -26,6 +26,7 @@ import { createCheckoutSession, DatesUnavailableError } from '@/services/payment
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
+import { StayExtras } from '@/components/public/stay-extras'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
 
 const guestLabel = (
@@ -72,6 +73,11 @@ function CheckoutForm() {
   const [datesGone, setDatesGone] = useState(false)
   const warned = useRef(false)
   const copy = translations[language].checkout
+  // Extras the guest adds here, keyed by extra id. Seeded from the URL so the
+  // pet fee picked in the quoter survives, and so does a page refresh.
+  const [chosenExtras, setChosenExtras] = useState<Record<string, number>>(
+    () => request?.extraUnits ?? {},
+  )
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -92,7 +98,14 @@ function CheckoutForm() {
     }
 
     let cancelled = false
-    void fetchQuote(request).then((priced) => {
+    // Re-priced whenever the extras change. The browser never adds the new
+    // line itself: the server owns the arithmetic, so the figure on screen is
+    // the figure Stripe will charge.
+    void fetchQuote({
+      ...request,
+      selectedExtraIds: Object.keys(chosenExtras),
+      extraUnits: chosenExtras,
+    }).then((priced) => {
       if (cancelled) return
       if (priced) {
         setQuote(priced)
@@ -105,7 +118,7 @@ function CheckoutForm() {
     return () => {
       cancelled = true
     }
-  }, [request, router])
+  }, [request, router, chosenExtras])
 
   useEffect(() => {
     if (!request) return
@@ -174,10 +187,11 @@ function CheckoutForm() {
         },
         specialRequests: formData.specialRequests || undefined,
         locale: language,
-        extraIds: quote.extras.map((extra: BookingQuote['extras'][number]) => extra.id),
-        extraUnits: Object.fromEntries(
-          quote.extras.map((extra: BookingQuote['extras'][number]) => [extra.id, extra.quantity]),
-        ),
+        // What was chosen, not what the quote came back with: an extra whose
+        // season covers none of these nights is priced at zero and must not be
+        // re-sent as if it had been bought.
+        extraIds: Object.keys(chosenExtras),
+        extraUnits: chosenExtras,
       })
 
       // Kept for the confirmation page: if the webhook is slow, that page can
@@ -389,6 +403,18 @@ function CheckoutForm() {
                 .
               </p>
             </section>
+
+            {/* Before the form: the guest decides what they are buying, then
+                gives their details. Reversing that means typing a phone number
+                and then being surprised by a new line on the total. */}
+            <StayExtras
+              checkIn={quote.checkIn}
+              checkOut={quote.checkOut}
+              selected={chosenExtras}
+              onChange={setChosenExtras}
+              language={language}
+              className="border-t border-border pt-6"
+            />
 
             {/* Guest Information */}
             <section className="space-y-4">

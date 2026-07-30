@@ -1,6 +1,17 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
 import type { Booking, BookingStatus, Customer, Prisma } from '@prisma/client'
-import { generateReference, HOLD_TTL_MINUTES, type QuoteBreakdown } from '@areia-bela/shared'
+import {
+  checkStayLength,
+  generateReference,
+  HOLD_TTL_MINUTES,
+  type QuoteBreakdown,
+} from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
@@ -54,9 +65,20 @@ export class BookingsService {
 
     const property = await this.prisma.property.findUnique({
       where: { slug },
-      select: { id: true },
+      select: { id: true, minNights: true, maxNights: true },
     })
     if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    // The calendar already stops a guest picking two nights when four are
+    // required, but the calendar is a browser. This is the authority.
+    const lengthProblem = checkStayLength(quote.nights, property)
+    if (lengthProblem) {
+      throw new BadRequestException(
+        lengthProblem.kind === 'tooShort'
+          ? `This house takes bookings of at least ${lengthProblem.minNights} nights`
+          : `This house takes bookings of at most ${lengthProblem.maxNights} nights`,
+      )
+    }
 
     // A date the host blocked is not a booking, so the exclusion constraint
     // knows nothing about it. This check does.

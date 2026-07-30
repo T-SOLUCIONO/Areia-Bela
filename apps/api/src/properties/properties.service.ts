@@ -5,7 +5,14 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common'
-import { computeQuote, nightsOf, rateForNight, type QuoteBreakdown } from '@areia-bela/shared'
+import {
+  checkStayLength,
+  computeQuote,
+  nightsOf,
+  rateForNight,
+  type QuoteBreakdown,
+  type StayLengthProblem,
+} from '@areia-bela/shared'
 import type { ExtraPricingType, SeasonType } from '@prisma/client'
 import type { BlockedDate } from '@areia-bela/types'
 import { PrismaService } from '../prisma/prisma.service'
@@ -18,7 +25,10 @@ import { CreateBlockedDateDto } from './dto/blocked-date.dto'
 export class PropertiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getQuote(slug: string, dto: QuoteRequestDto): Promise<QuoteBreakdown> {
+  async getQuote(
+    slug: string,
+    dto: QuoteRequestDto,
+  ): Promise<QuoteBreakdown & { stayLength: StayLengthProblem | null }> {
     const property = await this.prisma.property.findUnique({
       where: { slug },
       include: {
@@ -35,7 +45,7 @@ export class PropertiesService {
       throw new InternalServerErrorException(`Property "${slug}" has no base price rule configured`)
     }
 
-    return computeQuote({
+    const quote = computeQuote({
       checkIn: dto.checkIn,
       checkOut: dto.checkOut,
       // Infants never count towards capacity or price.
@@ -44,6 +54,10 @@ export class PropertiesService {
       extraUnits: dto.extraUnits,
       pricing: this.pricingInputFor(property),
     })
+
+    // Priced, but flagged. A 400 here would blank the price card on every
+    // date change, and the guest would never learn what the limit is.
+    return { ...quote, stayLength: checkStayLength(quote.nights, property) }
   }
 
   /**
@@ -59,6 +73,8 @@ export class PropertiesService {
     additionalGuestFeePerNight: unknown
     weeklyDiscountPercent: unknown
     weeklyDiscountNights: number
+    minNights: number
+    maxNights: number
     maxGuests: number
     priceRules: Array<{
       type: SeasonType
@@ -89,6 +105,8 @@ export class PropertiesService {
       additionalGuestFeePerNight: Number(property.additionalGuestFeePerNight),
       weeklyDiscountPercent: Number(property.weeklyDiscountPercent),
       weeklyDiscountNights: property.weeklyDiscountNights,
+      minNights: property.minNights,
+      maxNights: property.maxNights,
       // The listing's headline capacity is what the nightly rate buys; anyone
       // above it is a surcharge, and nobody above maxGuests can book at all.
       includedGuests: property.maxGuests,
@@ -205,6 +223,15 @@ export class PropertiesService {
   async updateProperty(slug: string, dto: UpdatePropertyDto) {
     const property = await this.prisma.property.findUnique({ where: { slug } })
     if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    // Checked against what is being saved, falling back to what is stored: a
+    // PATCH may carry only one of the two, and a minimum above the maximum
+    // makes the house unbookable in a way nothing else would report.
+    const min = dto.minNights ?? property.minNights
+    const max = dto.maxNights ?? property.maxNights
+    if (min > max) {
+      throw new BadRequestException('minNights cannot be greater than maxNights')
+    }
 
     return this.prisma.property.update({ where: { slug }, data: dto })
   }

@@ -93,6 +93,10 @@ export interface PropertySettings {
   bedrooms: number
   bathrooms: number
   additionalGuestFeePerNight: string
+  minNights: number
+  maxNights: number
+  weeklyDiscountPercent: string
+  weeklyDiscountNights: number
   cleaningFee: string
   serviceFeePercent: string
   taxesPercent: string
@@ -124,11 +128,13 @@ export type PropertyUpdate = Partial<
     | 'cleaningFee'
     | 'serviceFeePercent'
     | 'taxesPercent'
+    | 'weeklyDiscountPercent'
   > & {
     additionalGuestFeePerNight: number
     cleaningFee: number
     serviceFeePercent: number
     taxesPercent: number
+    weeklyDiscountPercent: number
   }
 >
 

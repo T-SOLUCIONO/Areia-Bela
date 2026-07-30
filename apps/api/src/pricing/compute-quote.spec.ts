@@ -22,6 +22,9 @@ const PRICING: PropertyPricingInput = {
   maxGuests: 8,
   weeklyDiscountPercent: 10,
   weeklyDiscountNights: 7,
+  // The real listing's limits: one night up to a year (datos.json).
+  minNights: 1,
+  maxNights: 365,
   extras: [
     { id: 'pet', label: 'Pet', price: 115, pricingType: 'PER_STAY' },
     { id: 'certified-nanny', label: 'Nanny', price: 20, pricingType: 'PER_HOUR' },

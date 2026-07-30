@@ -2125,3 +2125,118 @@ estadía" dibujada como extremo-banda-extremo en vez de un cuadrado de color.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (225 tests)
 ```
+
+---
+
+## 36. Fase 6, cerrada: lo que quedaba de su alcance
+
+Faltaban los dos ítems del plan que no eran el flujo de pago: **mínimo de
+noches** y **temporada de piscina climatizada**.
+
+### Extras que nadie podía comprar
+
+Este era el hueco serio. `heated-pool` ($20/noche, 1 oct – 1 may) y
+`certified-nanny` ($20/hora) llevan en la base desde Fase 3, y el motor los
+cobra correctamente — temporada, unidades por hora, todo. Pero **el cotizador
+solo mandaba `pet`**. Eran cargos sin ninguna forma de incurrir en ellos.
+
+Se añade `StayExtras` en el checkout, antes del formulario de datos: primero se
+decide qué se compra, después se dan los datos. Al revés significa teclear un
+teléfono y encontrarse una línea nueva en el total.
+
+**La trampa que costó encontrarla.** El API devuelve cada extra con `id` (cuid)
+y `key`, y `pricingInputFor` renombra `key` a `id` al construir la entrada del
+motor. Un `extraIds: ['<cuid>']` no falla: cotiza el extra a cero y la línea
+simplemente no aparece. La primera versión del componente usaba el cuid y las
+tres pruebas de temporada daban `$0`, incluso en enero. Queda documentado en el
+tipo del componente.
+
+Verificado que la temporada hace lo suyo:
+
+```
+enero  (5 noches, en temporada) → 5 noches de piscina · $100
+julio  (5 noches, fuera)        → 0 noches            · $0
+28 abr – 4 may (6 noches)       → 4 noches            · $80
+```
+
+Ese último es el caso que importa: la temporada **cruza el fin de año** (oct →
+may), y una estadía a caballo del 1 de mayo se cobra solo por las noches que
+caen dentro. La interfaz lo dice — "4 de tus noches" — porque un total que el
+huésped no puede reconciliar es un total que no se cree.
+
+Dos extras no están ahí a propósito: la mascota vive en el selector de
+huéspedes, donde uno piensa en el perro, y el huésped adicional se cobra solo a
+partir del tamaño del grupo.
+
+### Mínimo y máximo de noches
+
+No existían en ningún sitio. `Property` gana `minNights` y `maxNights`, con los
+valores del listing real (`datos.json`): 1 y 365.
+
+**La cotización no falla, señala.** Una estadía demasiado corta se sigue
+cotizando y devuelve `stayLength: { kind: 'tooShort', minNights }`. Un 400
+dejaría la tarjeta de precio en blanco a cada cambio de fecha y el huésped
+nunca sabría cuál es el límite. Quien se niega es `POST /bookings/hold`, que es
+el que cobra.
+
+El calendario también lo aplica, con un detalle de una línea que era un error
+latente: `min` en react-day-picker cuenta **días seleccionados**, y la salida
+es una mañana, no una noche. Estaba en `min={1}`, que permitía elegir el mismo
+día dos veces — cero noches. Ahora es `minNights + 1`.
+
+### Reglas de la estadía, editables
+
+Cuatro números que solo vivían en la base: mínimo, máximo, porcentaje de
+descuento largo y desde cuántas noches aplica. Los dos últimos estaban
+documentados como "editable desde el admin" en `docs/domain-decisions.md` pero
+**no figuraban en `UpdatePropertyDto`**: guardarlos era imposible.
+
+El servidor rechaza un mínimo mayor que el máximo, comparando contra lo
+almacenado cuando el PATCH trae solo uno de los dos. Sin eso, la casa quedaría
+imposible de reservar sin que nada lo dijera.
+
+### Verificación
+
+Con el mínimo en 3 y el máximo en 30:
+
+```
+cotizar 2 noches   → $870 y stayLength=tooShort   hold → 400 "at least 3 nights"
+cotizar 4 noches   → $1620, reservable            hold → 201
+cotizar 44 noches  → $14970 y stayLength=tooLong  hold → 400 "at most 30 nights"
+```
+
+Y las reglas desde el panel:
+
+```
+PATCH min=2 max=90 descuento=15% desde 5 noches → 200, persiste
+PATCH minNights=100 (máximo 90)                 → 400
+4 noches → descuento $0    ·    5 noches → descuento $225
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (231 tests, 6 nuevos)
+```
+
+### Criterio de salida de Fase 6
+
+| Requisito                                         |         |
+| ------------------------------------------------- | ------- |
+| Dos peticiones simultáneas dejan una sola reserva | ✅ §29  |
+| Un hold vencido devuelve sus noches               | ✅ §29  |
+| `CONFIRMED` solo con webhook firmado              | ✅ §29  |
+| Reservas visibles y cancelables en el panel       | ✅ §29  |
+| Mínimo de noches                                  | ✅ aquí |
+| Temporada de piscina climatizada                  | ✅ aquí |
+| `build/lint/typecheck/test` en verde              | ✅      |
+
+**Pendiente del usuario, no del código:** `STRIPE_WEBHOOK_SECRET` con un valor
+real. Sin él cada pago se queda en `PENDING` y hay que confirmarlo a mano.
+
+### Diferido a Fase 7
+
+- Reembolso automático al cancelar, y panel de pagos.
+- Crear una reserva desde el panel (una tomada por teléfono).
+- Mínimos por temporada: hoy el mínimo es uno para todo el año, y lo habitual
+  es exigir más noches en las fechas altas. Se declara porque el modelo actual
+  no lo soporta sin una columna nueva en `PriceRule`.

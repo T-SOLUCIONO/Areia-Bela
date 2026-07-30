@@ -14,6 +14,7 @@ import {
   currency,
   fetchNightRates,
   fetchQuote,
+  fetchStayLimits,
   getBlockedDateRanges,
   saveQuoteToStorage,
   serializeQuoteToSearchParams,
@@ -73,9 +74,13 @@ export function AvailabilityCard({ className }: Props) {
   // a guest could pick a week that was sold and only find out at checkout.
   const [unavailable, setUnavailable] = useState<Set<string>>(new Set())
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
+  // Mirrors the house's rule in the calendar itself. The server is still the
+  // authority — this only stops the guest picking something it would refuse.
+  const [minNights, setMinNights] = useState(1)
 
   useEffect(() => {
     getBlockedDateRanges().then(setBlockedRanges)
+    fetchStayLimits().then((limits) => setMinNights(limits.minNights))
 
     // A year ahead: enough for both calendar months and any paging, in one
     // request rather than one per month change.
@@ -177,6 +182,7 @@ export function AvailabilityCard({ className }: Props) {
     { key: 'pets', title: copy.petsTitle, description: '', hint: copy.serviceAnimal },
   ]
 
+  const stayLength = quote?.stayLength ?? null
   const selectedRange = checkIn ? { from: checkIn, to: checkOut } : undefined
   const cancellationDate = checkIn ? format(subDays(checkIn, 5), 'd MMM', { locale }) : ''
   const nights = checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0
@@ -285,7 +291,7 @@ export function AvailabilityCard({ className }: Props) {
             mode="range"
             selected={selectedRange}
             numberOfMonths={2}
-            min={1}
+            min={minNights + 1}
             // Each month shows only its own days. With the default, September
             // ends with October's first days and October starts with
             // September's last — the same date twice, side by side.
@@ -569,7 +575,20 @@ export function AvailabilityCard({ className }: Props) {
         </p>
       )}
 
-      {quote && (
+      {/* The stay is priced but too short or too long. Says the limit rather
+          than just refusing, so the guest knows what to change. */}
+      {stayLength && (
+        <p
+          role="alert"
+          className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-center text-[13px] text-amber-800"
+        >
+          {stayLength.kind === 'tooShort'
+            ? fill(copy.minNights, { count: String(stayLength.minNights) })
+            : fill(copy.maxNights, { count: String(stayLength.maxNights) })}
+        </p>
+      )}
+
+      {quote && !stayLength && (
         <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-600">
           {fill(copy.cancelBefore, { date: cancellationDate })}
         </p>
@@ -577,7 +596,7 @@ export function AvailabilityCard({ className }: Props) {
 
       <Button
         onClick={handleReserve}
-        disabled={!quote || isPricing}
+        disabled={!quote || isPricing || stayLength !== null}
         variant="brand"
         size="lg"
         className="mt-3 w-full text-sm font-semibold shadow-none"

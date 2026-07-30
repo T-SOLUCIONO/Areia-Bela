@@ -11,6 +11,7 @@ import { cms, type PropertySettings } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
 import { useHasRole } from '@/components/admin/admin-session-provider'
 import { ExtrasManager } from '@/components/admin/extras-manager'
+import { StayRules } from '@/components/admin/stay-rules'
 
 /**
  * Priced per night for the whole house, not per room type — there is one unit.
@@ -79,6 +80,15 @@ export default function PricingPage() {
           </CardContent>
         </Card>
       </div>
+
+      <StayRules
+        // Remounts on save so the inputs show what was stored, not what was
+        // typed — the server can clamp or reject either of them.
+        key={`${property.minNights}-${property.maxNights}-${property.weeklyDiscountNights}`}
+        property={property}
+        canEdit={canEdit}
+        onSaved={load}
+      />
 
       <Card>
         <CardHeader>
