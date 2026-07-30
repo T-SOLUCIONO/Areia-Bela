@@ -20,8 +20,9 @@ import {
   type BookingQuote,
 } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
-import { createCheckoutSession } from '@/services/payment'
+import { createCheckoutSession, DatesUnavailableError } from '@/services/payment'
 import { useLanguage } from '@/components/language-provider'
+import { translations } from '@/lib/i18n'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
 
@@ -62,6 +63,8 @@ function CheckoutForm() {
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [error, setError] = useState<'taken' | 'failed' | null>(null)
+  const copy = translations[language].checkout
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -115,15 +118,25 @@ function CheckoutForm() {
     if (!agreedToTerms) return
 
     setIsLoading(true)
+    setError(null)
 
     try {
-      // Dates and extras only. The route re-prices them server-side and
-      // charges that; no total is sent from here, because a total sent from a
-      // browser is a total a browser can change.
+      // Dates, guests and extras. No total: the API prices this stay and holds
+      // the dates. A total sent from a browser is a total a browser can
+      // change, and dates merely checked are dates two people can buy at once.
       const session = await createCheckoutSession({
         checkIn: quote.checkIn,
         checkOut: quote.checkOut,
         guests: quote.guests,
+        guest: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          country: formData.country,
+        },
+        specialRequests: formData.specialRequests || undefined,
+        locale: language,
         extraIds: quote.extras.map((extra: BookingQuote['extras'][number]) => extra.id),
         extraUnits: Object.fromEntries(
           quote.extras.map((extra: BookingQuote['extras'][number]) => [extra.id, extra.quantity]),
@@ -131,8 +144,9 @@ function CheckoutForm() {
       })
 
       window.location.href = session.url
-    } catch (error) {
-      console.error('Checkout error:', error)
+    } catch (err) {
+      console.error('Checkout error:', err)
+      setError(err instanceof DatesUnavailableError ? 'taken' : 'failed')
       setIsLoading(false)
     }
   }
@@ -453,6 +467,15 @@ function CheckoutForm() {
                   </div>
                 </div>
 
+                {error && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {error === 'taken' ? copy.datesTaken : copy.checkoutFailed}
+                  </p>
+                )}
+
                 <Button
                   type="submit"
                   onClick={handleSubmit}
@@ -476,11 +499,7 @@ function CheckoutForm() {
             {/* Security Note */}
             <div className="flex items-start gap-3 text-sm text-muted-foreground">
               <ShieldCheck className="h-5 w-5 text-success mt-0.5" />
-              <p>
-                {isEnglish
-                  ? "Your booking is protected by AirCover. If there's a problem with your stay, we're here to help."
-                  : 'Tu reserva está protegida por AirCover. Si hay un problema con tu estadía, estamos para ayudarte.'}
-              </p>
+              <p>{copy.paymentSecurity}</p>
             </div>
           </div>
 

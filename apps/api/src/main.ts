@@ -6,7 +6,9 @@ import helmet from 'helmet'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  // The Stripe webhook verifies a signature over the exact bytes Stripe sent,
+  // so the parsed body is not enough — a re-serialised JSON never matches.
+  const app = await NestFactory.create(AppModule, { rawBody: true })
 
   app.use(helmet())
   // Auth cookies are HttpOnly, so they're only readable here after parsing.

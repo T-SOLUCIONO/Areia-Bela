@@ -138,8 +138,9 @@ export class PropertiesService {
    * Every night in the range that is already spoken for, whether by a booking
    * or by a date the host blocked.
    *
-   * Cancelled bookings free their nights back up; a pending one does not,
-   * because someone is paying for it right now.
+   * Cancelled bookings free their nights back up. A pending one does not,
+   * because someone is paying for it right now — unless its hold expired, in
+   * which case nobody is.
    */
   private async takenNights(propertyId: string, from: string, to: string): Promise<Set<string>> {
     const [bookings, blocked] = await Promise.all([
@@ -147,6 +148,11 @@ export class PropertiesService {
         where: {
           propertyId,
           status: { not: 'CANCELLED' },
+          // A hold whose payment window ran out is not holding anything. It is
+          // still PENDING in the table until the next hold sweeps it — see
+          // BookingsService.createHold — so it has to be filtered here or the
+          // calendar would show an abandoned checkout as a booked week.
+          NOT: { status: 'PENDING', expiresAt: { lt: new Date() } },
           checkIn: { lt: new Date(to) },
           checkOut: { gt: new Date(from) },
         },

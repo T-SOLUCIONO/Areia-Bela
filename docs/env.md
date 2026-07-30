@@ -91,6 +91,37 @@ Dos reglas que evitan fallos silenciosos:
 - Una traducción que una persona editó (`isMachine: false`) no se vuelve a
   sobrescribir.
 
+### Stripe y el webhook
+
+El pago se abre desde `apps/web` (que tiene la clave secreta) pero la reserva
+se confirma en `apps/api`. Por eso las variables están repartidas:
+
+| Dónde      | Variable                             | Para qué                           |
+| ---------- | ------------------------------------ | ---------------------------------- |
+| `apps/web` | `STRIPE_SECRET_KEY`                  | Crear la sesión de pago            |
+| `apps/web` | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | El widget de Stripe                |
+| `apps/api` | `STRIPE_WEBHOOK_SECRET`              | **Verificar la firma del webhook** |
+
+El API **no** necesita la clave secreta: verificar una firma es criptografía
+sobre el cuerpo crudo y no llama a Stripe. Cuanta menos gente tenga la clave
+secreta, mejor.
+
+**Sin `STRIPE_WEBHOOK_SECRET` el webhook rechaza todo con un 400.** Es
+deliberado: un webhook sin verificar es un endpoint donde cualquiera que sepa
+la URL confirma una reserva que no pagó. Prefiere fallar a confirmar de más.
+
+Para probarlo en local, con la CLI de Stripe:
+
+```bash
+stripe listen --forward-to localhost:3001/bookings/stripe-webhook
+```
+
+Imprime un `whsec_...` temporal; ese es el valor de la variable mientras dure
+la sesión. En producción sale del panel de Stripe, al dar de alta el endpoint.
+
+Eventos a los que suscribirse: `checkout.session.completed` y
+`checkout.session.expired`.
+
 ### Avisos por WhatsApp (opcional)
 
 Los avisos de reserva, cancelación y mensajes salen **siempre por correo** con

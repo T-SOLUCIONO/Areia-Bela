@@ -71,10 +71,18 @@ Fase 6.
 - Validación de conflictos, mínimo de noches, temporada de piscina climatizada.
 - Flujo completo: quote → hold → pay → confirm.
 
+**Criterio de salida:** dos peticiones simultáneas por la misma semana dejan
+exactamente una reserva; un `hold` vencido devuelve sus noches al calendario;
+el `Booking` pasa a `CONFIRMED` solo con un webhook de Stripe firmado, nunca
+desde el navegador; la anfitriona ve las reservas y puede cancelarlas desde
+`/admin/reservations`; `pnpm build/lint/typecheck/test` en verde.
+
 ## Fase 7 — Stripe completo
 
-- Webhooks (`checkout.session.completed`, `payment_intent.failed`).
-- El `Booking` se crea en el webhook, nunca en el frontend.
+- Webhooks (`checkout.session.completed`, `payment_intent.failed`) — **los dos
+  primeros se adelantaron en Fase 6.3**, junto con `checkout.session.expired`.
+  Ver `docs/changelog.md` §29.
+- El `Booking` se crea en el webhook, nunca en el frontend — **hecho en 6.3**.
 - Reembolsos desde admin, panel de pagos.
 
 ## Fase 8 — Calidad y producción

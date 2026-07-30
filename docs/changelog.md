@@ -1544,3 +1544,147 @@ configuración. El límite es por IP, 3 cada 10 minutos.
 - **Sin reintentos ni cola.** Un fallo se registra y se pierde. Con el volumen
   de una casa, una cola sería infraestructura por adelantado; queda anotado.
 - **El huésped no recibe confirmación por WhatsApp** — ver la regla de 24 h.
+
+---
+
+## 29. Fase 6.3 — la reserva nace del pago
+
+Hasta aquí el sitio cotizaba y cobraba, pero nunca reservaba nada: se pagaba y
+no quedaba fila en ninguna tabla. Esta entrada cierra el flujo
+`quote → hold → pay → confirm`.
+
+### La carrera, que es el problema de verdad
+
+Dos huéspedes abren la misma semana el mismo martes por la noche. Los dos ven
+"disponible", los dos pagan. Comprobar y después insertar son dos operaciones,
+y entre una y otra cabe la otra transacción entera. **Ninguna cantidad de
+código de aplicación cierra esa ventana** — la base de datos tiene que negarse.
+
+```sql
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_no_overlap"
+  EXCLUDE USING gist (
+    "propertyId" WITH =,
+    daterange("checkIn"::date, "checkOut"::date, '[)') WITH &&
+  ) WHERE ("status" <> 'CANCELLED');
+```
+
+Tres detalles que costaron pensarlos:
+
+- **`'[)'`** — el día de salida es el día de llegada del siguiente. Con `'[]'`,
+  Sep 1–8 y Sep 8–15 se solaparían y la casa perdería una noche entre cada dos
+  reservas.
+- **`btree_gist`** — es lo que permite meter una columna de igualdad
+  (`propertyId`) en el mismo índice GiST que un rango. Hoy hay una sola casa;
+  dejarla fuera haría la restricción incorrecta en cuanto eso cambie.
+- **El predicado no puede llamar a `now()`.** Una expresión de índice tiene que
+  ser inmutable, así que la restricción no sabe distinguir un `hold` vigente de
+  uno vencido. Lo resuelve el servicio: cancela los vencidos **dentro de la
+  misma transacción** que hace el `INSERT`. Un test comprueba ese orden, porque
+  invertirlo no rompe nada visible hasta que alguien pierde una reserva.
+
+### Un `hold`, no una reserva
+
+`POST /bookings/:slug/hold` crea la fila en `PENDING` con `expiresAt` a 30
+minutos. Treinta y no quince porque **Stripe rechaza una sesión que caduque
+antes de media hora**: un hold más corto liberaría las fechas con el huésped
+todavía en la pasarela.
+
+El precio lo calcula el mismo `PropertiesService.getQuote` que usa el cotizador.
+No hay una segunda ruta de precios que pueda desviarse de la primera.
+
+### Solo Stripe confirma
+
+`POST /bookings/stripe-webhook` verifica la firma sobre el **cuerpo crudo**
+(`NestFactory.create(AppModule, { rawBody: true })` — un JSON reserializado
+nunca coincide). Es lo único que puede pasar una reserva a `CONFIRMED`.
+
+La redirección de éxito no puede: es una URL que visita el navegador del
+huésped, y un navegador que confirma su propia reserva es un navegador que
+reserva gratis. La página de confirmación **pregunta** por la reserva, no la
+declara.
+
+El importe se lee de `session.amount_total`, que viene dentro del payload
+firmado. Si no coincide con lo cotizado se registra como error pero **la
+reserva se confirma igual**: el huésped ya pagó, y dejarlo sin fechas por un
+descuadre de centavos es peor que revisarlo a mano.
+
+Idempotente, porque Stripe reintenta lo que no recibió un 2xx.
+
+### Lo que estaba mintiendo
+
+Dos pantallas afirmaban cosas que no eran ciertas:
+
+- **La página de confirmación decía "¡Reserva confirmada!"** leyendo
+  `localStorage`. Sin pago, sin reserva, sin comprobar nada — bastaba visitar
+  la URL. Ahora consulta `GET /bookings/session/:id` y distingue tres estados:
+  confirmada, pagada-pero-todavía-confirmándose (el webhook tarda unos
+  segundos, así que la página reintenta), y no encontrada.
+- **"Tu reserva está protegida por AirCover"**, en el checkout y en la
+  confirmación. AirCover es el programa de Airbnb. Esto es una reserva directa:
+  esa protección no existe aquí. Sustituido por lo que sí es verdad — que el
+  pago lo procesa Stripe y la casa nunca ve la tarjeta.
+- **"Correo de confirmación enviado a tu bandeja"** tampoco se enviaba. Ahora
+  sí, en los cinco idiomas, con la referencia y los horarios reales de la casa.
+
+Los botones "Descargar recibo" y "Compartir viaje" no hacían nada. Fuera.
+
+### La referencia
+
+`AB-` más seis caracteres. Sin `I`, `O`, `S`, `0` ni `1`: se dictan por
+teléfono. El `5` se queda — sin `S` en el alfabeto no puede confundirse.
+Un test lo verifica, y de paso pilló que el comentario decía una cosa y el
+alfabeto otra.
+
+### En el panel
+
+`/admin/reservations` deja de ser un cartel de "próximamente". Muestra próximas
+y pasadas, con estado, huésped, contacto, extras y su nota; permite cancelar
+con motivo. Cancelar libera las noches al instante y avisa a la anfitriona.
+
+Un `VIEWER` puede mirar; cancelar es de `MANAGER` para arriba.
+
+### Verificación
+
+Contra el API y Postgres reales, no simulados:
+
+```
+dos peticiones simultáneas, misma semana → 201 y 409, 1 fila
+semana contigua (salida = llegada)       → 201
+hold vencido                             → el calendario la da por libre
+otro huésped la reserva                  → 201, el vencido queda CANCELLED
+webhook sin firma                        → 400, sigue PENDING
+webhook con firma inválida               → 400, sigue PENDING
+webhook con firma válida                 → 200, CONFIRMED, expiresAt = NULL
+el mismo evento otra vez                 → 200, "ignoring repeat webhook"
+cuerpo alterado con la firma vieja       → 400
+GET /bookings sin sesión                 → 401
+PATCH /bookings/:id/cancel sin sesión     → 401
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (206 tests, 18 nuevos)
+```
+
+### Entidades
+
+Ninguna nueva. `Booking`, `Customer` y `BookingExtra` ya estaban en la lista
+canónica de `CLAUDE.md`; se les añadieron columnas (`reference`, `expiresAt`,
+`stripeSessionId`, `paidAt`, `cancelledAt`, `cancellationReason`, `pets`,
+`locale`).
+
+### Diferido, con su tamaño
+
+- **Sin reembolso automático al cancelar.** El dinero de vuelta es una decisión,
+  no el efecto secundario de un clic; hoy se resuelve en Stripe. Es lo que
+  queda de Fase 7 junto con el panel de pagos.
+- **Sin mínimo de noches ni temporada de piscina climatizada.** Siguen siendo
+  Fase 6; el motor de precios ya sabe de temporadas, falta exponerlo.
+- **El checkout no valida los campos del huésped antes de enviar.** Si faltan,
+  el API responde 400 y la página muestra el mensaje genérico. Debería
+  bloquear el botón antes.
+- **`checkout.session.expired` libera el hold, pero nada barre los vencidos si
+  nadie más reserva.** Sin un cron, un hold abandonado queda `PENDING` en la
+  tabla hasta la siguiente reserva. El calendario y el panel ya lo ignoran, así
+  que es ruido en una tabla, no una fecha bloqueada — pero es deuda.
+- **El huésped no puede cancelar.** Solo la anfitriona, desde el panel.

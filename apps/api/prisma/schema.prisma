@@ -67,25 +67,44 @@ enum BookingStatus {
 }
 
 model Booking {
-  id              String        @id @default(cuid())
-  propertyId      String
-  property        Property      @relation(fields: [propertyId], references: [id])
-  customerId      String
-  customer        Customer      @relation(fields: [customerId], references: [id])
-  checkIn         DateTime      @db.Date
-  checkOut        DateTime      @db.Date
-  adults          Int
-  children        Int
-  infants         Int
-  status          BookingStatus @default(PENDING)
-  totalPrice      Decimal       @db.Decimal(10, 2)
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  // What the guest is told to quote. Short and unambiguous out loud, which a
+  // cuid is not.
+  reference  String   @unique
+  checkIn    DateTime @db.Date
+  checkOut   DateTime @db.Date
+  adults     Int
+  children   Int
+  infants    Int
+  pets       Int      @default(0)
+
+  status     BookingStatus @default(PENDING)
+  totalPrice Decimal       @db.Decimal(10, 2)
+  // When a PENDING hold stops holding the dates. Null once paid: a confirmed
+  // stay never expires. The date range is guarded by an exclusion constraint
+  // (see the migration), so two guests cannot pay for the same week.
+  expiresAt  DateTime?
+
+  stripeSessionId    String?   @unique
+  paidAt             DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
   specialRequests String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  // The language the guest booked in, so their confirmation arrives in it.
+  // The host's alerts are always in Spanish; these are not.
+  locale          String   @default("es")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   extras BookingExtra[]
 
   @@index([propertyId, checkIn, checkOut])
+  @@index([status, expiresAt])
 }
 
 enum ExtraPricingType {
