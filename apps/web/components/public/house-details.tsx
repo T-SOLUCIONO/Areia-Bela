@@ -54,7 +54,14 @@ const TRIGGER = 'gap-3 py-4 text-left hover:no-underline [&>svg]:text-[#174d7a]'
  * Renders nothing when there is nothing published — an empty accordion is worse
  * than no section at all.
  */
-export function HouseDetails() {
+type AmenityTag = { key: string; icon: string; label: string }
+
+export function HouseDetails({
+  amenities,
+}: {
+  /** Rendered inside this card; see the note where it is passed in. */
+  amenities?: { label: string; tags: AmenityTag[] }
+} = {}) {
   const content = useSiteContent()
   const { language } = useLanguage()
   const copy = translations[language].details
@@ -64,7 +71,8 @@ export function HouseDetails() {
   )
   const faqs = content?.faqs ?? []
 
-  if (sections.length === 0 && faqs.length === 0) return null
+  const amenityTags = amenities?.tags ?? []
+  if (sections.length === 0 && faqs.length === 0 && amenityTags.length === 0) return null
 
   return (
     <section
@@ -98,7 +106,24 @@ export function HouseDetails() {
           <p className="max-w-xl text-[15px] leading-7 text-slate-600">{copy.lead}</p>
         </div>
 
-        <div className="relative mt-8 grid gap-x-14 gap-y-10 lg:grid-cols-2">
+        {amenityTags.length > 0 && (
+          <div className="relative mt-8">
+            <ColumnHeading label={amenities?.label ?? ''} count={amenityTags.length} />
+            <div className="mt-4 flex flex-wrap gap-2">
+              {amenityTags.map((tag) => (
+                <span
+                  key={tag.key}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700"
+                >
+                  <ContentIcon name={tag.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="relative mt-10 grid gap-x-14 gap-y-10 lg:grid-cols-2">
           {sections.length > 0 && (
             <div>
               <ColumnHeading label={copy.house} count={sections.length} />
