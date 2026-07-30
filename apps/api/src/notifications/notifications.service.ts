@@ -74,9 +74,20 @@ export class NotificationsService {
   }
 
   /** Every configured way to reach the host for this kind of event. */
-  private async destinationsFor(event: NotificationEvent): Promise<Destination[]> {
+  /**
+   * Where an alert goes.
+   *
+   * `force` skips the host's switch. Reserved for the ones that are not
+   * information but a task — a payment taken for dates that are gone. Turning
+   * off booking alerts is a choice about noise, not a waiver on being told
+   * money needs refunding.
+   */
+  private async destinationsFor(
+    event: NotificationEvent,
+    { force = false }: { force?: boolean } = {},
+  ): Promise<Destination[]> {
     const settings = await this.prisma.siteSettings.findUnique({ where: { id: 'site' } })
-    if (!settings || !settings[SWITCH[event]]) return []
+    if (!settings || (!force && !settings[SWITCH[event]])) return []
 
     const destinations: Destination[] = []
 
@@ -174,6 +185,32 @@ export class NotificationsService {
         }`,
       )
     }
+  }
+
+  /**
+   * A guest paid for dates that are no longer available.
+   *
+   * Only reachable when a webhook arrives so late that the hold expired and
+   * someone else booked the week. It cannot be fixed automatically — the money
+   * has to go back — so it is sent regardless of the notification switches:
+   * this is not an update the host can choose not to receive.
+   */
+  async bookingConflict(booking: BookingNotice, sessionId: string): Promise<void> {
+    await deliver(
+      await this.destinationsFor('booking', { force: true }),
+      `ACCIÓN REQUERIDA · pago sin fechas · ${booking.reference}`,
+      [
+        `${booking.guestName} pagó $${booking.total} por ${booking.checkIn} → ${booking.checkOut},`,
+        'pero esas fechas ya están reservadas por otra persona.',
+        '',
+        'Hay que devolverle el dinero en Stripe y escribirle.',
+        '',
+        `Contacto: ${booking.guestEmail}`,
+        `Referencia: ${booking.reference}`,
+        `Pago en Stripe: ${sessionId}`,
+      ].join('\n'),
+      this.logger,
+    )
   }
 
   async messageReceived(notice: MessageNotice): Promise<void> {

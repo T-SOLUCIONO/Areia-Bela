@@ -196,6 +196,15 @@ export class BookingsService {
       return
     }
 
+    if (booking.status === 'CANCELLED') {
+      // The guest paid, but their hold ran out before the webhook arrived and
+      // a later hold swept it. Whether this is recoverable depends on one
+      // thing: did anyone else take the dates in the meantime? The exclusion
+      // constraint answers that, so let it — the update below either succeeds
+      // or throws 23P01.
+      this.logger.warn(`Booking ${booking.reference} was cancelled but has now been paid`)
+    }
+
     const expected = Math.round(Number(booking.totalPrice) * 100)
     if (amountPaid !== expected) {
       // Not a reason to refuse the booking: the guest paid and holding their
@@ -206,17 +215,33 @@ export class BookingsService {
       )
     }
 
-    await this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'CONFIRMED',
-        stripeSessionId: sessionId,
-        paidAt: new Date(),
-        // A confirmed stay does not expire. Leaving this set would make the
-        // sweep in hold() cancel a paid booking.
-        expiresAt: null,
-      },
-    })
+    try {
+      await this.prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: 'CONFIRMED',
+          stripeSessionId: sessionId,
+          paidAt: new Date(),
+          // A confirmed stay does not expire. Leaving this set would make the
+          // sweep in hold() cancel a booking somebody paid for.
+          expiresAt: null,
+          cancelledAt: null,
+          cancellationReason: null,
+        },
+      })
+    } catch (error) {
+      if (!this.isOverlap(error)) throw error
+
+      // The worst case the system has: money taken for a week that now belongs
+      // to someone else. It cannot be resolved in code — it needs a refund or
+      // a phone call — so it goes to the host as an alert rather than dying in
+      // a log nobody reads.
+      this.logger.error(
+        `PAID BUT DOUBLE-BOOKED: ${booking.reference} (${sessionId}) — the dates were taken`,
+      )
+      await this.notifications.bookingConflict(this.noticeFor(booking), sessionId)
+      return
+    }
 
     const notice = this.noticeFor(booking)
     // The host first: they are the one who has to act on it. Then the guest,

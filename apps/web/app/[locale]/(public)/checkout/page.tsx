@@ -150,6 +150,15 @@ function CheckoutForm() {
         ),
       })
 
+      // Kept for the confirmation page: if the webhook is slow, that page can
+      // still show the guest their reference instead of telling someone who
+      // just paid that their booking does not exist.
+      try {
+        sessionStorage.setItem('areia-bela:last-reference', session.reference)
+      } catch {
+        // Private browsing. Not worth failing a payment over.
+      }
+
       window.location.href = session.url
     } catch (err) {
       console.error('Checkout error:', err)

@@ -53,6 +53,21 @@ function ConfirmationContent() {
   const [booking, setBooking] = useState<ConfirmedBooking | null>(null)
   const [state, setState] = useState<'loading' | 'found' | 'missing'>('loading')
   const attempts = useRef(0)
+  // Stashed on the way out to Stripe. Its presence is proof this browser
+  // started a real checkout, which is what separates "the webhook is slow"
+  // from "this link goes nowhere".
+  //
+  // Read once, on the first client render, rather than in an effect: it never
+  // changes, and it is only shown in a branch that comes after polling, so the
+  // server render never disagrees with it.
+  const [stashedReference] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      return sessionStorage.getItem('areia-bela:last-reference')
+    } catch {
+      return null // Private browsing.
+    }
+  })
 
   const fetchBooking = useCallback(async () => {
     if (!sessionId) {
@@ -111,13 +126,38 @@ function ConfirmationContent() {
   }
 
   if (state === 'missing' || !booking) {
+    // Coming back from Stripe with a session id means the card cleared. Telling
+    // that guest we cannot find their booking is both alarming and untrue; the
+    // booking exists, the webhook just has not landed.
+    const paid = Boolean(sessionId)
+
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
-          <AlertCircle className="h-9 w-9 text-amber-600" />
+          {paid ? (
+            <Loader2 className="h-9 w-9 animate-spin text-amber-600" />
+          ) : (
+            <AlertCircle className="h-9 w-9 text-amber-600" />
+          )}
         </div>
-        <h1 className="mb-2 font-serif text-2xl text-foreground">{copy.notFound}</h1>
-        <p className="max-w-md text-muted-foreground">{copy.notFoundLead}</p>
+        <h1 className="mb-2 font-serif text-2xl text-foreground">
+          {paid ? copy.settling : copy.notFound}
+        </h1>
+        <p className="max-w-md text-muted-foreground">
+          {paid ? copy.settlingLead : copy.notFoundLead}
+        </p>
+
+        {paid && stashedReference && (
+          <div className="mt-6 rounded-[20px] bg-[#f7f2ea] px-8 py-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">
+              {copy.reference}
+            </p>
+            <p className="mt-1 font-mono text-2xl font-semibold tracking-wider text-[#173a57]">
+              {stashedReference}
+            </p>
+          </div>
+        )}
+
         <Button asChild variant="brand" size="lg" className="mt-8">
           <Link href="/#contact">{copy.contactHost}</Link>
         </Button>

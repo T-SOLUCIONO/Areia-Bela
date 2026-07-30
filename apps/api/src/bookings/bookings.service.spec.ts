@@ -96,6 +96,7 @@ describe('BookingsService', () => {
   let notifications: {
     bookingCreated: jest.Mock
     bookingCancelled: jest.Mock
+    bookingConflict: jest.Mock
     guestConfirmation: jest.Mock
   }
   let service: BookingsService
@@ -120,6 +121,7 @@ describe('BookingsService', () => {
     notifications = {
       bookingCreated: jest.fn().mockResolvedValue(undefined),
       bookingCancelled: jest.fn().mockResolvedValue(undefined),
+      bookingConflict: jest.fn().mockResolvedValue(undefined),
       guestConfirmation: jest.fn().mockResolvedValue(undefined),
     }
 
@@ -259,6 +261,40 @@ describe('BookingsService', () => {
       await service.confirmPayment('booking-1', 'cs_test_1', 100)
 
       expect(prisma.booking.update).toHaveBeenCalled()
+    })
+
+    it('re-confirms a hold that expired before the webhook arrived', async () => {
+      // The guest paid at minute 29 and the webhook was slow, so the sweep in
+      // a later hold had already cancelled this one. The dates are still free,
+      // so it can simply be restored.
+      prisma.booking.findUnique.mockResolvedValue({ ...BOOKING_ROW, status: 'CANCELLED' })
+
+      await service.confirmPayment('booking-1', 'cs_test_1', 280_000)
+
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'CONFIRMED', cancellationReason: null }),
+        }),
+      )
+      expect(notifications.bookingCreated).toHaveBeenCalled()
+    })
+
+    it('alerts the host when the paid dates now belong to someone else', async () => {
+      // The same race, except somebody else booked the week in between. There
+      // is no code fix for this — the money has to go back — so it has to
+      // reach a person instead of dying in a log.
+      prisma.booking.findUnique.mockResolvedValue({ ...BOOKING_ROW, status: 'CANCELLED' })
+      prisma.booking.update.mockRejectedValue(overlapError())
+
+      await expect(
+        service.confirmPayment('booking-1', 'cs_test_1', 280_000),
+      ).resolves.toBeUndefined()
+
+      expect(notifications.bookingConflict).toHaveBeenCalledWith(
+        expect.objectContaining({ reference: 'AB-XYZ123' }),
+        'cs_test_1',
+      )
+      expect(notifications.bookingCreated).not.toHaveBeenCalled()
     })
 
     it('does not throw when the booking is gone', async () => {

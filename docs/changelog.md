@@ -1742,3 +1742,76 @@ PATCH y releer               → conserva notifyEmail, notifyWhatsapp y los inte
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (206 tests)
 ```
+
+---
+
+## 31. El pago sin webhook, y el caso peor que destapó
+
+Un pago real de prueba: $1245 cobrados en Stripe, y la página de confirmación
+diciendo "No encontramos esa reserva". El pago estaba bien; el aviso nunca
+llegó, porque sin `STRIPE_WEBHOOK_SECRET` ni `stripe listen` nada le cuenta al
+API que la tarjeta pasó. Eso es configuración, no un fallo — pero destapó dos
+cosas que sí lo eran.
+
+### Decirle "no encontramos tu reserva" a alguien que acaba de pagar
+
+`GET /bookings/session/:id` busca por `stripeSessionId`, que solo se escribe al
+confirmar. Entre el pago y el webhook, la reserva es invisible para esa
+consulta, y la página caía en el peor mensaje posible: el que sugiere que el
+dinero se perdió.
+
+Volver de Stripe con un `session_id` en la URL **prueba que la tarjeta pasó**.
+Ahora la página distingue ese caso y dice que el pago se procesó y la reserva
+está tardando, con la referencia a la vista — guardada en `sessionStorage` de
+camino a Stripe, así que está disponible aunque el API todavía no sepa nada.
+
+Sin `session_id` sigue mostrando el mensaje de enlace incompleto, que ahí sí es
+verdad.
+
+### Un pago que se queda sin fechas
+
+El caso serio. Un `hold` dura 30 minutos. Si el huésped paga en el minuto 29 y
+el webhook tarda, el barrido de la siguiente reserva cancela su `hold` —
+`PENDING` y vencido es exactamente lo que barre. Cuando el webhook por fin
+llega, `confirmPayment` se encontraba una reserva `CANCELLED` y **no hacía
+nada**: dinero cobrado, sin fechas, sin aviso a nadie.
+
+Ahora intenta reconfirmarla, y quien decide si se puede es la restricción de
+exclusión:
+
+- **Nadie tomó esas fechas** → se restaura a `CONFIRMED` y sigue su curso.
+- **Otro huésped ya las reservó** → Postgres lanza `23P01` y sale un aviso
+  aparte, `ACCIÓN REQUERIDA · pago sin fechas`, con la referencia y el id de
+  la sesión de Stripe para devolver el dinero.
+
+Ese aviso **ignora los interruptores del panel**. Apagar los avisos de reserva
+es una decisión sobre ruido; no es una renuncia a enterarse de que hay que
+devolver dinero.
+
+### Verificación
+
+Con el pago real, reenviando el evento firmado que Stripe habría mandado:
+
+```
+webhook firmado          → 200, AB-JJYK9R pasa a CONFIRMED, expiresAt = NULL
+```
+
+Y las fechas, que era la pregunta:
+
+```
+31 jul – 2 ago   ocupadas          3 ago en adelante  libre
+mismas fechas            → 409     contenida          → 409
+solapa el inicio         → 409     empieza al salir   → 201
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (208 tests, 2 nuevos)
+```
+
+### Pendiente del usuario
+
+`STRIPE_WEBHOOK_SECRET` con un valor de verdad. En local sale de
+`stripe listen --forward-to localhost:3001/bookings/stripe-webhook`; en
+producción, del panel de Stripe. Sin él las reservas se quedan en `PENDING`
+para siempre y hay que confirmarlas a mano.

@@ -9,6 +9,8 @@
 export interface CheckoutSession {
   id: string
   url: string
+  /** The booking reference the dates are held under. */
+  reference: string
 }
 
 /**

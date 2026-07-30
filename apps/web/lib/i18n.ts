@@ -36,6 +36,9 @@ export const translations = {
       language: 'Language',
     },
     confirmation: {
+      settling: 'Payment received',
+      settlingLead:
+        'Your payment went through. The booking is taking longer than usual to register — keep this reference and write to us if you do not hear from us shortly.',
       checking: 'Confirming your payment…',
       checkingNote: 'This takes a few seconds. Do not close this page.',
       confirmed: 'Booking confirmed',
@@ -199,6 +202,9 @@ export const translations = {
       language: 'Idioma',
     },
     confirmation: {
+      settling: 'Pago recibido',
+      settlingLead:
+        'Tu pago se procesó. La reserva está tardando más de lo normal en registrarse — guarda esta referencia y escríbenos si no sabes de nosotros en un rato.',
       checking: 'Confirmando tu pago…',
       checkingNote: 'Tarda unos segundos. No cierres esta página.',
       confirmed: 'Reserva confirmada',
@@ -362,6 +368,9 @@ export const translations = {
       language: 'Idioma',
     },
     confirmation: {
+      settling: 'Pagamento recebido',
+      settlingLead:
+        'Seu pagamento foi processado. A reserva está demorando mais que o normal para ser registrada — guarde esta referência e escreva para nós se não tiver notícias em breve.',
       checking: 'Confirmando o seu pagamento…',
       checkingNote: 'Leva alguns segundos. Não feche esta página.',
       confirmed: 'Reserva confirmada',
@@ -524,6 +533,9 @@ export const translations = {
       language: 'Langue',
     },
     confirmation: {
+      settling: 'Paiement reçu',
+      settlingLead:
+        'Votre paiement est passé. L’enregistrement de la réservation prend plus de temps que d’habitude — conservez cette référence et écrivez-nous si vous restez sans nouvelles.',
       checking: 'Confirmation de votre paiement…',
       checkingNote: 'Cela prend quelques secondes. Ne fermez pas cette page.',
       confirmed: 'Réservation confirmée',
@@ -688,6 +700,9 @@ export const translations = {
       language: 'Sprache',
     },
     confirmation: {
+      settling: 'Zahlung eingegangen',
+      settlingLead:
+        'Ihre Zahlung ist durchgegangen. Die Buchung braucht länger als üblich — bewahren Sie diese Referenz auf und schreiben Sie uns, falls Sie nichts hören.',
       checking: 'Zahlung wird bestätigt…',
       checkingNote: 'Das dauert einige Sekunden. Schließen Sie diese Seite nicht.',
       confirmed: 'Buchung bestätigt',
