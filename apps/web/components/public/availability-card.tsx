@@ -415,7 +415,7 @@ export function AvailabilityCard({ className }: Props) {
         <DialogContent className="max-w-lg gap-0 overflow-hidden rounded-[22px] p-0">
           <div className="relative aspect-[7/6] w-full bg-slate-100">
             <Image
-              src="/images/mascota.png"
+              src="/images/service-animal.webp"
               alt={copy.serviceAnimalAlt}
               fill
               sizes="(max-width: 640px) 100vw, 512px"

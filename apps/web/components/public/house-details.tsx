@@ -167,8 +167,8 @@ export function HouseDetails() {
 function ColumnHeading({ label, count }: { label: string; count: number }) {
   return (
     <div className="mb-1 flex items-baseline gap-2 border-b border-slate-200/80 pb-3">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</h3>
-      <span className="text-xs tabular-nums text-slate-400">{count}</span>
+      {/* <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</h3>
+      <span className="text-xs tabular-nums text-slate-400">{count}</span>*/}
     </div>
   )
 }

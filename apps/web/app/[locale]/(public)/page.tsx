@@ -43,7 +43,9 @@ export default function HomePage() {
   const sections = siteContent?.sections
   const cmsReviews = siteContent?.reviews ?? []
   const featured = cmsReviews.find((review) => review.featured) ?? cmsReviews[0]
-  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 3)
+  // Six below the pulled-out quote: two full rows of three, so the grid never
+  // ends with a lone card and a gap beside it.
+  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 6)
 
   const features = sections?.FEATURES
   const amenities = sections?.AMENITIES
@@ -340,8 +342,8 @@ export default function HomePage() {
                         className="h-12 w-12 rounded-full border-2 border-white/30 object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 text-white">
-                        <Star className="h-6 w-6 fill-current" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/15 font-serif text-xl text-white">
+                        {featured.authorName.trim().charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div>
@@ -393,8 +395,11 @@ export default function HomePage() {
                           className="h-10 w-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-[#173a57]">
-                          <Users className="h-5 w-5" />
+                        // An initial rather than a stock face: the review is a
+                        // real person's, and borrowing someone else's photo to
+                        // stand in for them would make the page a lie.
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#174d7a]/10 font-serif text-lg text-[#173a57]">
+                          {review.authorName.trim().charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
@@ -498,82 +503,90 @@ export default function HomePage() {
       )}
 
       {shows(host) && (
-        <section className="bg-gradient-to-b from-[#e8f4f8] to-white py-7">
+        <section className="border-t border-white/70 bg-[#f7f2ea] py-14 lg:py-20">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-            <div className="mb-12 text-center">
-              <p className="mb-2 text-xs uppercase tracking-widest text-amber-600">
-                {text(host, 'eyebrow', home.hostKicker)}
+            {/* Left-aligned like the amenities and details sections, rather
+                than a centred stack: this page introduces things from the left
+                and the eye already knows where to start. */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-600">
+                  {text(host, 'eyebrow', home.hostKicker)}
+                </p>
+                <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
+                  {text(host, 'title', home.hostTitle)}
+                </h2>
+              </div>
+              <p className="flex items-center gap-2 text-[15px] text-slate-600">
+                <Sparkles className="h-4 w-4 text-[#174d7a]" aria-hidden />
+                {text(host, 'statLabel', ui.hostSince)}{' '}
+                {host?.statValue || propertyData.hostSinceYear}
               </p>
-              <h2 className="font-serif text-4xl text-[#173a57]">
-                {text(host, 'title', home.hostTitle)}
-              </h2>
             </div>
 
-            <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-xl">
-              <div className="md:flex">
-                <div className="relative shrink-0 md:w-64">
-                  <div className="relative h-64 overflow-hidden md:h-full">
-                    <Image
-                      src={host?.imageUrl ?? propertyData.host.pictureUrl}
-                      alt={text(host, 'title', propertyData.host.name)}
-                      width={400}
-                      height={400}
-                      className="h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#173a57]/40 to-transparent" />
+            <div className="mt-10 grid gap-8 lg:grid-cols-[0.62fr_1fr] lg:items-stretch lg:gap-12">
+              {/* The photo gets real size instead of a 256px sliver. She is
+                  the content of this section; the numbers are footnotes. */}
+              <div className="relative overflow-hidden rounded-[28px] bg-slate-100 shadow-[0_18px_50px_rgba(15,23,42,0.10)]">
+                <div className="relative aspect-[4/5] w-full lg:absolute lg:inset-0 lg:aspect-auto">
+                  <Image
+                    src={host?.imageUrl ?? propertyData.host.pictureUrl}
+                    alt={propertyData.host.name}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 34vw"
+                    className="object-cover"
+                  />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#173a57]/55 to-transparent" />
+
+                  <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center gap-2">
+                    <span className="font-serif text-2xl text-white">
+                      {propertyData.host.firstName}
+                    </span>
                     {text(host, 'subtitle', home.hostBadge) && (
-                      <div className="absolute bottom-4 left-4">
-                        <span className="flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs text-[#173a57] backdrop-blur-sm">
-                          <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                          {text(host, 'subtitle', home.hostBadge)}
-                        </span>
-                      </div>
+                      <span className="flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs text-[#173a57] backdrop-blur-sm">
+                        <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
+                        {text(host, 'subtitle', home.hostBadge)}
+                      </span>
                     )}
                   </div>
                 </div>
+              </div>
 
-                <div className="flex-1 p-8">
-                  <div className="mb-4 flex items-start justify-between">
-                    <div>
-                      <h3 className="font-serif text-2xl text-[#173a57]">
-                        {propertyData.host.firstName}
-                      </h3>
-                      <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
-                        <Sparkles className="h-3.5 w-3.5" /> {text(host, 'statLabel', ui.hostSince)}{' '}
-                        {host?.statValue || propertyData.hostSinceYear}
-                      </p>
-                    </div>
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="mb-6 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+              <div className="flex flex-col justify-between gap-8 rounded-[28px] border border-white/70 bg-white p-7 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-10">
+                {/* Her own words, set as a quote rather than a grey paragraph.
+                    It is the most human thing on the page and it was being
+                    treated as filler. */}
+                <blockquote className="relative">
+                  <Quote
+                    className="absolute -left-1 -top-2 h-10 w-10 text-[#174d7a]/10"
+                    aria-hidden
+                  />
+                  <p className="relative whitespace-pre-line font-serif text-[22px] leading-[1.55] text-[#173a57] sm:text-[26px]">
                     {text(host, 'body', home.hostBody)}
                   </p>
+                </blockquote>
 
+                <div className="space-y-7">
                   {hostStats.length > 0 && (
-                    <div className="mb-6 grid grid-cols-3 gap-4">
+                    // A row of figures with rules between them, not three
+                    // tinted boxes: they are data, and boxing data gives it
+                    // more weight than it has earned.
+                    <dl className="flex flex-wrap gap-x-10 gap-y-4 border-t border-slate-200 pt-6">
                       {hostStats.map((stat) => (
-                        <div
-                          key={stat.id}
-                          className="rounded-xl bg-[#f8f5f0] px-2 py-3 text-center"
-                        >
-                          <div className="mb-1 flex justify-center text-[#173a57]">
-                            <ContentIcon name={stat.icon} className="h-4 w-4" />
-                          </div>
-                          <p className="text-sm text-[#173a57]">{stat.value}</p>
-                          <p className="text-[11px] text-gray-400">{stat.label}</p>
+                        <div key={stat.id}>
+                          <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-slate-500">
+                            <ContentIcon name={stat.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
+                            {stat.label}
+                          </dt>
+                          <dd className="mt-1 font-serif text-2xl text-[#173a57]">{stat.value}</dd>
                         </div>
                       ))}
-                    </div>
+                    </dl>
                   )}
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="brand" size="lg" className="w-full font-semibold">
+                      <Button variant="brand" size="lg" className="w-full font-semibold sm:w-auto">
                         <Quote className="h-4 w-4" /> {text(host, 'ctaLabel', home.contactHost)}
                       </Button>
                     </DialogTrigger>
