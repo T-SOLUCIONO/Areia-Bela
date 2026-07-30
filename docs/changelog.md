@@ -2079,3 +2079,49 @@ pnpm typecheck ✅   pnpm test ✅ (225 tests, 5 nuevos)
   cruza meses obliga a navegar con la selección a medias.
 - **No se puede crear una reserva desde el panel.** Se puede añadir al huésped,
   pero una estadía tomada por teléfono todavía no tiene por dónde entrar.
+
+---
+
+## 35. En el cotizador, hoy se veía igual que un día elegido
+
+El calendario del huésped usa el componente compartido, que pinta el día actual
+con `bg-accent`. En este sitio `--accent` es `#173a57`, y el día seleccionado
+es `#174d7a`: **dos azules oscuros a un dígito de distancia**. Hoy parecía una
+fecha ya elegida, y el rango entre llegada y salida era un bloque macizo sin
+principio ni fin visibles.
+
+### Lo que se ve ahora
+
+| Estado              | Antes                         | Ahora                                         |
+| ------------------- | ----------------------------- | --------------------------------------------- |
+| Hoy                 | relleno azul oscuro           | anillo azul, sin relleno, número en negrita   |
+| Llegada y salida    | azul `#174d7a`                | igual, en círculo, los únicos bloques sólidos |
+| Noches entre medias | azul `#173a57`, casi idéntico | banda al 10%, esquinas rectas                 |
+| No disponible       | tachado y gris                | tachado, gris y con trama diagonal            |
+
+El rango pasa a leerse como lo que es: **dos extremos y una banda**. Antes los
+tres estados competían por el mismo peso visual.
+
+### El detalle que hacía falta comprobar
+
+Dos mecanismos distintos, y confundirlos habría dejado el arreglo a medias:
+
+- **`classNames`** se esparce al final del objeto del componente compartido, así
+  que cada clave que se pasa **reemplaza la suya entera**. Por eso `bg-accent`
+  desaparece de `today` sin pelearse con él.
+- **El `className` del `DayButton`** sí pasa por `cn()`, que es `twMerge`. Ahí
+  el override de `data-[range-middle=true]:bg-accent` funciona porque
+  tailwind-merge las reconoce como la misma propiedad bajo la misma variante.
+  Se verificó ejecutando `twMerge` sobre las dos listas antes de dar por bueno
+  el cambio.
+
+### Leyenda
+
+Tres rellenos en una cuadrícula es justo donde una leyenda deja de ser adorno.
+Se añadió bajo el calendario, en los cinco idiomas, con la muestra de "tu
+estadía" dibujada como extremo-banda-extremo en vez de un cuadrado de color.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (225 tests)
+```

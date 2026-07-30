@@ -312,12 +312,25 @@ export function AvailabilityCard({ className }: Props) {
                   : [],
             }}
             modifiersClassNames={{
-              // A struck-through, greyed-out day reads as "sold" without a
-              // legend. The diagonal fill is the second signal, so the state
-              // does not rest on colour alone.
+              // A struck-through, greyed day reads as "sold" without a legend.
+              // The diagonal fill is the second signal, so the state does not
+              // rest on colour alone.
               blocked:
                 'line-through decoration-slate-400 decoration-[1.5px] text-slate-300 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(241_245_249)_3px,rgb(241_245_249)_6px)]',
               previewRange: 'bg-[#174d7a]/10 rounded-none',
+            }}
+            classNames={{
+              // The shared calendar paints today with `bg-accent`, and on this
+              // site --accent is #173a57 — near enough to the selected blue
+              // that today looked like a day the guest had already picked.
+              // An outline says "you are here" without claiming to be chosen.
+              today:
+                'rounded-full ring-2 ring-inset ring-[#174d7a]/45 font-semibold data-[selected=true]:ring-0',
+              // The band between the two ends. Pale, so the ends stay the
+              // thing the eye lands on.
+              range_middle: 'rounded-none bg-[#174d7a]/10',
+              range_start: 'rounded-l-full bg-[#174d7a]/10',
+              range_end: 'rounded-r-full bg-[#174d7a]/10',
             }}
             onDayMouseEnter={setHoverDate}
             onDayMouseLeave={() => setHoverDate(undefined)}
@@ -328,7 +341,20 @@ export function AvailabilityCard({ className }: Props) {
                 const rate = rates.get(iso)
                 const taken = unavailable.has(iso)
                 return (
-                  <CalendarDayButton {...dayProps}>
+                  <CalendarDayButton
+                    {...dayProps}
+                    className={cn(
+                      // Neutralises the shared button's dark `bg-accent` fill
+                      // on mid-range days: the tint now lives on the cell, so
+                      // check-in and check-out are the only solid blocks and
+                      // the stay reads as a band with two ends.
+                      'rounded-full data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#173a57]',
+                      'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
+                      'data-[selected-single=true]:bg-[#174d7a]',
+                      'hover:bg-[#f7f2ea]',
+                      taken && 'hover:bg-transparent',
+                    )}
+                  >
                     {dayProps.day.date.getDate()}
                     {/* Shown so a guest sees the weekend costs more before
                         picking it, not after. A night that cannot be booked
@@ -340,6 +366,27 @@ export function AvailabilityCard({ className }: Props) {
             }}
             initialFocus
           />
+
+          {/* Named, not only coloured: three fills in one grid is exactly the
+              point where a legend stops being decoration. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-3.5 w-3.5 rounded-full ring-2 ring-inset ring-[#174d7a]/45" />
+              {copy.legendToday}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="flex items-center">
+                <span className="h-3.5 w-3.5 rounded-l-full bg-[#174d7a]" />
+                <span className="h-3.5 w-2.5 bg-[#174d7a]/10" />
+                <span className="h-3.5 w-3.5 rounded-r-full bg-[#174d7a]" />
+              </span>
+              {copy.legendSelected}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3.5 w-3.5 rounded-sm bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(226_232_240)_3px,rgb(226_232_240)_6px)] ring-1 ring-inset ring-slate-200" />
+              <span className="line-through decoration-slate-400">{copy.legendTaken}</span>
+            </span>
+          </div>
 
           <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
             <button

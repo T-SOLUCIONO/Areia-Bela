@@ -132,6 +132,9 @@ export const translations = {
       'Fast Wi-Fi',
     ],
     availability: {
+      legendToday: 'Today',
+      legendSelected: 'Your stay',
+      legendTaken: 'Not available',
       title: 'Check Availability',
       guaranteed: 'Best rate guaranteed',
       checkIn: 'Check-in',
@@ -300,6 +303,9 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      legendToday: 'Hoy',
+      legendSelected: 'Tu estadía',
+      legendTaken: 'No disponible',
       title: 'Ver disponibilidad',
       guaranteed: 'Mejor tarifa garantizada',
       checkIn: 'Llegada',
@@ -467,6 +473,9 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      legendToday: 'Hoje',
+      legendSelected: 'Sua estadia',
+      legendTaken: 'Indisponível',
       title: 'Ver disponibilidade',
       guaranteed: 'Melhor tarifa garantida',
       checkIn: 'Llegada',
@@ -636,6 +645,9 @@ export const translations = {
       'Wi-Fi rapide',
     ],
     availability: {
+      legendToday: 'Aujourd’hui',
+      legendSelected: 'Votre séjour',
+      legendTaken: 'Indisponible',
       title: 'Voir les disponibilités',
       guaranteed: 'Meilleur tarif garanti',
       checkIn: 'Llegada',
@@ -805,6 +817,9 @@ export const translations = {
       'Schnelles WLAN',
     ],
     availability: {
+      legendToday: 'Heute',
+      legendSelected: 'Ihr Aufenthalt',
+      legendTaken: 'Nicht verfügbar',
       title: 'Verfügbarkeit ansehen',
       guaranteed: 'Bestpreisgarantie',
       checkIn: 'Llegada',
