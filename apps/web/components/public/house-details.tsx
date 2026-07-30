@@ -90,7 +90,7 @@ export function HouseDetails({
 
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[#174d7a]">
+            <div className="flex items-center gap-2 text-amber-600">
               <BookOpen className="h-5 w-5" aria-hidden />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                 {copy.eyebrow}
@@ -113,9 +113,11 @@ export function HouseDetails({
               {amenityTags.map((tag) => (
                 <span
                   key={tag.key}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700"
+                  className="flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-white py-1.5 pl-1.5 pr-4 text-sm text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                 >
-                  <ContentIcon name={tag.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#174d7a]/8 text-[#174d7a]">
+                    <ContentIcon name={tag.icon} className="h-3.5 w-3.5" />
+                  </span>
                   {tag.label}
                 </span>
               ))}
@@ -127,7 +129,7 @@ export function HouseDetails({
           {sections.length > 0 && (
             <div>
               <ColumnHeading label={copy.house} count={sections.length} />
-              <Accordion type="single" collapsible>
+              <Accordion type="single" collapsible defaultValue={sections[0]?.slug}>
                 {sections.map(({ slug, icon, page }) => (
                   <AccordionItem key={slug} value={slug} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>
@@ -158,7 +160,7 @@ export function HouseDetails({
           {faqs.length > 0 && (
             <div>
               <ColumnHeading label={copy.faqs} count={faqs.length} />
-              <Accordion type="single" collapsible>
+              <Accordion type="single" collapsible defaultValue={faqs[0]?.id}>
                 {faqs.map((faq) => (
                   <AccordionItem key={faq.id} value={faq.id} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>
