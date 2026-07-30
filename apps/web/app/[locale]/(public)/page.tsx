@@ -43,7 +43,9 @@ export default function HomePage() {
   const sections = siteContent?.sections
   const cmsReviews = siteContent?.reviews ?? []
   const featured = cmsReviews.find((review) => review.featured) ?? cmsReviews[0]
-  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 3)
+  // Six below the pulled-out quote: two full rows of three, so the grid never
+  // ends with a lone card and a gap beside it.
+  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 6)
 
   const features = sections?.FEATURES
   const amenities = sections?.AMENITIES
@@ -340,8 +342,8 @@ export default function HomePage() {
                         className="h-12 w-12 rounded-full border-2 border-white/30 object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 text-white">
-                        <Star className="h-6 w-6 fill-current" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/15 font-serif text-xl text-white">
+                        {featured.authorName.trim().charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div>
@@ -393,8 +395,11 @@ export default function HomePage() {
                           className="h-10 w-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-[#173a57]">
-                          <Users className="h-5 w-5" />
+                        // An initial rather than a stock face: the review is a
+                        // real person's, and borrowing someone else's photo to
+                        // stand in for them would make the page a lie.
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#174d7a]/10 font-serif text-lg text-[#173a57]">
+                          {review.authorName.trim().charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="min-w-0 flex-1">

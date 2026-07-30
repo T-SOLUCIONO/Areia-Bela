@@ -302,10 +302,11 @@ async function main() {
   }
   console.log(`Seed landing — ${sectionCount} secciones, ${itemCount} elementos nuevos`)
 
-  // The four reviews the page already showed, straight from the listing.
+  // Every review the listing carries, not just the first few: they are real,
+  // they are the host's, and there is no reason to leave two thirds of them out.
   // Reviews are English-only at the source: see the gap noted at the top.
   let reviewCount = 0
-  for (const [index, review] of listing.reviews.reviews.slice(0, 4).entries()) {
+  for (const [index, review] of listing.reviews.reviews.entries()) {
     const text = clean(review.comments)
     const authorName = review.author?.firstName?.trim() || 'Huésped'
     const existing = await prisma.review.findFirst({ where: { authorName, text: text } })
@@ -314,7 +315,11 @@ async function main() {
     await prisma.review.create({
       data: {
         authorName,
-        authorPhotoUrl: review.author?.pictureUrl ?? null,
+        // Deliberately not the listing's photo URL. Those live on Airbnb's CDN
+        // and show four identifiable people who never agreed to appear on this
+        // site — and the link is theirs to break. The site draws an initial
+        // instead; the words stay exactly as the guest wrote them.
+        authorPhotoUrl: null,
         rating: review.rating,
         text: text,
         stayedAt: review.localizedDate ?? '',
