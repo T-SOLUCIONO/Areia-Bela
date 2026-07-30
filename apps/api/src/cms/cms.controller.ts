@@ -184,6 +184,22 @@ export class CmsController {
     await this.storage.remove(image.url)
   }
 
+  /**
+   * The saved contact, SEO and alert settings.
+   *
+   * This route was missing: the service had `getSettings()` and the panel
+   * called `GET /cms/settings`, but only the PATCH was ever declared. The form
+   * 404'd on load and sat on its skeletons, so nothing under Settings →
+   * Contact could be seen or edited.
+   *
+   * Returns null when the row has never been written; the PATCH upserts it.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @Get('settings')
+  getSettings() {
+    return this.cms.getSettings()
+  }
+
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Patch('settings')
   updateSettings(@Body() dto: UpdateSiteSettingsDto) {

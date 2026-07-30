@@ -63,7 +63,7 @@ function CheckoutForm() {
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [error, setError] = useState<'taken' | 'failed' | null>(null)
+  const [error, setError] = useState<'taken' | 'failed' | 'missingDetails' | null>(null)
   const copy = translations[language].checkout
   const [formData, setFormData] = useState({
     firstName: '',
@@ -116,6 +116,13 @@ function CheckoutForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!agreedToTerms) return
+
+    // Belt and braces: native validation covers this, but a missing field must
+    // never reach the API as an opaque 400 the guest cannot act on.
+    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
+      setError('missingDetails')
+      return
+    }
 
     setIsLoading(true)
     setError(null)
@@ -322,7 +329,7 @@ function CheckoutForm() {
               <h2 className="font-serif text-xl text-foreground">
                 {isEnglish ? 'Guest information' : 'Información del huésped'}
               </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form id="checkout-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
@@ -472,13 +479,21 @@ function CheckoutForm() {
                     role="alert"
                     className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700"
                   >
-                    {error === 'taken' ? copy.datesTaken : copy.checkoutFailed}
+                    {error === 'taken'
+                      ? copy.datesTaken
+                      : error === 'missingDetails'
+                        ? copy.missingDetails
+                        : copy.checkoutFailed}
                   </p>
                 )}
 
                 <Button
                   type="submit"
-                  onClick={handleSubmit}
+                  // The guest details are in a form two sections up. Pointing at
+                  // it by id makes this its submit button, which is what makes
+                  // the browser check the required fields before we send
+                  // anything — an onClick handler skips all of that.
+                  form="checkout-form"
                   disabled={isLoading || !agreedToTerms}
                   variant="brand"
                   size="lg"

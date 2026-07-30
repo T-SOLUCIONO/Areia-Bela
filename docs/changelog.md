@@ -1688,3 +1688,57 @@ canónica de `CLAUDE.md`; se les añadieron columnas (`reference`, `expiresAt`,
   tabla hasta la siguiente reserva. El calendario y el panel ya lo ignoran, así
   que es ruido en una tabla, no una fecha bloqueada — pero es deuda.
 - **El huésped no puede cancelar.** Solo la anfitriona, desde el panel.
+
+---
+
+## 30. Dos rutas que nunca existieron
+
+Errores reportados al probar el flujo recién construido. Ninguno de los dos era
+nuevo; los dos llevaban tiempo ahí.
+
+### `GET /cms/settings` devolvía 404
+
+`CmsService` tenía `getSettings()` y el panel llamaba a `GET /cms/settings`,
+pero **solo se había declarado el `@Patch`**. La ruta de lectura no existía.
+
+El formulario de Ajustes → Contacto y SEO recibía un 404 al cargar, `draft` y
+`stored` se quedaban en `null`, y la pantalla mostraba sus esqueletos para
+siempre. Toda esa sección era inutilizable — incluidos los destinos de avisos
+de §28, que se podían guardar pero no volver a ver.
+
+Verificado el ciclo completo contra el API real: `PATCH` guarda,
+`GET` devuelve lo guardado, `401` sin sesión.
+
+### El botón de pagar no era el botón del formulario
+
+`POST /api/checkout` respondía `400 Missing guest details` aunque los campos
+estuvieran en pantalla. La causa: el `<form>` de datos del huésped está en una
+sección y el botón "Confirmar y pagar" en otra, y el botón llamaba a
+`handleSubmit` por `onClick`.
+
+Un `onClick` no es un envío de formulario. **El navegador nunca comprobó ni un
+solo `required`**, así que el formulario se enviaba vacío y el 400 llegaba
+desde el API, donde ya no hay forma de señalar qué campo falta.
+
+Se arregla con `form="checkout-form"` en el botón, que lo convierte en el
+submit de ese formulario aunque esté fuera de él: la validación nativa vuelve a
+correr y el navegador enfoca el primer campo vacío. Queda además una
+comprobación en `handleSubmit` y un mensaje traducido, para que un fallo de
+validación nunca se muestre como "no pudimos abrir la página de pago".
+
+Esto estaba declarado como diferido en §29 ("el checkout no valida los campos
+del huésped antes de enviar"). Resultó no ser una falta de validación sino un
+botón desconectado, que es peor: la validación estaba escrita y no se ejecutaba.
+
+### Verificación
+
+```
+GET /cms/settings sin sesión → 401 (antes: 404)
+GET /cms/settings con sesión → los ajustes, con los campos de avisos
+PATCH y releer               → conserva notifyEmail, notifyWhatsapp y los interruptores
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (206 tests)
+```

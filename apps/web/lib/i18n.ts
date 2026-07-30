@@ -63,6 +63,7 @@ export const translations = {
       contactHost: 'Message the host',
     },
     checkout: {
+      missingDetails: 'Add your name and email before paying — the booking is made in that name.',
       datesTaken:
         'Those dates were booked while you were filling this in. Pick others and the price will update.',
       checkoutFailed:
@@ -225,6 +226,7 @@ export const translations = {
       contactHost: 'Escribir a la anfitriona',
     },
     checkout: {
+      missingDetails: 'Completa tu nombre y correo antes de pagar — la reserva queda a ese nombre.',
       datesTaken:
         'Esas fechas se reservaron mientras completabas el formulario. Elige otras y el precio se actualiza.',
       checkoutFailed:
@@ -386,6 +388,7 @@ export const translations = {
       contactHost: 'Escrever para a anfitriã',
     },
     checkout: {
+      missingDetails: 'Preencha seu nome e e-mail antes de pagar — a reserva fica nesse nome.',
       datesTaken:
         'Essas datas foram reservadas enquanto você preenchia o formulário. Escolha outras e o preço será atualizado.',
       checkoutFailed:
@@ -548,6 +551,8 @@ export const translations = {
       contactHost: 'Écrire à l’hôtesse',
     },
     checkout: {
+      missingDetails:
+        'Indiquez vos nom et e-mail avant de payer — la réservation est établie à ce nom.',
       datesTaken:
         'Ces dates ont été réservées pendant que vous remplissiez le formulaire. Choisissez-en d’autres et le prix sera mis à jour.',
       checkoutFailed:
@@ -710,6 +715,8 @@ export const translations = {
       contactHost: 'Der Gastgeberin schreiben',
     },
     checkout: {
+      missingDetails:
+        'Geben Sie Name und E-Mail an, bevor Sie zahlen — die Buchung läuft auf diesen Namen.',
       datesTaken:
         'Diese Daten wurden gebucht, während Sie das Formular ausgefüllt haben. Wählen Sie andere, und der Preis wird aktualisiert.',
       checkoutFailed:
