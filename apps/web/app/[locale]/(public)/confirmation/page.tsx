@@ -1,90 +1,213 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { format, parseISO } from 'date-fns'
-import {
-  CheckCircle,
-  Calendar,
-  Users,
-  MapPin,
-  Mail,
-  Clock,
-  Download,
-  Share2,
-  Shield,
-} from 'lucide-react'
+import { es as esLocale, ptBR, fr as frLocale, de as deLocale } from 'date-fns/locale'
+import { CheckCircle, Calendar, Users, MapPin, Clock, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
-import { getQuoteFromStorage } from '@/lib/booking'
+import { currency } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
-import type { BookingQuote } from '@/lib/booking'
+import { API_URL } from '@/lib/api-client'
 import { useLanguage } from '@/components/language-provider'
+import { translations } from '@/lib/i18n'
+
+interface ConfirmedBooking {
+  reference: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  guests: number
+  total: number
+  guestName: string
+  guestEmail: string
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
+  checkInTime: string
+  checkOutTime: string
+}
+
+const DATE_LOCALES = {
+  es: esLocale,
+  en: undefined,
+  pt: ptBR,
+  fr: frLocale,
+  de: deLocale,
+} as const
+
+/**
+ * Stripe redirects here the moment the card clears, which is usually before
+ * its webhook has reached us. Polling covers that gap; without it the page
+ * would tell a guest who just paid that their booking does not exist.
+ */
+const POLL_INTERVAL_MS = 2_000
+const POLL_ATTEMPTS = 10
 
 function ConfirmationContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const { language } = useLanguage()
-  const isEnglish = language === 'en'
-  const [quote, setQuote] = useState<BookingQuote | null>(null)
+  const copy = translations[language].confirmation
+
+  const [booking, setBooking] = useState<ConfirmedBooking | null>(null)
+  const [state, setState] = useState<'loading' | 'found' | 'missing'>('loading')
+  const attempts = useRef(0)
+  // Stashed on the way out to Stripe. Its presence is proof this browser
+  // started a real checkout, which is what separates "the webhook is slow"
+  // from "this link goes nowhere".
+  //
+  // Read once, on the first client render, rather than in an effect: it never
+  // changes, and it is only shown in a branch that comes after polling, so the
+  // server render never disagrees with it.
+  const [stashedReference] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      return sessionStorage.getItem('areia-bela:last-reference')
+    } catch {
+      return null // Private browsing.
+    }
+  })
+
+  const fetchBooking = useCallback(async () => {
+    if (!sessionId) {
+      setState('missing')
+      return true
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/bookings/session/${encodeURIComponent(sessionId)}`, {
+        cache: 'no-store',
+      })
+      if (response.ok) {
+        setBooking((await response.json()) as ConfirmedBooking)
+        setState('found')
+        return true
+      }
+    } catch {
+      // Network hiccup. The retry below covers it.
+    }
+
+    attempts.current += 1
+    if (attempts.current >= POLL_ATTEMPTS) {
+      setState('missing')
+      return true
+    }
+    return false
+  }, [sessionId])
 
   useEffect(() => {
-    const storedQuote = getQuoteFromStorage()
-    if (storedQuote) {
-      setQuote(storedQuote)
-    }
-  }, [])
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout>
 
-  if (!quote) {
+    const tick = async () => {
+      const done = await fetchBooking()
+      if (!done && !stopped) timer = setTimeout(() => void tick(), POLL_INTERVAL_MS)
+    }
+    void tick()
+
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
+  }, [fetchBooking])
+
+  const longDate = (value: string) =>
+    format(parseISO(value), 'PPP', { locale: DATE_LOCALES[language] })
+
+  if (state === 'loading') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-        <div className="w-16 h-16 rounded-full bg-success/15 flex items-center justify-center mb-6">
-          <CheckCircle className="w-10 h-10 text-success" />
-        </div>
-        <h1 className="font-serif text-3xl text-foreground mb-2">
-          {isEnglish ? 'Booking Confirmed!' : '¡Reserva confirmada!'}
-        </h1>
-        <p className="text-muted-foreground mb-6">
-          {isEnglish ? 'Loading your booking details...' : 'Cargando los detalles de tu reserva...'}
-        </p>
-        <div className="animate-pulse">
-          <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-        </div>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+        <Loader2 className="mb-6 h-10 w-10 animate-spin text-[#174d7a]" />
+        <h1 className="mb-2 font-serif text-2xl text-foreground">{copy.checking}</h1>
+        <p className="text-muted-foreground">{copy.checkingNote}</p>
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Main Content */}
-      <main className="mx-auto max-w-4xl px-4 py-8 md:px-12">
-        {/* Success Message */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-success/15 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-success" />
-          </div>
-          <h1 className="font-serif text-3xl text-foreground mb-2">
-            {isEnglish ? 'Booking Confirmed!' : '¡Reserva confirmada!'}
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            {isEnglish
-              ? 'Thanks, your reservation has been confirmed.'
-              : 'Gracias, tu reserva ha sido confirmada.'}
-          </p>
-          {sessionId && (
-            <p className="text-sm text-muted-foreground mt-2">
-              {isEnglish ? 'Confirmation ID' : 'ID de confirmación'}:{' '}
-              <span className="font-mono text-xs">{sessionId.slice(0, 20)}...</span>
-            </p>
+  if (state === 'missing' || !booking) {
+    // Coming back from Stripe with a session id means the card cleared. Telling
+    // that guest we cannot find their booking is both alarming and untrue; the
+    // booking exists, the webhook just has not landed.
+    const paid = Boolean(sessionId)
+
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+          {paid ? (
+            <Loader2 className="h-9 w-9 animate-spin text-amber-600" />
+          ) : (
+            <AlertCircle className="h-9 w-9 text-amber-600" />
           )}
         </div>
+        <h1 className="mb-2 font-serif text-2xl text-foreground">
+          {paid ? copy.settling : copy.notFound}
+        </h1>
+        <p className="max-w-md text-muted-foreground">
+          {paid ? copy.settlingLead : copy.notFoundLead}
+        </p>
 
-        {/* Booking Details Card */}
-        <div className="rounded-2xl border border-border p-6 md:p-8 mb-8">
-          <div className="flex flex-col md:flex-row gap-6">
-            {/* Property Image */}
-            <div className="relative h-40 w-full md:w-48 flex-shrink-0 rounded-xl overflow-hidden">
+        {paid && stashedReference && (
+          <div className="mt-6 rounded-[20px] bg-[#f7f2ea] px-8 py-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">
+              {copy.reference}
+            </p>
+            <p className="mt-1 font-mono text-2xl font-semibold tracking-wider text-[#173a57]">
+              {stashedReference}
+            </p>
+          </div>
+        )}
+
+        <Button asChild variant="brand" size="lg" className="mt-8">
+          <Link href="/#contact">{copy.contactHost}</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  // A booking that exists but is not CONFIRMED yet means the webhook is still
+  // in flight. The money is not in doubt — Stripe would not have redirected —
+  // so this says so rather than showing a scary error.
+  const settled = booking.status !== 'PENDING'
+
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="mx-auto max-w-3xl px-4 py-10 md:px-12">
+        <div className="mb-10 text-center">
+          <div
+            className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
+              settled ? 'bg-success/15' : 'bg-amber-100'
+            }`}
+          >
+            {settled ? (
+              <CheckCircle className="h-11 w-11 text-success" />
+            ) : (
+              <Loader2 className="h-11 w-11 animate-spin text-amber-600" />
+            )}
+          </div>
+          <h1 className="mb-2 font-serif text-3xl text-foreground">
+            {settled ? copy.confirmed : copy.pending}
+          </h1>
+          <p className="mx-auto max-w-lg text-lg text-muted-foreground">
+            {settled ? copy.confirmedLead : copy.pendingLead}
+          </p>
+        </div>
+
+        {/* The reference, given its own weight: it is the one thing worth
+            writing down, and the only handle a guest has on their booking. */}
+        <div className="mb-8 rounded-[24px] bg-[#f7f2ea] px-6 py-7 text-center">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">
+            {copy.reference}
+          </p>
+          <p className="mt-2 font-mono text-3xl font-semibold tracking-wider text-[#173a57]">
+            {booking.reference}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">{copy.referenceNote}</p>
+        </div>
+
+        <div className="mb-8 rounded-2xl border border-border p-6 md:p-8">
+          <div className="flex flex-col gap-6 md:flex-row">
+            <div className="relative h-40 w-full flex-shrink-0 overflow-hidden rounded-xl md:h-32 md:w-44">
               <Image
                 src={propertyData.photos[0].large}
                 alt={propertyData.name}
@@ -93,85 +216,50 @@ function ConfirmationContent() {
               />
             </div>
 
-            {/* Property Info */}
             <div className="flex-1">
-              <h2 className="font-serif text-xl text-foreground mb-2">{propertyData.name}</h2>
-              <div className="flex items-center gap-1 text-muted-foreground mb-4">
+              <h2 className="mb-1 font-serif text-xl text-foreground">{propertyData.name}</h2>
+              <div className="mb-5 flex items-center gap-1 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
                 <span>
                   {propertyData.city}, {propertyData.country}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                      {isEnglish ? 'Check-in' : 'Llegada'}
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {quote.checkIn ? format(parseISO(quote.checkIn), 'MMM d, yyyy') : 'N/A'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isEnglish ? 'From 4:00 PM' : 'Desde las 4:00 PM'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                      {isEnglish ? 'Check-out' : 'Salida'}
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {quote.checkOut ? format(parseISO(quote.checkOut), 'MMM d, yyyy') : 'N/A'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isEnglish ? 'By 10:00 AM' : 'Antes de las 10:00 AM'}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
+                <Detail icon={Calendar} label={copy.checkIn}>
+                  {longDate(booking.checkIn)}
+                  <span className="block text-sm text-muted-foreground">{booking.checkInTime}</span>
+                </Detail>
+                <Detail icon={Calendar} label={copy.checkOut}>
+                  {longDate(booking.checkOut)}
+                  <span className="block text-sm text-muted-foreground">
+                    {booking.checkOutTime}
+                  </span>
+                </Detail>
+                <Detail icon={Users} label={copy.guests}>
+                  {booking.guests}
+                </Detail>
+                <Detail icon={Clock} label={copy.nights}>
+                  {booking.nights}
+                </Detail>
+              </dl>
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="h-px bg-border my-6" />
+          <div className="my-6 h-px bg-border" />
 
-          {/* Guest Info */}
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                {isEnglish ? 'Guests' : 'Huéspedes'}
-              </p>
-              <p className="font-medium text-foreground">
-                {quote.guests.adults + quote.guests.children} {isEnglish ? 'guest' : 'huésped'}
-                {quote.guests.adults + quote.guests.children !== 1 ? (isEnglish ? 's' : 'es') : ''}
-                {quote.guests.children > 0 &&
-                  ` (${quote.guests.children} ${isEnglish ? 'children' : 'niños'})`}
-              </p>
-            </div>
+          <div className="flex items-baseline justify-between">
+            <span className="font-semibold text-foreground">{copy.total}</span>
+            <span className="text-2xl font-semibold text-foreground">
+              {currency(booking.total)}
+            </span>
           </div>
-
-          {/* Nights */}
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                {isEnglish ? 'Duration' : 'Duración'}
-              </p>
-              <p className="font-medium text-foreground">
-                {quote.nights} {isEnglish ? 'night' : 'noche'}
-                {quote.nights !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {copy.emailedTo} <span className="font-medium">{booking.guestEmail}</span>
+          </p>
         </div>
 
-        {/* Host Message */}
-        <div className="mb-8 rounded-[24px] border border-border bg-secondary p-6 md:p-8">
+        <div className="mb-10 rounded-[24px] border border-border bg-secondary p-6 md:p-8">
           <div className="flex items-start gap-4">
             <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-white">
               <Image
@@ -181,150 +269,45 @@ function ConfirmationContent() {
                 className="object-cover"
               />
             </div>
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-foreground">
-                  {isEnglish ? 'Message from' : 'Mensaje de'} {propertyData.host.firstName}
-                </h3>
-                <span className="text-xs text-muted-foreground">
-                  {isEnglish ? 'Just now' : 'Justo ahora'}
-                </span>
-              </div>
-              <div className="mt-2 rounded-[18px] rounded-tl-sm bg-card px-4 py-3 shadow-sm">
-                <p className="text-sm text-muted-foreground">
-                  {isEnglish
-                    ? 'Thank you for choosing Areia Bela! We are excited to host you and make your stay unforgettable. If you have any questions before your arrival, do not hesitate to reach out. We cannot wait to welcome you!'
-                    : '¡Gracias por elegir Areia Bela! Estamos emocionados de hospedarte y hacer que tu estadía sea inolvidable. Si tienes preguntas antes de tu llegada, no dudes en escribirnos. ¡No vemos la hora de recibirte!'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Price Summary */}
-        <div className="rounded-2xl border border-border p-6 md:p-8 mb-8">
-          <h3 className="font-serif text-lg text-foreground mb-4">
-            {isEnglish ? 'Price details' : 'Detalles del precio'}
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-foreground">
-              <span>
-                {propertyData.pricing.price_per_night} x {quote.nights}{' '}
-                {isEnglish ? 'nights' : 'noches'}
-              </span>
-              <span>${quote.subtotal.toLocaleString()}</span>
-            </div>
-            {quote.extrasTotal > 0 && (
-              <div className="flex justify-between text-foreground">
-                <span>{isEnglish ? 'Extras' : 'Extras'}</span>
-                <span>${quote.extrasTotal.toLocaleString()}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-foreground">
-              <span>{isEnglish ? 'Cleaning fee' : 'Tarifa de limpieza'}</span>
-              <span>${quote.cleaningFee.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-foreground">
-              <span>{isEnglish ? 'Service fee' : 'Tarifa de servicio'}</span>
-              <span>${quote.serviceFee.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-foreground">
-              <span>{isEnglish ? 'Taxes & fees' : 'Impuestos y tarifas'}</span>
-              <span>${quote.taxes.toLocaleString()}</span>
-            </div>
-            <div className="h-px bg-border my-3" />
-            <div className="flex justify-between text-lg font-semibold text-foreground">
-              <span>{isEnglish ? 'Total' : 'Total'}</span>
-              <span>${quote.total.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Important Info */}
-        <div className="rounded-2xl border border-border p-6 md:p-8 mb-8">
-          <div className="flex items-start gap-3 mb-6">
-            <Shield className="h-6 w-6 text-muted-foreground mt-0.5" />
             <div>
-              <h3 className="font-semibold text-foreground">
-                {isEnglish ? 'Booking Protection' : 'Protección de la reserva'}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {isEnglish
-                  ? "Your booking is protected by free AirCover. If there's a problem with your stay, we're here to help."
-                  : 'Tu reserva está protegida por AirCover gratis. Si hay un problema con tu estadía, estamos para ayudarte.'}
-              </p>
-            </div>
-          </div>
-
-          <h3 className="font-serif text-lg text-foreground mb-4">
-            {isEnglish ? 'Guest controls' : 'Controles del huésped'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Mail className="h-4 w-4" />
-              <span>
-                {isEnglish
-                  ? 'Confirmation email sent to your inbox'
-                  : 'Correo de confirmación enviado a tu bandeja de entrada'}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>
-                {isEnglish
-                  ? 'Add to calendar feature available'
-                  : 'Función de agregar al calendario disponible'}
-              </span>
+              <h3 className="font-semibold text-foreground">{copy.nextTitle}</h3>
+              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                <li>{copy.nextArrival}</li>
+                <li>{copy.nextQuestions}</li>
+              </ul>
             </div>
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button variant="outline" size="lg" className="w-full px-6 sm:w-auto">
-            <Download className="h-4 w-4" />
-            {isEnglish ? 'Download receipt' : 'Descargar recibo'}
-          </Button>
-          <Button variant="outline" size="lg" className="w-full px-6 sm:w-auto">
-            <Share2 className="h-4 w-4" />
-            {isEnglish ? 'Share trip details' : 'Compartir detalles del viaje'}
+          <Button asChild variant="outline" size="lg" className="w-full px-6 sm:w-auto">
+            <Link href="/#contact">{copy.contactHost}</Link>
           </Button>
           <Button asChild variant="brand" size="lg" className="w-full px-6 font-medium sm:w-auto">
-            <Link href="/">{isEnglish ? 'Back to home' : 'Volver al inicio'}</Link>
+            <Link href="/">{copy.backHome}</Link>
           </Button>
         </div>
-
-        {/* Need Help */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {isEnglish ? 'Need help with your reservation?' : '¿Necesitas ayuda con tu reserva?'}{' '}
-            <Link href="#" className="underline text-foreground hover:text-primary">
-              {isEnglish ? 'Contact us' : 'Contáctanos'}
-            </Link>
-          </p>
-        </div>
       </main>
+    </div>
+  )
+}
 
-      {/* Footer */}
-      <footer className="border-t border-border py-6 px-6 md:px-12">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-          <p>
-            &copy; {new Date().getFullYear()} Areia Bela.{' '}
-            {isEnglish ? 'All rights reserved.' : 'Todos los derechos reservados.'}
-          </p>
-          <div className="flex gap-6">
-            <Link href="#" className="hover:text-foreground">
-              {isEnglish ? 'Privacy' : 'Privacidad'}
-            </Link>
-            <Link href="#" className="hover:text-foreground">
-              {isEnglish ? 'Terms' : 'Términos'}
-            </Link>
-            <Link href="#" className="hover:text-foreground">
-              {isEnglish ? 'Sitemap' : 'Mapa del sitio'}
-            </Link>
-          </div>
-        </div>
-      </footer>
+function Detail({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: typeof Calendar
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className="mt-0.5 h-5 w-5 text-muted-foreground" />
+      <div>
+        <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+        <dd className="font-medium text-foreground">{children}</dd>
+      </div>
     </div>
   )
 }
@@ -333,12 +316,8 @@ export default function ConfirmationPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-pulse flex flex-col items-center">
-            <div className="h-16 w-16 rounded-full bg-success/15 mb-4" />
-            <div className="h-8 w-64 bg-border rounded mb-2" />
-            <div className="h-4 w-48 bg-border rounded" />
-          </div>
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-[#174d7a]" />
         </div>
       }
     >

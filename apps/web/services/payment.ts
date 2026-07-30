@@ -9,6 +9,8 @@
 export interface CheckoutSession {
   id: string
   url: string
+  /** The booking reference the dates are held under. */
+  reference: string
 }
 
 /**
@@ -26,7 +28,21 @@ export interface CheckoutRequest {
   /** Units per extra — two dogs is two pet fees, and the route re-prices it. */
   extraUnits: Record<string, number>
   guests: { adults: number; children: number; infants: number; pets: number }
+  /** Who the stay is for. The dates are held under this person's name. */
+  guest: {
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+    country: string
+  }
+  specialRequests?: string
+  /** So the guest's confirmation email arrives in the language they booked in. */
+  locale: string
 }
+
+/** The dates were taken while the guest was filling in the form. */
+export class DatesUnavailableError extends Error {}
 
 export async function createCheckoutSession(booking: CheckoutRequest): Promise<CheckoutSession> {
   const response = await fetch('/api/checkout', {
@@ -37,6 +53,11 @@ export async function createCheckoutSession(booking: CheckoutRequest): Promise<C
 
   if (!response.ok) {
     const error = (await response.json().catch(() => null)) as { error?: string } | null
+    // 409 is the one failure a guest can act on: pick other dates. Everything
+    // else is ours to fix, and saying so would only send them in circles.
+    if (response.status === 409) {
+      throw new DatesUnavailableError(error?.error ?? 'Those dates were just taken')
+    }
     throw new Error(error?.error ?? 'Failed to create checkout session')
   }
 

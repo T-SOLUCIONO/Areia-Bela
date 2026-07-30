@@ -35,7 +35,51 @@ export const translations = {
       toggleMenu: 'Toggle menu',
       language: 'Language',
     },
+    confirmation: {
+      settling: 'Payment received',
+      settlingLead:
+        'Your payment went through. The booking is taking longer than usual to register — keep this reference and write to us if you do not hear from us shortly.',
+      checking: 'Confirming your payment…',
+      checkingNote: 'This takes a few seconds. Do not close this page.',
+      confirmed: 'Booking confirmed',
+      confirmedLead: 'The house is yours for these dates. Angélica has been notified.',
+      pending: 'Payment received, confirming',
+      pendingLead:
+        'Your payment went through and we are finalising the booking. If this page does not update, write to us with your reference and we will confirm it.',
+      notFound: 'We could not find that booking',
+      notFoundLead:
+        'The link may be incomplete. If you were charged, write to us and we will sort it out — nothing is lost.',
+      reference: 'Reference',
+      referenceNote: 'Quote this in any message about your stay.',
+      checkIn: 'Check-in',
+      checkOut: 'Check-out',
+      guests: 'Guests',
+      nights: 'Nights',
+      total: 'Total paid',
+      emailedTo: 'A confirmation was sent to',
+      nextTitle: 'What happens now',
+      nextArrival:
+        'Angélica will write to you before your arrival with the door code and directions.',
+      nextQuestions:
+        'Any question about the house, the pool or the pets: just reply to that email.',
+      backHome: 'Back to home',
+      contactHost: 'Message the host',
+    },
+    checkout: {
+      datesTakenToast: 'Those nights are no longer free',
+      pickOthers: 'Pick other dates',
+      missingDetails: 'Add your name and email before paying — the booking is made in that name.',
+      datesTaken:
+        'Those dates were booked while you were filling this in. Pick others and the price will update.',
+      checkoutFailed:
+        'We could not open the payment page. Nothing has been charged — please try again.',
+      paymentSecurity:
+        'Payment is handled by Stripe; the house never sees your card details. Your dates are held while you pay.',
+    },
     contact: {
+      sending: 'Sending...',
+      sendFailed:
+        'Your message could not be sent. Please try again, or write to the address above.',
       superhost: 'Superhost',
       responseRate: 'response rate',
       title: 'Message the host',
@@ -88,6 +132,9 @@ export const translations = {
       'Fast Wi-Fi',
     ],
     availability: {
+      legendToday: 'Today',
+      legendSelected: 'Your stay',
+      legendTaken: 'Not available',
       title: 'Check Availability',
       guaranteed: 'Best rate guaranteed',
       checkIn: 'Check-in',
@@ -159,7 +206,51 @@ export const translations = {
       toggleMenu: 'Abrir menú',
       language: 'Idioma',
     },
+    confirmation: {
+      settling: 'Pago recibido',
+      settlingLead:
+        'Tu pago se procesó. La reserva está tardando más de lo normal en registrarse — guarda esta referencia y escríbenos si no sabes de nosotros en un rato.',
+      checking: 'Confirmando tu pago…',
+      checkingNote: 'Tarda unos segundos. No cierres esta página.',
+      confirmed: 'Reserva confirmada',
+      confirmedLead: 'La casa es tuya en esas fechas. Angélica ya fue avisada.',
+      pending: 'Pago recibido, confirmando',
+      pendingLead:
+        'Tu pago se procesó y estamos terminando de registrar la reserva. Si esta página no se actualiza, escríbenos con tu referencia y la confirmamos.',
+      notFound: 'No encontramos esa reserva',
+      notFoundLead:
+        'Puede que el enlace esté incompleto. Si se te cobró, escríbenos y lo resolvemos — no se perdió nada.',
+      reference: 'Referencia',
+      referenceNote: 'Menciónala en cualquier mensaje sobre tu estadía.',
+      checkIn: 'Llegada',
+      checkOut: 'Salida',
+      guests: 'Huéspedes',
+      nights: 'Noches',
+      total: 'Total pagado',
+      emailedTo: 'Enviamos la confirmación a',
+      nextTitle: 'Qué sigue',
+      nextArrival:
+        'Angélica te escribirá antes de tu llegada con el código de la puerta y cómo llegar.',
+      nextQuestions:
+        'Cualquier duda sobre la casa, la piscina o las mascotas: responde a ese correo.',
+      backHome: 'Volver al inicio',
+      contactHost: 'Escribir a la anfitriona',
+    },
+    checkout: {
+      datesTakenToast: 'Esas noches ya no están libres',
+      pickOthers: 'Elegir otras fechas',
+      missingDetails: 'Completa tu nombre y correo antes de pagar — la reserva queda a ese nombre.',
+      datesTaken:
+        'Esas fechas se reservaron mientras completabas el formulario. Elige otras y el precio se actualiza.',
+      checkoutFailed:
+        'No pudimos abrir la página de pago. No se te ha cobrado nada — inténtalo de nuevo.',
+      paymentSecurity:
+        'El pago lo procesa Stripe; la casa nunca ve los datos de tu tarjeta. Tus fechas quedan reservadas mientras pagas.',
+    },
     contact: {
+      sending: 'Enviando...',
+      sendFailed:
+        'No se pudo enviar tu mensaje. Inténtalo otra vez o escribe a la dirección de arriba.',
       superhost: 'Superanfitriona',
       responseRate: 'de respuesta',
       title: 'Escribe a tu anfitriona',
@@ -212,6 +303,9 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      legendToday: 'Hoy',
+      legendSelected: 'Tu estadía',
+      legendTaken: 'No disponible',
       title: 'Ver disponibilidad',
       guaranteed: 'Mejor tarifa garantizada',
       checkIn: 'Llegada',
@@ -283,7 +377,50 @@ export const translations = {
       toggleMenu: 'Abrir menu',
       language: 'Idioma',
     },
+    confirmation: {
+      settling: 'Pagamento recebido',
+      settlingLead:
+        'Seu pagamento foi processado. A reserva está demorando mais que o normal para ser registrada — guarde esta referência e escreva para nós se não tiver notícias em breve.',
+      checking: 'Confirmando o seu pagamento…',
+      checkingNote: 'Leva alguns segundos. Não feche esta página.',
+      confirmed: 'Reserva confirmada',
+      confirmedLead: 'A casa é sua nessas datas. Angélica já foi avisada.',
+      pending: 'Pagamento recebido, confirmando',
+      pendingLead:
+        'Seu pagamento foi processado e estamos finalizando o registro da reserva. Se esta página não atualizar, escreva para nós com a sua referência e confirmamos.',
+      notFound: 'Não encontramos essa reserva',
+      notFoundLead:
+        'O link pode estar incompleto. Se você foi cobrado, escreva para nós e resolvemos — nada se perdeu.',
+      reference: 'Referência',
+      referenceNote: 'Mencione-a em qualquer mensagem sobre a sua estadia.',
+      checkIn: 'Chegada',
+      checkOut: 'Saída',
+      guests: 'Hóspedes',
+      nights: 'Noites',
+      total: 'Total pago',
+      emailedTo: 'Enviamos a confirmação para',
+      nextTitle: 'O que acontece agora',
+      nextArrival: 'Angélica escreverá antes da sua chegada com o código da porta e como chegar.',
+      nextQuestions:
+        'Qualquer dúvida sobre a casa, a piscina ou os animais: responda a esse e-mail.',
+      backHome: 'Voltar ao início',
+      contactHost: 'Escrever para a anfitriã',
+    },
+    checkout: {
+      datesTakenToast: 'Essas noites não estão mais livres',
+      pickOthers: 'Escolher outras datas',
+      missingDetails: 'Preencha seu nome e e-mail antes de pagar — a reserva fica nesse nome.',
+      datesTaken:
+        'Essas datas foram reservadas enquanto você preenchia o formulário. Escolha outras e o preço será atualizado.',
+      checkoutFailed:
+        'Não conseguimos abrir a página de pagamento. Nada foi cobrado — tente novamente.',
+      paymentSecurity:
+        'O pagamento é processado pela Stripe; a casa nunca vê os dados do seu cartão. Suas datas ficam reservadas enquanto você paga.',
+    },
     contact: {
+      sending: 'Enviando...',
+      sendFailed:
+        'Não foi possível enviar sua mensagem. Tente de novo ou escreva para o endereço acima.',
       superhost: 'Superanfitriã',
       responseRate: 'de resposta',
       title: 'Escreva para a anfitriã',
@@ -336,6 +473,9 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      legendToday: 'Hoje',
+      legendSelected: 'Sua estadia',
+      legendTaken: 'Indisponível',
       title: 'Ver disponibilidade',
       guaranteed: 'Melhor tarifa garantida',
       checkIn: 'Llegada',
@@ -407,7 +547,52 @@ export const translations = {
       toggleMenu: 'Ouvrir le menu',
       language: 'Langue',
     },
+    confirmation: {
+      settling: 'Paiement reçu',
+      settlingLead:
+        'Votre paiement est passé. L’enregistrement de la réservation prend plus de temps que d’habitude — conservez cette référence et écrivez-nous si vous restez sans nouvelles.',
+      checking: 'Confirmation de votre paiement…',
+      checkingNote: 'Cela prend quelques secondes. Ne fermez pas cette page.',
+      confirmed: 'Réservation confirmée',
+      confirmedLead: 'La maison est à vous à ces dates. Angélica a été prévenue.',
+      pending: 'Paiement reçu, confirmation en cours',
+      pendingLead:
+        'Votre paiement est passé et nous finalisons l’enregistrement de la réservation. Si cette page ne se met pas à jour, écrivez-nous avec votre référence et nous la confirmerons.',
+      notFound: 'Réservation introuvable',
+      notFoundLead:
+        'Le lien est peut-être incomplet. Si vous avez été débité, écrivez-nous et nous réglerons cela — rien n’est perdu.',
+      reference: 'Référence',
+      referenceNote: 'Mentionnez-la dans tout message concernant votre séjour.',
+      checkIn: 'Arrivée',
+      checkOut: 'Départ',
+      guests: 'Voyageurs',
+      nights: 'Nuits',
+      total: 'Total payé',
+      emailedTo: 'Confirmation envoyée à',
+      nextTitle: 'La suite',
+      nextArrival:
+        'Angélica vous écrira avant votre arrivée avec le code de la porte et l’itinéraire.',
+      nextQuestions:
+        'Une question sur la maison, la piscine ou les animaux : répondez simplement à cet e-mail.',
+      backHome: 'Retour à l’accueil',
+      contactHost: 'Écrire à l’hôtesse',
+    },
+    checkout: {
+      datesTakenToast: 'Ces nuits ne sont plus libres',
+      pickOthers: 'Choisir d’autres dates',
+      missingDetails:
+        'Indiquez vos nom et e-mail avant de payer — la réservation est établie à ce nom.',
+      datesTaken:
+        'Ces dates ont été réservées pendant que vous remplissiez le formulaire. Choisissez-en d’autres et le prix sera mis à jour.',
+      checkoutFailed:
+        'Nous n’avons pas pu ouvrir la page de paiement. Rien ne vous a été débité — veuillez réessayer.',
+      paymentSecurity:
+        'Le paiement est traité par Stripe ; la maison ne voit jamais les données de votre carte. Vos dates sont retenues pendant le paiement.',
+    },
     contact: {
+      sending: 'Envoi...',
+      sendFailed:
+        "Votre message n'a pas pu être envoyé. Réessayez ou écrivez à l'adresse ci-dessus.",
       superhost: 'Superhôtesse',
       responseRate: 'de réponse',
       title: 'Écrivez à votre hôtesse',
@@ -460,6 +645,9 @@ export const translations = {
       'Wi-Fi rapide',
     ],
     availability: {
+      legendToday: 'Aujourd’hui',
+      legendSelected: 'Votre séjour',
+      legendTaken: 'Indisponible',
       title: 'Voir les disponibilités',
       guaranteed: 'Meilleur tarif garanti',
       checkIn: 'Llegada',
@@ -531,7 +719,52 @@ export const translations = {
       toggleMenu: 'Menü öffnen',
       language: 'Sprache',
     },
+    confirmation: {
+      settling: 'Zahlung eingegangen',
+      settlingLead:
+        'Ihre Zahlung ist durchgegangen. Die Buchung braucht länger als üblich — bewahren Sie diese Referenz auf und schreiben Sie uns, falls Sie nichts hören.',
+      checking: 'Zahlung wird bestätigt…',
+      checkingNote: 'Das dauert einige Sekunden. Schließen Sie diese Seite nicht.',
+      confirmed: 'Buchung bestätigt',
+      confirmedLead: 'Das Haus gehört Ihnen an diesen Tagen. Angélica wurde benachrichtigt.',
+      pending: 'Zahlung eingegangen, wird bestätigt',
+      pendingLead:
+        'Ihre Zahlung ist durchgegangen und wir schließen die Buchung gerade ab. Falls sich diese Seite nicht aktualisiert, schreiben Sie uns mit Ihrer Referenz und wir bestätigen sie.',
+      notFound: 'Diese Buchung wurde nicht gefunden',
+      notFoundLead:
+        'Der Link ist möglicherweise unvollständig. Falls Ihnen etwas berechnet wurde, schreiben Sie uns — es geht nichts verloren.',
+      reference: 'Referenz',
+      referenceNote: 'Nennen Sie sie in jeder Nachricht zu Ihrem Aufenthalt.',
+      checkIn: 'Anreise',
+      checkOut: 'Abreise',
+      guests: 'Gäste',
+      nights: 'Nächte',
+      total: 'Bezahlt insgesamt',
+      emailedTo: 'Bestätigung gesendet an',
+      nextTitle: 'Wie es weitergeht',
+      nextArrival:
+        'Angélica schreibt Ihnen vor der Anreise mit dem Türcode und der Wegbeschreibung.',
+      nextQuestions:
+        'Fragen zum Haus, zum Pool oder zu Haustieren: Antworten Sie einfach auf diese E-Mail.',
+      backHome: 'Zurück zur Startseite',
+      contactHost: 'Der Gastgeberin schreiben',
+    },
+    checkout: {
+      datesTakenToast: 'Diese Nächte sind nicht mehr frei',
+      pickOthers: 'Andere Daten wählen',
+      missingDetails:
+        'Geben Sie Name und E-Mail an, bevor Sie zahlen — die Buchung läuft auf diesen Namen.',
+      datesTaken:
+        'Diese Daten wurden gebucht, während Sie das Formular ausgefüllt haben. Wählen Sie andere, und der Preis wird aktualisiert.',
+      checkoutFailed:
+        'Die Zahlungsseite konnte nicht geöffnet werden. Es wurde nichts abgebucht — bitte versuchen Sie es erneut.',
+      paymentSecurity:
+        'Die Zahlung wickelt Stripe ab; das Haus sieht Ihre Kartendaten nie. Ihre Daten bleiben während der Zahlung reserviert.',
+    },
     contact: {
+      sending: 'Wird gesendet...',
+      sendFailed:
+        'Ihre Nachricht konnte nicht gesendet werden. Versuchen Sie es erneut oder schreiben Sie an die Adresse oben.',
       superhost: 'Superhost',
       responseRate: 'Antwortrate',
       title: 'Schreiben Sie Ihrer Gastgeberin',
@@ -584,6 +817,9 @@ export const translations = {
       'Schnelles WLAN',
     ],
     availability: {
+      legendToday: 'Heute',
+      legendSelected: 'Ihr Aufenthalt',
+      legendTaken: 'Nicht verfügbar',
       title: 'Verfügbarkeit ansehen',
       guaranteed: 'Bestpreisgarantie',
       checkIn: 'Llegada',

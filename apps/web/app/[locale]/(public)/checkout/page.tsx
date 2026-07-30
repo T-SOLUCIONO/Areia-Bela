@@ -1,18 +1,20 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { format, parseISO, subDays } from 'date-fns'
-import { Star, ShieldCheck, Clock, CreditCard } from 'lucide-react'
+import { Star, ShieldCheck, Clock, CreditCard, CalendarX } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
 import {
   currency,
+  fetchNightRates,
   getQuoteFromStorage,
   fetchQuote,
   parseQuoteRequestFromSearchParams,
@@ -20,8 +22,9 @@ import {
   type BookingQuote,
 } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
-import { createCheckoutSession } from '@/services/payment'
+import { createCheckoutSession, DatesUnavailableError } from '@/services/payment'
 import { useLanguage } from '@/components/language-provider'
+import { translations } from '@/lib/i18n'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
 
@@ -62,6 +65,13 @@ function CheckoutForm() {
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [error, setError] = useState<'taken' | 'failed' | 'missingDetails' | null>(null)
+  // Checked on arrival, not at payment. Someone can sit on this page for an
+  // hour, or land here from a stale link — finding out the week is gone after
+  // typing a name, an email and a phone number is the worst possible moment.
+  const [datesGone, setDatesGone] = useState(false)
+  const warned = useRef(false)
+  const copy = translations[language].checkout
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -97,6 +107,29 @@ function CheckoutForm() {
     }
   }, [request, router])
 
+  useEffect(() => {
+    if (!request) return
+
+    let cancelled = false
+    void fetchNightRates(request.checkIn, request.checkOut).then((nights) => {
+      // The API returns one night per date in the range; check-out is not one
+      // of them, so every night it does return has to be free.
+      if (!cancelled && nights.some((night) => !night.available)) setDatesGone(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [request])
+
+  useEffect(() => {
+    // Once, and in whatever language is on screen when it happens. Switching
+    // language afterwards should not shout at the guest a second time.
+    if (!datesGone || warned.current) return
+    warned.current = true
+    toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
+  }, [datesGone, copy])
+
   if (!quote) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -112,27 +145,61 @@ function CheckoutForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!agreedToTerms) return
+    if (!agreedToTerms || datesGone) return
+
+    // Belt and braces: native validation covers this, but a missing field must
+    // never reach the API as an opaque 400 the guest cannot act on.
+    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
+      setError('missingDetails')
+      return
+    }
 
     setIsLoading(true)
+    setError(null)
 
     try {
-      // Dates and extras only. The route re-prices them server-side and
-      // charges that; no total is sent from here, because a total sent from a
-      // browser is a total a browser can change.
+      // Dates, guests and extras. No total: the API prices this stay and holds
+      // the dates. A total sent from a browser is a total a browser can
+      // change, and dates merely checked are dates two people can buy at once.
       const session = await createCheckoutSession({
         checkIn: quote.checkIn,
         checkOut: quote.checkOut,
         guests: quote.guests,
+        guest: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          country: formData.country,
+        },
+        specialRequests: formData.specialRequests || undefined,
+        locale: language,
         extraIds: quote.extras.map((extra: BookingQuote['extras'][number]) => extra.id),
         extraUnits: Object.fromEntries(
           quote.extras.map((extra: BookingQuote['extras'][number]) => [extra.id, extra.quantity]),
         ),
       })
 
+      // Kept for the confirmation page: if the webhook is slow, that page can
+      // still show the guest their reference instead of telling someone who
+      // just paid that their booking does not exist.
+      try {
+        sessionStorage.setItem('areia-bela:last-reference', session.reference)
+      } catch {
+        // Private browsing. Not worth failing a payment over.
+      }
+
       window.location.href = session.url
-    } catch (error) {
-      console.error('Checkout error:', error)
+    } catch (err) {
+      console.error('Checkout error:', err)
+      if (err instanceof DatesUnavailableError) {
+        setError('taken')
+        setDatesGone(true)
+        toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
+      } else {
+        setError('failed')
+        toast.error(copy.checkoutFailed)
+      }
       setIsLoading(false)
     }
   }
@@ -167,6 +234,26 @@ function CheckoutForm() {
                 {isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}
               </h1>
             </div>
+
+            {/* A toast is dismissible and this is not a detail: the whole page
+                below is now pointless. It stays until they pick other dates. */}
+            {datesGone && (
+              <div
+                role="alert"
+                className="flex flex-col gap-4 rounded-[20px] border border-red-200 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-start gap-3">
+                  <CalendarX className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                  <div>
+                    <p className="font-semibold text-red-900">{copy.datesTakenToast}</p>
+                    <p className="mt-1 text-sm text-red-700">{copy.datesTaken}</p>
+                  </div>
+                </div>
+                <Button asChild variant="brand" size="sm" className="shrink-0">
+                  <Link href="/#reservar">{copy.pickOthers}</Link>
+                </Button>
+              </div>
+            )}
 
             {/* Property Card */}
             <div className="rounded-xl border border-border p-5">
@@ -308,7 +395,7 @@ function CheckoutForm() {
               <h2 className="font-serif text-xl text-foreground">
                 {isEnglish ? 'Guest information' : 'Información del huésped'}
               </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form id="checkout-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
@@ -453,10 +540,27 @@ function CheckoutForm() {
                   </div>
                 </div>
 
+                {error && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {error === 'taken'
+                      ? copy.datesTaken
+                      : error === 'missingDetails'
+                        ? copy.missingDetails
+                        : copy.checkoutFailed}
+                  </p>
+                )}
+
                 <Button
                   type="submit"
-                  onClick={handleSubmit}
-                  disabled={isLoading || !agreedToTerms}
+                  // The guest details are in a form two sections up. Pointing at
+                  // it by id makes this its submit button, which is what makes
+                  // the browser check the required fields before we send
+                  // anything — an onClick handler skips all of that.
+                  form="checkout-form"
+                  disabled={isLoading || !agreedToTerms || datesGone}
                   variant="brand"
                   size="lg"
                   className="mt-6 w-full text-base font-semibold shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
@@ -476,11 +580,7 @@ function CheckoutForm() {
             {/* Security Note */}
             <div className="flex items-start gap-3 text-sm text-muted-foreground">
               <ShieldCheck className="h-5 w-5 text-success mt-0.5" />
-              <p>
-                {isEnglish
-                  ? "Your booking is protected by AirCover. If there's a problem with your stay, we're here to help."
-                  : 'Tu reserva está protegida por AirCover. Si hay un problema con tu estadía, estamos para ayudarte.'}
-              </p>
+              <p>{copy.paymentSecurity}</p>
             </div>
           </div>
 

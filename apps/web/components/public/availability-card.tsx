@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, differenceInCalendarDays, format, subDays } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { ChevronDown, Minus, Plus, ShieldCheck, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,7 @@ import {
   saveQuoteToStorage,
   serializeQuoteToSearchParams,
   type BookingQuote,
+  type NightRate,
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { useLanguage } from '@/components/language-provider'
@@ -30,14 +31,36 @@ type Props = {
   className?: string
 }
 
+/** How long the card proposes before the guest touches anything. */
+const DEFAULT_NIGHTS = 3
+
+/**
+ * The first run of free nights long enough for the default stay.
+ *
+ * Returns the check-out date too, which is the morning after the last night —
+ * so a three-night stay needs three free nights, not four.
+ */
+function findFirstFreeStay(nights: NightRate[], wanted: number): { from: Date; to: Date } | null {
+  let run = 0
+  for (let index = 0; index < nights.length; index += 1) {
+    run = nights[index].available ? run + 1 : 0
+    if (run === wanted) {
+      const first = nights[index - wanted + 1].date
+      return { from: parseISO(first), to: addDays(parseISO(nights[index].date), 1) }
+    }
+  }
+  return null
+}
+
 export function AvailabilityCard({ className }: Props) {
   const router = useRouter()
   const { language } = useLanguage()
   const copy = translations[language].availability
   const locale = { es, en: enUS, pt: ptBR, fr, de }[language]
   const today = new Date()
+  // Replaced once the rates arrive, if these nights turn out to be taken.
   const [checkIn, setCheckIn] = useState<Date | undefined>(addDays(today, 1))
-  const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 4))
+  const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 1 + DEFAULT_NIGHTS))
   const [guestsOpen, setGuestsOpen] = useState(false)
   const [serviceAnimalOpen, setServiceAnimalOpen] = useState(false)
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 })
@@ -45,6 +68,10 @@ export function AvailabilityCard({ className }: Props) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
   const [rates, setRates] = useState<Map<string, number>>(new Map())
+  // Nights already taken, by a booking or by the host. The endpoint has always
+  // returned this; the card used to keep only the price and throw it away, so
+  // a guest could pick a week that was sold and only find out at checkout.
+  const [unavailable, setUnavailable] = useState<Set<string>>(new Set())
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
 
   useEffect(() => {
@@ -56,6 +83,22 @@ export function AvailabilityCard({ className }: Props) {
     const to = format(addDays(today, 365), 'yyyy-MM-dd')
     fetchNightRates(from, to).then((nights) => {
       setRates(new Map(nights.map((night) => [night.date, night.rate])))
+
+      const taken = new Set(nights.filter((night) => !night.available).map((n) => n.date))
+      setUnavailable(taken)
+
+      // Opening on dates that are already sold sends the guest to a 409 at the
+      // end of a form. The default was tomorrow-plus-three regardless of who
+      // was in the house then, so it moves to the first free stretch instead.
+      const stay = findFirstFreeStay(nights, DEFAULT_NIGHTS)
+      if (stay) {
+        setCheckIn((current) =>
+          current && !taken.has(format(current, 'yyyy-MM-dd')) ? current : stay.from,
+        )
+        setCheckOut((current) =>
+          current && !taken.has(format(current, 'yyyy-MM-dd')) ? current : stay.to,
+        )
+      }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -251,36 +294,99 @@ export function AvailabilityCard({ className }: Props) {
               setCheckIn(range?.from)
               setCheckOut(range?.to)
             }}
-            disabled={[{ before: today }, ...blockedRanges]}
+            disabled={[
+              { before: today },
+              ...blockedRanges,
+              // Booked nights. Blocked ranges come from a different endpoint
+              // and cover only what the host closed by hand.
+              (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd')),
+            ]}
             modifiers={{
-              blocked: blockedRanges,
+              blocked: [
+                ...blockedRanges,
+                (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd')),
+              ],
               previewRange:
                 checkIn && !checkOut && hoverDate && hoverDate > checkIn
                   ? { from: checkIn, to: hoverDate }
                   : [],
             }}
             modifiersClassNames={{
-              blocked: 'line-through decoration-red-400 text-slate-300',
-              previewRange: 'bg-slate-100 rounded-none',
+              // A struck-through, greyed day reads as "sold" without a legend.
+              // The diagonal fill is the second signal, so the state does not
+              // rest on colour alone.
+              blocked:
+                'line-through decoration-slate-400 decoration-[1.5px] text-slate-300 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(241_245_249)_3px,rgb(241_245_249)_6px)]',
+              previewRange: 'bg-[#174d7a]/10 rounded-none',
+            }}
+            classNames={{
+              // The shared calendar paints today with `bg-accent`, and on this
+              // site --accent is #173a57 — near enough to the selected blue
+              // that today looked like a day the guest had already picked.
+              // An outline says "you are here" without claiming to be chosen.
+              today:
+                'rounded-full ring-2 ring-inset ring-[#174d7a]/45 font-semibold data-[selected=true]:ring-0',
+              // The band between the two ends. Pale, so the ends stay the
+              // thing the eye lands on.
+              range_middle: 'rounded-none bg-[#174d7a]/10',
+              range_start: 'rounded-l-full bg-[#174d7a]/10',
+              range_end: 'rounded-r-full bg-[#174d7a]/10',
             }}
             onDayMouseEnter={setHoverDate}
             onDayMouseLeave={() => setHoverDate(undefined)}
             className="w-full [--cell-size:3rem]"
             components={{
               DayButton: (dayProps) => {
-                const rate = rates.get(format(dayProps.day.date, 'yyyy-MM-dd'))
+                const iso = format(dayProps.day.date, 'yyyy-MM-dd')
+                const rate = rates.get(iso)
+                const taken = unavailable.has(iso)
                 return (
-                  <CalendarDayButton {...dayProps}>
+                  <CalendarDayButton
+                    {...dayProps}
+                    className={cn(
+                      // Neutralises the shared button's dark `bg-accent` fill
+                      // on mid-range days: the tint now lives on the cell, so
+                      // check-in and check-out are the only solid blocks and
+                      // the stay reads as a band with two ends.
+                      'rounded-full data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#173a57]',
+                      'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
+                      'data-[selected-single=true]:bg-[#174d7a]',
+                      'hover:bg-[#f7f2ea]',
+                      taken && 'hover:bg-transparent',
+                    )}
+                  >
                     {dayProps.day.date.getDate()}
                     {/* Shown so a guest sees the weekend costs more before
-                        picking it, not after. */}
-                    {rate !== undefined && <span>${rate}</span>}
+                        picking it, not after. A night that cannot be booked
+                        has no price worth quoting. */}
+                    {rate !== undefined && !taken && <span>${rate}</span>}
                   </CalendarDayButton>
                 )
               },
             }}
             initialFocus
           />
+
+          {/* Named, not only coloured: three fills in one grid is exactly the
+              point where a legend stops being decoration. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-3.5 w-3.5 rounded-full ring-2 ring-inset ring-[#174d7a]/45" />
+              {copy.legendToday}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="flex items-center">
+                <span className="h-3.5 w-3.5 rounded-l-full bg-[#174d7a]" />
+                <span className="h-3.5 w-2.5 bg-[#174d7a]/10" />
+                <span className="h-3.5 w-3.5 rounded-r-full bg-[#174d7a]" />
+              </span>
+              {copy.legendSelected}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3.5 w-3.5 rounded-sm bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(226_232_240)_3px,rgb(226_232_240)_6px)] ring-1 ring-inset ring-slate-200" />
+              <span className="line-through decoration-slate-400">{copy.legendTaken}</span>
+            </span>
+          </div>
 
           <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
             <button
@@ -358,7 +464,7 @@ export function AvailabilityCard({ className }: Props) {
                       <button
                         type="button"
                         onClick={() => setServiceAnimalOpen(true)}
-                        className="mt-1 text-left text-[15px] leading-tight text-slate-700 underline underline-offset-2 hover:text-slate-900"
+                        className="cursor-pointer mt-1 text-left text-[15px] leading-tight text-slate-700 underline underline-offset-2 hover:text-slate-900"
                       >
                         {item.hint}
                       </button>

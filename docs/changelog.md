@@ -1443,3 +1443,685 @@ pnpm typecheck ✅   pnpm test      ✅ (143 tests, 5 nuevos)
 son la portada, pero es un hueco real del flujo: un huésped francés reserva y
 el checkout le sale en español. Son 67 cadenas × 3 idiomas nuevos; se declara
 aquí en vez de dejarlo pasar en silencio.
+
+---
+
+## 28. Avisos de reservas, mensajes y cancelaciones
+
+Pedido: que las reservas, los mensajes y las cancelaciones lleguen a Angélica
+por correo o WhatsApp, y que ella pueda cambiar el destino desde el panel.
+
+### El formulario de contacto no enviaba nada
+
+Antes de construir los avisos hubo que arreglar lo que ya existía. El
+`handleSubmit` de `ContactSection` era esto, completo:
+
+```ts
+event.preventDefault()
+setSent(true)
+event.currentTarget.reset()
+```
+
+Un huésped escribía, veía "Mensaje enviado" en verde, y no había ninguna
+petición: nadie recibía nada. Los `<input>` tampoco tenían atributo `name`, así
+que aunque se hubiera enviado, el `FormData` habría ido vacío.
+
+Ahora `POST /notifications/contact` y el verde solo aparece si el API aceptó.
+Si falla, se dice.
+
+### Cómo salen
+
+Dos canales detrás de una interfaz, como ya se hizo con los traductores:
+
+| Canal    | Proveedor                                | Requiere                                                          |
+| -------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| Correo   | Brevo (el mismo del reset de contraseña) | Nada nuevo                                                        |
+| WhatsApp | Twilio                                   | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` |
+
+**El correo siempre funciona.** WhatsApp es un añadido: sin las variables de
+Twilio no se rompe nada y el panel dice, en su propia sección, qué canal está
+activo — no se deduce de la configuración del despliegue.
+
+Se eligió Twilio y no la API de Meta porque Meta exige empresa verificada y una
+plantilla aprobada por cada mensaje que inicie el negocio. Cambiar de proveedor
+es reemplazar una clase en `notification-channels.ts`.
+
+### Tres decisiones que no son obvias
+
+**Un canal caído no tumba una reserva.** `deliver()` envía a todos los destinos
+en paralelo, atrapa cada fallo por separado y lo registra. Si Brevo está caído,
+el huésped ya pagó y las fechas ya están tomadas: devolver un error por un aviso
+que rebotó desharía algo que sí salió bien.
+
+**El destino de los avisos es un campo aparte del público.** `notifyEmail` y
+`notifyWhatsapp` no son `contactEmail` ni `whatsapp`: la dirección a la que
+escribe un huésped rara vez es a la que la anfitriona quiere que la despierten a
+las 3 de la mañana. Si se dejan vacíos, se usan los públicos.
+
+**Nada de esto escribe a un huésped.** Fuera de una ventana de 24 h que abra el
+destinatario, WhatsApp solo entrega plantillas aprobadas. Para el número de la
+anfitriona eso se resuelve respondiendo una vez; para huéspedes desconocidos
+haría falta un catálogo de plantillas, y no se va a fingir que existe.
+
+### En el panel
+
+Ajustes → Contacto y SEO: a dónde llegan los avisos, tres interruptores
+(reserva, cancelación, mensaje) y el estado real de cada canal.
+
+### Limpieza
+
+`needsTranslation()` comparaba `page.body.trim() === page.body.trim()` — un
+campo consigo mismo — desde que las dos columnas de idioma se fundieron en una.
+Siempre devolvía `true`, y el panel decía "12 secciones por traducir" pasara lo
+que pasara. La tarjeta ahora cuenta secciones **sin escribir**, que es un número
+sobre el que se puede actuar.
+
+`docs/env.md` seguía anunciando `ANTHROPIC_API_KEY` como la variable de
+traducción cuando DeepL ya era el proveedor recomendado (§23).
+
+### Verificación
+
+Contra el API real, no simulado:
+
+```
+mensaje del formulario   → HTTP 204 + "Sent ... over Email" en el log
+validación               → HTTP 400, 3 errores de campo
+límite 3 / 10 min        → 204, luego 429
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (188 tests, 13 nuevos)
+```
+
+El endpoint es público y **siempre responde 204**, exista o no la
+configuración: un formulario de contacto que distingue casos es un sondeador de
+configuración. El límite es por IP, 3 cada 10 minutos.
+
+### Diferido
+
+- **Los avisos van solo en español.** Los recibe la anfitriona, no el huésped.
+- **Sin reintentos ni cola.** Un fallo se registra y se pierde. Con el volumen
+  de una casa, una cola sería infraestructura por adelantado; queda anotado.
+- **El huésped no recibe confirmación por WhatsApp** — ver la regla de 24 h.
+
+---
+
+## 29. Fase 6.3 — la reserva nace del pago
+
+Hasta aquí el sitio cotizaba y cobraba, pero nunca reservaba nada: se pagaba y
+no quedaba fila en ninguna tabla. Esta entrada cierra el flujo
+`quote → hold → pay → confirm`.
+
+### La carrera, que es el problema de verdad
+
+Dos huéspedes abren la misma semana el mismo martes por la noche. Los dos ven
+"disponible", los dos pagan. Comprobar y después insertar son dos operaciones,
+y entre una y otra cabe la otra transacción entera. **Ninguna cantidad de
+código de aplicación cierra esa ventana** — la base de datos tiene que negarse.
+
+```sql
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_no_overlap"
+  EXCLUDE USING gist (
+    "propertyId" WITH =,
+    daterange("checkIn"::date, "checkOut"::date, '[)') WITH &&
+  ) WHERE ("status" <> 'CANCELLED');
+```
+
+Tres detalles que costaron pensarlos:
+
+- **`'[)'`** — el día de salida es el día de llegada del siguiente. Con `'[]'`,
+  Sep 1–8 y Sep 8–15 se solaparían y la casa perdería una noche entre cada dos
+  reservas.
+- **`btree_gist`** — es lo que permite meter una columna de igualdad
+  (`propertyId`) en el mismo índice GiST que un rango. Hoy hay una sola casa;
+  dejarla fuera haría la restricción incorrecta en cuanto eso cambie.
+- **El predicado no puede llamar a `now()`.** Una expresión de índice tiene que
+  ser inmutable, así que la restricción no sabe distinguir un `hold` vigente de
+  uno vencido. Lo resuelve el servicio: cancela los vencidos **dentro de la
+  misma transacción** que hace el `INSERT`. Un test comprueba ese orden, porque
+  invertirlo no rompe nada visible hasta que alguien pierde una reserva.
+
+### Un `hold`, no una reserva
+
+`POST /bookings/:slug/hold` crea la fila en `PENDING` con `expiresAt` a 30
+minutos. Treinta y no quince porque **Stripe rechaza una sesión que caduque
+antes de media hora**: un hold más corto liberaría las fechas con el huésped
+todavía en la pasarela.
+
+El precio lo calcula el mismo `PropertiesService.getQuote` que usa el cotizador.
+No hay una segunda ruta de precios que pueda desviarse de la primera.
+
+### Solo Stripe confirma
+
+`POST /bookings/stripe-webhook` verifica la firma sobre el **cuerpo crudo**
+(`NestFactory.create(AppModule, { rawBody: true })` — un JSON reserializado
+nunca coincide). Es lo único que puede pasar una reserva a `CONFIRMED`.
+
+La redirección de éxito no puede: es una URL que visita el navegador del
+huésped, y un navegador que confirma su propia reserva es un navegador que
+reserva gratis. La página de confirmación **pregunta** por la reserva, no la
+declara.
+
+El importe se lee de `session.amount_total`, que viene dentro del payload
+firmado. Si no coincide con lo cotizado se registra como error pero **la
+reserva se confirma igual**: el huésped ya pagó, y dejarlo sin fechas por un
+descuadre de centavos es peor que revisarlo a mano.
+
+Idempotente, porque Stripe reintenta lo que no recibió un 2xx.
+
+### Lo que estaba mintiendo
+
+Dos pantallas afirmaban cosas que no eran ciertas:
+
+- **La página de confirmación decía "¡Reserva confirmada!"** leyendo
+  `localStorage`. Sin pago, sin reserva, sin comprobar nada — bastaba visitar
+  la URL. Ahora consulta `GET /bookings/session/:id` y distingue tres estados:
+  confirmada, pagada-pero-todavía-confirmándose (el webhook tarda unos
+  segundos, así que la página reintenta), y no encontrada.
+- **"Tu reserva está protegida por AirCover"**, en el checkout y en la
+  confirmación. AirCover es el programa de Airbnb. Esto es una reserva directa:
+  esa protección no existe aquí. Sustituido por lo que sí es verdad — que el
+  pago lo procesa Stripe y la casa nunca ve la tarjeta.
+- **"Correo de confirmación enviado a tu bandeja"** tampoco se enviaba. Ahora
+  sí, en los cinco idiomas, con la referencia y los horarios reales de la casa.
+
+Los botones "Descargar recibo" y "Compartir viaje" no hacían nada. Fuera.
+
+### La referencia
+
+`AB-` más seis caracteres. Sin `I`, `O`, `S`, `0` ni `1`: se dictan por
+teléfono. El `5` se queda — sin `S` en el alfabeto no puede confundirse.
+Un test lo verifica, y de paso pilló que el comentario decía una cosa y el
+alfabeto otra.
+
+### En el panel
+
+`/admin/reservations` deja de ser un cartel de "próximamente". Muestra próximas
+y pasadas, con estado, huésped, contacto, extras y su nota; permite cancelar
+con motivo. Cancelar libera las noches al instante y avisa a la anfitriona.
+
+Un `VIEWER` puede mirar; cancelar es de `MANAGER` para arriba.
+
+### Verificación
+
+Contra el API y Postgres reales, no simulados:
+
+```
+dos peticiones simultáneas, misma semana → 201 y 409, 1 fila
+semana contigua (salida = llegada)       → 201
+hold vencido                             → el calendario la da por libre
+otro huésped la reserva                  → 201, el vencido queda CANCELLED
+webhook sin firma                        → 400, sigue PENDING
+webhook con firma inválida               → 400, sigue PENDING
+webhook con firma válida                 → 200, CONFIRMED, expiresAt = NULL
+el mismo evento otra vez                 → 200, "ignoring repeat webhook"
+cuerpo alterado con la firma vieja       → 400
+GET /bookings sin sesión                 → 401
+PATCH /bookings/:id/cancel sin sesión     → 401
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (206 tests, 18 nuevos)
+```
+
+### Entidades
+
+Ninguna nueva. `Booking`, `Customer` y `BookingExtra` ya estaban en la lista
+canónica de `CLAUDE.md`; se les añadieron columnas (`reference`, `expiresAt`,
+`stripeSessionId`, `paidAt`, `cancelledAt`, `cancellationReason`, `pets`,
+`locale`).
+
+### Diferido, con su tamaño
+
+- **Sin reembolso automático al cancelar.** El dinero de vuelta es una decisión,
+  no el efecto secundario de un clic; hoy se resuelve en Stripe. Es lo que
+  queda de Fase 7 junto con el panel de pagos.
+- **Sin mínimo de noches ni temporada de piscina climatizada.** Siguen siendo
+  Fase 6; el motor de precios ya sabe de temporadas, falta exponerlo.
+- **El checkout no valida los campos del huésped antes de enviar.** Si faltan,
+  el API responde 400 y la página muestra el mensaje genérico. Debería
+  bloquear el botón antes.
+- **`checkout.session.expired` libera el hold, pero nada barre los vencidos si
+  nadie más reserva.** Sin un cron, un hold abandonado queda `PENDING` en la
+  tabla hasta la siguiente reserva. El calendario y el panel ya lo ignoran, así
+  que es ruido en una tabla, no una fecha bloqueada — pero es deuda.
+- **El huésped no puede cancelar.** Solo la anfitriona, desde el panel.
+
+---
+
+## 30. Dos rutas que nunca existieron
+
+Errores reportados al probar el flujo recién construido. Ninguno de los dos era
+nuevo; los dos llevaban tiempo ahí.
+
+### `GET /cms/settings` devolvía 404
+
+`CmsService` tenía `getSettings()` y el panel llamaba a `GET /cms/settings`,
+pero **solo se había declarado el `@Patch`**. La ruta de lectura no existía.
+
+El formulario de Ajustes → Contacto y SEO recibía un 404 al cargar, `draft` y
+`stored` se quedaban en `null`, y la pantalla mostraba sus esqueletos para
+siempre. Toda esa sección era inutilizable — incluidos los destinos de avisos
+de §28, que se podían guardar pero no volver a ver.
+
+Verificado el ciclo completo contra el API real: `PATCH` guarda,
+`GET` devuelve lo guardado, `401` sin sesión.
+
+### El botón de pagar no era el botón del formulario
+
+`POST /api/checkout` respondía `400 Missing guest details` aunque los campos
+estuvieran en pantalla. La causa: el `<form>` de datos del huésped está en una
+sección y el botón "Confirmar y pagar" en otra, y el botón llamaba a
+`handleSubmit` por `onClick`.
+
+Un `onClick` no es un envío de formulario. **El navegador nunca comprobó ni un
+solo `required`**, así que el formulario se enviaba vacío y el 400 llegaba
+desde el API, donde ya no hay forma de señalar qué campo falta.
+
+Se arregla con `form="checkout-form"` en el botón, que lo convierte en el
+submit de ese formulario aunque esté fuera de él: la validación nativa vuelve a
+correr y el navegador enfoca el primer campo vacío. Queda además una
+comprobación en `handleSubmit` y un mensaje traducido, para que un fallo de
+validación nunca se muestre como "no pudimos abrir la página de pago".
+
+Esto estaba declarado como diferido en §29 ("el checkout no valida los campos
+del huésped antes de enviar"). Resultó no ser una falta de validación sino un
+botón desconectado, que es peor: la validación estaba escrita y no se ejecutaba.
+
+### Verificación
+
+```
+GET /cms/settings sin sesión → 401 (antes: 404)
+GET /cms/settings con sesión → los ajustes, con los campos de avisos
+PATCH y releer               → conserva notifyEmail, notifyWhatsapp y los interruptores
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (206 tests)
+```
+
+---
+
+## 31. El pago sin webhook, y el caso peor que destapó
+
+Un pago real de prueba: $1245 cobrados en Stripe, y la página de confirmación
+diciendo "No encontramos esa reserva". El pago estaba bien; el aviso nunca
+llegó, porque sin `STRIPE_WEBHOOK_SECRET` ni `stripe listen` nada le cuenta al
+API que la tarjeta pasó. Eso es configuración, no un fallo — pero destapó dos
+cosas que sí lo eran.
+
+### Decirle "no encontramos tu reserva" a alguien que acaba de pagar
+
+`GET /bookings/session/:id` busca por `stripeSessionId`, que solo se escribe al
+confirmar. Entre el pago y el webhook, la reserva es invisible para esa
+consulta, y la página caía en el peor mensaje posible: el que sugiere que el
+dinero se perdió.
+
+Volver de Stripe con un `session_id` en la URL **prueba que la tarjeta pasó**.
+Ahora la página distingue ese caso y dice que el pago se procesó y la reserva
+está tardando, con la referencia a la vista — guardada en `sessionStorage` de
+camino a Stripe, así que está disponible aunque el API todavía no sepa nada.
+
+Sin `session_id` sigue mostrando el mensaje de enlace incompleto, que ahí sí es
+verdad.
+
+### Un pago que se queda sin fechas
+
+El caso serio. Un `hold` dura 30 minutos. Si el huésped paga en el minuto 29 y
+el webhook tarda, el barrido de la siguiente reserva cancela su `hold` —
+`PENDING` y vencido es exactamente lo que barre. Cuando el webhook por fin
+llega, `confirmPayment` se encontraba una reserva `CANCELLED` y **no hacía
+nada**: dinero cobrado, sin fechas, sin aviso a nadie.
+
+Ahora intenta reconfirmarla, y quien decide si se puede es la restricción de
+exclusión:
+
+- **Nadie tomó esas fechas** → se restaura a `CONFIRMED` y sigue su curso.
+- **Otro huésped ya las reservó** → Postgres lanza `23P01` y sale un aviso
+  aparte, `ACCIÓN REQUERIDA · pago sin fechas`, con la referencia y el id de
+  la sesión de Stripe para devolver el dinero.
+
+Ese aviso **ignora los interruptores del panel**. Apagar los avisos de reserva
+es una decisión sobre ruido; no es una renuncia a enterarse de que hay que
+devolver dinero.
+
+### Verificación
+
+Con el pago real, reenviando el evento firmado que Stripe habría mandado:
+
+```
+webhook firmado          → 200, AB-JJYK9R pasa a CONFIRMED, expiresAt = NULL
+```
+
+Y las fechas, que era la pregunta:
+
+```
+31 jul – 2 ago   ocupadas          3 ago en adelante  libre
+mismas fechas            → 409     contenida          → 409
+solapa el inicio         → 409     empieza al salir   → 201
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (208 tests, 2 nuevos)
+```
+
+### Pendiente del usuario
+
+`STRIPE_WEBHOOK_SECRET` con un valor de verdad. En local sale de
+`stripe listen --forward-to localhost:3001/bookings/stripe-webhook`; en
+producción, del panel de Stripe. Sin él las reservas se quedan en `PENDING`
+para siempre y hay que confirmarlas a mano.
+
+---
+
+## 32. El calendario del panel, que solo contaba media historia
+
+Dos huecos reportados: las reservas no aparecían en el calendario del admin, y
+bloquear fechas a mano no existía.
+
+### Faltaba media capa
+
+El calendario cargaba `blocked-dates` y nada más. Una reserva pagada dejaba el
+día pintado como libre, así que la única pantalla donde la anfitriona mira
+"¿qué tengo este mes?" no mostraba lo único que le importa.
+
+Ahora carga las dos cosas, y **las distingue**: verde para reservada, con el
+nombre del huésped en la celda; el color de marca para bloqueada. No son lo
+mismo — una es dinero y alguien llegando, la otra es una decisión suya — y
+"no disponible" a secas no dice si puede hacer algo al respecto.
+
+### Bloquear no estaba construido
+
+`getBlockedDates` era de solo lectura y el botón "Bloquear fechas" mostraba un
+aviso de "próximamente". Faltaban las dos rutas:
+
+- `POST /properties/:slug/blocked-dates` — rango y motivo
+- `DELETE /properties/blocked-dates/:id` — libera las noches
+
+**El bloqueo se niega a tapar una reserva viva.** Nada en la base lo impedía:
+la restricción de exclusión protege reservas entre sí, no contra `BlockedDate`.
+Sin esa comprobación, la anfitriona podía hacer desaparecer del calendario a un
+huésped que ya pagó, mientras su reserva seguía existiendo. Ahora devuelve 409
+nombrando la reserva que estorba.
+
+Un `hold` vencido no cuenta como estorbo: un checkout abandonado no es razón
+para impedirle cerrar la semana.
+
+En la interfaz: dos clics (primera noche, última noche) en vez de arrastrar —
+arrastrar es mejor con ratón e inservible en el teléfono que la anfitriona
+lleva encima. Pide un motivo opcional, porque dentro de tres meses "¿por qué
+está cerrado octubre?" merece respuesta. Un clic en un día bloqueado lo libera,
+tras confirmar.
+
+Un `VIEWER` ve el calendario pero no cierra la casa.
+
+### De paso
+
+La pantalla de mantenimiento usaba `calendar.comingSoon` para su propio botón
+sin construir. Al desaparecer esa cadena se le dio la suya, que además dice la
+verdad concreta: las tareas de mantenimiento no están hechas y ese botón no
+hace nada a propósito.
+
+### Verificación
+
+Contra el API real:
+
+```
+bloquear 10–14 sep                → 201, con motivo
+el calendario público             → esos cinco días dejan de estar disponibles
+un huésped reserva 11–13 sep      → 409
+bloquear sobre AB-JJYK9R          → 409 "Those dates hold booking AB-JJYK9R"
+liberar el rango                  → 204, el 11 vuelve a estar libre
+VIEWER bloqueando                 → 403
+VIEWER leyendo el calendario      → 200
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (216 tests, 8 nuevos)
+```
+
+### Diferido
+
+- **El calendario del panel muestra un mes.** Para bloquear un rango que cruza
+  meses hay que navegar entre ellos con la selección a medias, y funciona, pero
+  es incómodo. Dos meses lado a lado como en el cotizador sería mejor.
+- **No se puede editar el motivo de un bloqueo** sin liberarlo y rehacerlo.
+
+---
+
+## 33. El calendario ofrecía fechas vendidas
+
+Un 409 al reservar, con las fechas de una reserva confirmada. La respuesta era
+correcta — esa semana ya estaba pagada — pero el huésped **nunca debió poder
+elegirla**.
+
+### La causa
+
+```tsx
+disabled={[{ before: today }, ...blockedRanges]}
+```
+
+Solo los bloqueos del anfitrión. Las reservas no aparecían, así que una semana
+vendida se veía igual que una libre y el 409 llegaba al final del formulario,
+después de escribir nombre, correo y teléfono.
+
+Peor: el componente **ya pedía la disponibilidad**. `GET /rates` devuelve
+`available` por noche desde siempre; la tarjeta se quedaba con el precio y
+tiraba ese campo:
+
+```ts
+setRates(new Map(nights.map((night) => [night.date, night.rate])))
+```
+
+Ahora conserva las dos cosas. Una noche tomada aparece tachada, no se puede
+seleccionar, y no muestra precio — cotizar algo que no está a la venta no
+ayuda a nadie. El 409 sigue ahí como última línea, que es donde debe estar.
+
+### Huéspedes
+
+La pantalla llevaba un cartel de "aparecerán aquí cuando haya reservas". Ya las
+hay, así que se construyó: `GET /customers`, con estadías, noches, lo gastado y
+la próxima llegada de cada uno. Quien repite lleva una marca — es la reserva
+más barata que esta casa va a conseguir.
+
+**Una fila de `Customer` no es un huésped.** Se escribe en cuanto alguien
+empieza un checkout, así que un carrito abandonado deja una detrás. La lista
+excluye a quien no tenga ninguna reserva que sobreviviera; una lista inflada
+con gente que nunca vino es una lista que nadie mira. Y solo suma dinero con
+`paidAt`: un hold en vuelo no es ingreso.
+
+### El panel
+
+Las cuatro cifras eran noches libres, tarifa base, fotos y secciones sin
+escribir. Tres de las cuatro son de mantenimiento del sitio, no de llevar una
+casa.
+
+Ahora, en el orden en que hacen falta:
+
+- **La próxima llegada**, en su propia tarjeta con quién, cuándo, cuántas
+  noches y cuántos días faltan. Es la pregunta por la que se abre el panel;
+  como una casilla entre cuatro quedaba enterrada.
+- Noches reservadas de las próximas 30, confirmado de los próximos 30 días,
+  cobrado hasta hoy, y cuántos están pagando **ahora mismo** — el único número
+  aquí que puede cambiar en veinte minutos.
+- Un aviso de "para mirar" con los holds en vuelo y las noches bloqueadas, que
+  **solo aparece cuando hay algo que hacer**. Un panel de alertas siempre
+  visible y siempre vacío enseña a no leerlo.
+- La lista de próximas llegadas, en lugar de la tarjeta que decía "no hay
+  reservas todavía" y ya no era verdad.
+
+### Verificación
+
+```
+rates 30 jul – 4 ago      → 31 jul, 1 y 2 ago no seleccionables, sin precio
+GET /customers            → Erick Giraldo · 1 estadía · 3 noches · $1245
+un Customer sin reservas  → no aparece en la lista
+cifras del panel          → próxima llegada en 1 día · 3/30 noches · $1245
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (220 tests, 4 nuevos)
+```
+
+### Diferido
+
+- **Las notas por huésped no se pueden editar.** El campo `notes` existe en
+  `Customer` y se muestra, pero no hay dónde escribirlo.
+- **El panel calcula en el navegador** a partir de `/bookings`. Con una casa es
+  trivial; con años de historial convendría un endpoint que agregue.
+
+---
+
+## 34. El 409 llegaba tarde y en silencio
+
+Cinco huecos, todos con la misma raíz: pantallas que sabían menos de lo que el
+API ya les contaba.
+
+### El aviso llega al entrar, no al pagar
+
+Seguía saliendo un 409 al reservar. La respuesta era correcta y el calendario
+ya no ofrece fechas vendidas (§33), pero se puede llegar al checkout con un
+enlace viejo, o quedarse una hora en la página mientras otro paga esa semana.
+
+Ahora el checkout **comprueba la disponibilidad al cargar**. Si las noches no
+están libres: un toast, un aviso rojo permanente con un botón a elegir otras
+fechas, y el botón de pagar desactivado. Enterarse después de escribir nombre,
+correo y teléfono era el peor momento posible.
+
+El sitio público no tenía `Toaster`; se añadió al layout, arriba y al centro,
+que es donde mira quien acaba de pulsar "Confirmar y pagar".
+
+### El cotizador abría en fechas vendidas
+
+`addDays(today, 1)` a `addDays(today, 4)`, sin mirar quién estaba en la casa
+esos días. Con una reserva mañana, la tarjeta abría directamente sobre ella.
+
+Ahora, cuando llegan las tarifas, busca la primera racha de tres noches libres
+y se mueve ahí — solo si lo que hay seleccionado está ocupado, para no pisar lo
+que el huésped acabe de elegir.
+
+### Colores
+
+Un solo color decía "no disponible" para dos cosas distintas. Ahora, en las
+tres pantallas:
+
+|                    | Reservada                         | Bloqueada por el anfitrión |
+| ------------------ | --------------------------------- | -------------------------- |
+| Panel y calendario | verde, con el nombre del huésped  | gris pizarra               |
+| Sitio público      | tachado, gris, con trama diagonal | igual                      |
+
+El huésped no necesita saber por qué la casa no está libre, así que ahí las dos
+se ven igual. La anfitriona sí: una es dinero, la otra es una decisión suya.
+Ninguna descansa solo en el color — hay leyenda, tooltip y, en el sitio,
+tachado.
+
+### "La casa, próximas tres semanas" no mostraba las reservas
+
+El mismo fallo que tenía el calendario y que se arregló en §32: el componente
+solo leía `blocked-dates`. Una estadía pagada aparecía como noche libre **en la
+primera franja de la primera pantalla** del panel. Ahora lee las dos fuentes,
+las distingue, y pone el nombre del huésped en la primera noche de cada
+estadía.
+
+### Bloquear una sola noche era imposible
+
+El diálogo solo se abría con `from && to`, y un clic solo fijaba `from`. Una
+noche suelta — una revisión de la piscina, un día entre huéspedes — no se podía
+bloquear de ninguna manera. Ahora un segundo clic en el mismo día cierra el
+rango, y el texto lo dice para que se descubra. El resumen colapsa a "Una
+noche" en vez de "del 15 de octubre al 15 de octubre".
+
+### Huéspedes: crear, editar, eliminar
+
+`POST`, `PATCH` y `DELETE /customers`, con notas privadas editables — el campo
+existía en el modelo y se mostraba, pero no había dónde escribirlo.
+
+Dos negativas deliberadas:
+
+- **No se borra a alguien con reservas.** Su fila es de lo que cuelga una
+  estadía; borrarla dejaría una reserva sin nombre. 409, nombrando el motivo.
+- **Un correo duplicado se nombra.** Es el único fallo que la anfitriona puede
+  arreglar; el resto son nuestros y un mensaje específico solo confundiría.
+
+Esto obligó a afinar quién sale en la lista. Antes se filtraba por "tiene
+reservas vivas", lo que habría escondido a un huésped recién creado a mano. La
+distinción real: **un hold siempre escribe una fila de `Booking`**, así que
+alguien con cero reservas en total fue añadido por una persona, y alguien con
+reservas todas canceladas es un checkout abandonado. Los primeros se muestran,
+los segundos no.
+
+### Verificación
+
+```
+crear a mano                      → 201, aparece con "todavía sin estadías"
+editar teléfono y nota            → 200, persiste
+correo duplicado                  → 409
+borrar a quien tiene reservas     → 409 "has bookings and cannot be deleted"
+borrar a quien nunca vino         → 204
+bloquear una sola noche           → 201, solo el 15 de octubre deja de estar libre
+primera estadía libre de 3 noches → 3 ago (31 jul, 1 y 2 ago están vendidos)
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (225 tests, 5 nuevos)
+```
+
+### Diferido
+
+- **El calendario del panel sigue mostrando un mes**, así que un bloqueo que
+  cruza meses obliga a navegar con la selección a medias.
+- **No se puede crear una reserva desde el panel.** Se puede añadir al huésped,
+  pero una estadía tomada por teléfono todavía no tiene por dónde entrar.
+
+---
+
+## 35. En el cotizador, hoy se veía igual que un día elegido
+
+El calendario del huésped usa el componente compartido, que pinta el día actual
+con `bg-accent`. En este sitio `--accent` es `#173a57`, y el día seleccionado
+es `#174d7a`: **dos azules oscuros a un dígito de distancia**. Hoy parecía una
+fecha ya elegida, y el rango entre llegada y salida era un bloque macizo sin
+principio ni fin visibles.
+
+### Lo que se ve ahora
+
+| Estado              | Antes                         | Ahora                                         |
+| ------------------- | ----------------------------- | --------------------------------------------- |
+| Hoy                 | relleno azul oscuro           | anillo azul, sin relleno, número en negrita   |
+| Llegada y salida    | azul `#174d7a`                | igual, en círculo, los únicos bloques sólidos |
+| Noches entre medias | azul `#173a57`, casi idéntico | banda al 10%, esquinas rectas                 |
+| No disponible       | tachado y gris                | tachado, gris y con trama diagonal            |
+
+El rango pasa a leerse como lo que es: **dos extremos y una banda**. Antes los
+tres estados competían por el mismo peso visual.
+
+### El detalle que hacía falta comprobar
+
+Dos mecanismos distintos, y confundirlos habría dejado el arreglo a medias:
+
+- **`classNames`** se esparce al final del objeto del componente compartido, así
+  que cada clave que se pasa **reemplaza la suya entera**. Por eso `bg-accent`
+  desaparece de `today` sin pelearse con él.
+- **El `className` del `DayButton`** sí pasa por `cn()`, que es `twMerge`. Ahí
+  el override de `data-[range-middle=true]:bg-accent` funciona porque
+  tailwind-merge las reconoce como la misma propiedad bajo la misma variante.
+  Se verificó ejecutando `twMerge` sobre las dos listas antes de dar por bueno
+  el cambio.
+
+### Leyenda
+
+Tres rellenos en una cuadrícula es justo donde una leyenda deja de ser adorno.
+Se añadió bajo el calendario, en los cinco idiomas, con la muestra de "tu
+estadía" dibujada como extremo-banda-extremo en vez de un cuadrado de color.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (225 tests)
+```

@@ -22,7 +22,13 @@ cp apps/web/.env.example apps/web/.env
 | `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
 | `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
 | `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
-| `ANTHROPIC_API_KEY`     | en producción   | Traduce el contenido del sitio a inglés, portugués, francés y alemán cuando el anfitrión guarda. Sin ella nada se rompe: el sitio muestra el idioma en que se escribió, y el panel lo avisa con un aviso visible.                         |
+| `DEEPL_API_KEY`         | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
+| `TRANSLATION_PROVIDER`  | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
+| `LIBRETRANSLATE_URL`    | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
+| `ANTHROPIC_API_KEY`     | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
+| `TWILIO_ACCOUNT_SID`    | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
+| `TWILIO_AUTH_TOKEN`     | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
+| `TWILIO_WHATSAPP_FROM`  | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
 ### Almacenamiento de imágenes (Vercel Blob)
 
@@ -84,6 +90,64 @@ Dos reglas que evitan fallos silenciosos:
   vez de mostrar la traducción de un texto que ya no existe.
 - Una traducción que una persona editó (`isMachine: false`) no se vuelve a
   sobrescribir.
+
+### Stripe y el webhook
+
+El pago se abre desde `apps/web` (que tiene la clave secreta) pero la reserva
+se confirma en `apps/api`. Por eso las variables están repartidas:
+
+| Dónde      | Variable                             | Para qué                           |
+| ---------- | ------------------------------------ | ---------------------------------- |
+| `apps/web` | `STRIPE_SECRET_KEY`                  | Crear la sesión de pago            |
+| `apps/web` | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | El widget de Stripe                |
+| `apps/api` | `STRIPE_WEBHOOK_SECRET`              | **Verificar la firma del webhook** |
+
+El API **no** necesita la clave secreta: verificar una firma es criptografía
+sobre el cuerpo crudo y no llama a Stripe. Cuanta menos gente tenga la clave
+secreta, mejor.
+
+**Sin `STRIPE_WEBHOOK_SECRET` el webhook rechaza todo con un 400.** Es
+deliberado: un webhook sin verificar es un endpoint donde cualquiera que sepa
+la URL confirma una reserva que no pagó. Prefiere fallar a confirmar de más.
+
+Para probarlo en local, con la CLI de Stripe:
+
+```bash
+stripe listen --forward-to localhost:3001/bookings/stripe-webhook
+```
+
+Imprime un `whsec_...` temporal; ese es el valor de la variable mientras dure
+la sesión. En producción sale del panel de Stripe, al dar de alta el endpoint.
+
+Eventos a los que suscribirse: `checkout.session.completed` y
+`checkout.session.expired`.
+
+### Avisos por WhatsApp (opcional)
+
+Los avisos de reserva, cancelación y mensajes salen **siempre por correo** con
+la misma cuenta de Brevo. WhatsApp es un canal añadido y necesita tres
+variables; sin ellas, el panel lo dice y todo sigue llegando por correo.
+
+| Variable               | Propósito                            |
+| ---------------------- | ------------------------------------ |
+| `TWILIO_ACCOUNT_SID`   | Cuenta de Twilio                     |
+| `TWILIO_AUTH_TOKEN`    | Su token                             |
+| `TWILIO_WHATSAPP_FROM` | El número emisor, con código de país |
+
+Se eligió Twilio y no la API de Meta directamente porque Meta exige una cuenta
+de empresa verificada y una plantilla aprobada por cada tipo de mensaje que
+inicie el negocio, y eso son días de trámite. Con el _sandbox_ de Twilio se
+envía hoy mismo. Cambiar de proveedor es reemplazar una clase en
+`apps/api/src/notifications/notification-channels.ts`.
+
+**La regla de las 24 horas** aplica con cualquier proveedor: fuera de una
+ventana que abra el destinatario, solo entrega una plantilla aprobada. Para el
+número de la anfitriona se resuelve respondiendo una vez al sandbox. Por eso
+nada de esto escribe a un huésped: eso sí necesitaría plantillas.
+
+**A dónde llegan** se edita en Ajustes → Contacto y SEO. Son campos aparte de
+los públicos: la dirección a la que escribe un huésped rara vez es a la que la
+anfitriona quiere que la despierten. Si se dejan vacíos, se usan los públicos.
 
 ### Correo (Brevo)
 

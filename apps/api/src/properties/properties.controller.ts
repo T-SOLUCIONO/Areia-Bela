@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common'
 import { PropertiesService } from './properties.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
 import { UserRole } from '@prisma/client'
@@ -6,6 +6,7 @@ import { Public } from '../auth/decorators/public.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { UpdatePropertyDto } from './dto/update-property.dto'
 import { CreateExtraDto, UpdateExtraDto } from './dto/extra.dto'
+import { CreateBlockedDateDto } from './dto/blocked-date.dto'
 
 // The guest-facing site calls these without signing in, so they opt out of the
 // globally registered JwtAuthGuard. Everything else defaults to protected.
@@ -30,6 +31,24 @@ export class PropertiesController {
   @Get(':slug/blocked-dates')
   getBlockedDates(@Param('slug') slug: string) {
     return this.propertiesService.getBlockedDates(slug)
+  }
+
+  /**
+   * Blocks dates by hand. Not a booking: maintenance, the host's own stay.
+   *
+   * A VIEWER can see the calendar but not close the house.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post(':slug/blocked-dates')
+  blockDates(@Param('slug') slug: string, @Body() dto: CreateBlockedDateDto) {
+    return this.propertiesService.blockDates(slug, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Delete('blocked-dates/:id')
+  @HttpCode(204)
+  async unblockDates(@Param('id') id: string) {
+    await this.propertiesService.unblockDates(id)
   }
 
   @Public()
