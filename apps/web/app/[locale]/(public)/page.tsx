@@ -12,7 +12,6 @@ import { ContactSection } from '@/components/ContactSection'
 import { ChatAssistant } from '@/components/chat/chat-assistant'
 import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
-import { RESPONSE_TIME_COMPACT } from '@/lib/host-response'
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
 import { useSiteContent } from '@/components/public/site-content-provider'
@@ -43,9 +42,7 @@ export default function HomePage() {
   const sections = siteContent?.sections
   const cmsReviews = siteContent?.reviews ?? []
   const featured = cmsReviews.find((review) => review.featured) ?? cmsReviews[0]
-  // Six below the pulled-out quote: two full rows of three, so the grid never
-  // ends with a lone card and a gap beside it.
-  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 6)
+  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 3)
 
   const features = sections?.FEATURES
   const amenities = sections?.AMENITIES
@@ -212,57 +209,30 @@ export default function HomePage() {
         </section>
       )}
 
-      {shows(amenities) && (
-        <section
-          id="amenities"
-          className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10"
-        >
-          <div className="rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-[#174d7a]">
-                  <Sparkles className="h-5 w-5" />
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em]">
-                    {text(amenities, 'eyebrow', ui.amenities)}
-                  </span>
-                </div>
-                <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
-                  {text(amenities, 'title', home.amenitiesTitle)}
-                </h2>
-              </div>
-              <p className="max-w-xl text-[15px] leading-7 text-slate-600">
-                {text(amenities, 'body', home.amenitiesBody)}
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              {(amenityTags.length > 0
-                ? amenityTags.map((tag) => ({
-                    key: tag.id,
-                    icon: tag.icon,
-                    label: tag.label,
-                  }))
-                : propertyInfo.amenities
-                    .slice(0, 18)
-                    .map((amenity) => ({ key: amenity, icon: '', label: amenity }))
-              ).map((tag) => (
-                <span
-                  key={tag.key}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700"
-                >
-                  <ContentIcon name={tag.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
-                  {tag.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Sits with the amenities rather than after the reviews: both are the
-          practical half of the page, and a wall of prose between the
-          testimonials and the map broke the run into the booking CTA. */}
-      <HouseDetails />
+      {/* Amenities live inside this section rather than in one of their own.
+          Two consecutive white cards with the same eyebrow-title-lead
+          structure, both headed "Everything…", read as the page repeating
+          itself — and they answer one question between them: what is here and
+          what should I know. */}
+      <HouseDetails
+        amenities={
+          shows(amenities)
+            ? {
+                label: text(amenities, 'eyebrow', ui.amenities),
+                tags:
+                  amenityTags.length > 0
+                    ? amenityTags.map((tag) => ({
+                        key: tag.id,
+                        icon: tag.icon,
+                        label: tag.label,
+                      }))
+                    : propertyInfo.amenities
+                        .slice(0, 18)
+                        .map((amenity) => ({ key: amenity, icon: '', label: amenity })),
+              }
+            : undefined
+        }
+      />
 
       {/* The whole block disappears when the host unpublishes it — an empty
           testimonials frame is worse than no testimonials. */}
@@ -342,8 +312,8 @@ export default function HomePage() {
                         className="h-12 w-12 rounded-full border-2 border-white/30 object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/15 font-serif text-xl text-white">
-                        {featured.authorName.trim().charAt(0).toUpperCase()}
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 text-white">
+                        <Star className="h-6 w-6 fill-current" />
                       </div>
                     )}
                     <div>
@@ -395,11 +365,8 @@ export default function HomePage() {
                           className="h-10 w-10 rounded-full object-cover"
                         />
                       ) : (
-                        // An initial rather than a stock face: the review is a
-                        // real person's, and borrowing someone else's photo to
-                        // stand in for them would make the page a lie.
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#174d7a]/10 font-serif text-lg text-[#173a57]">
-                          {review.authorName.trim().charAt(0).toUpperCase()}
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-[#173a57]">
+                          <Users className="h-5 w-5" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">

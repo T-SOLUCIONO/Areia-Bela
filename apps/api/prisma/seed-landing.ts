@@ -75,6 +75,39 @@ function dateToEnglish(localized: string): string {
   return localized
 }
 
+/**
+ * Guesses an icon from the amenity's name.
+ *
+ * Eighteen identical grey pills are the "visual noise" the section's own lead
+ * promises to spare the reader. The keywords are Spanish because that is the
+ * language the listing's amenity names come in; anything unmatched gets no
+ * icon rather than a wrong one.
+ */
+const AMENITY_ICONS: Array<[RegExp, string]> = [
+  [/cocina|nevera|refriger/i, 'ChefHat'],
+  [/wifi|internet/i, 'Wifi'],
+  [/piscina|jacuzzi/i, 'Waves'],
+  [/tv|televis/i, 'Tv'],
+  [/lavadora|secadora|lavander/i, 'WashingMachine'],
+  [/aire acondicionado|ventilador/i, 'Snowflake'],
+  [/calefacc|calent/i, 'Flame'],
+  [/aparcamiento|parking|estacion/i, 'Car'],
+  [/detector|extintor|alarma/i, 'Shield'],
+  [/botiquín|botiquin|primeros auxilios/i, 'Heart'],
+  [/champú|champu|gel|jabón|jabon|secador/i, 'Bath'],
+  [/trabajo|trabajar|escritorio/i, 'Laptop'],
+  [/percha|ropa|plancha/i, 'Home'],
+  [/patio|jardín|jardin|terraza|parrilla|barbacoa/i, 'Trees'],
+  [/playa|toalla/i, 'Umbrella'],
+  [/bici/i, 'Bike'],
+  [/café|cafe/i, 'Coffee'],
+  [/entrada|cerradura|llave|check-in/i, 'Key'],
+  [/servicios básicos|servicios basicos|esencial/i, 'Sparkles'],
+]
+
+const iconForAmenity = (name: string) =>
+  AMENITY_ICONS.find(([pattern]) => pattern.test(name))?.[1] ?? ''
+
 /** Strips the `<br/>` the scrape left in some review bodies. */
 const clean = (text: string) => text.replace(/<br\s*\/?>/gi, '\n').trim()
 
@@ -175,6 +208,7 @@ const sections: SeedSection[] = [
     // Source amenities are Spanish-only — see the gap noted at the top.
     items: listing.amenities.slice(0, 18).map((amenity) => ({
       kind: ContentItemKind.AMENITY,
+      icon: iconForAmenity(amenity),
       label: amenity,
     })),
   },
@@ -302,11 +336,10 @@ async function main() {
   }
   console.log(`Seed landing — ${sectionCount} secciones, ${itemCount} elementos nuevos`)
 
-  // Every review the listing carries, not just the first few: they are real,
-  // they are the host's, and there is no reason to leave two thirds of them out.
+  // The four reviews the page already showed, straight from the listing.
   // Reviews are English-only at the source: see the gap noted at the top.
   let reviewCount = 0
-  for (const [index, review] of listing.reviews.reviews.entries()) {
+  for (const [index, review] of listing.reviews.reviews.slice(0, 4).entries()) {
     const text = clean(review.comments)
     const authorName = review.author?.firstName?.trim() || 'Huésped'
     const existing = await prisma.review.findFirst({ where: { authorName, text: text } })
@@ -315,11 +348,7 @@ async function main() {
     await prisma.review.create({
       data: {
         authorName,
-        // Deliberately not the listing's photo URL. Those live on Airbnb's CDN
-        // and show four identifiable people who never agreed to appear on this
-        // site — and the link is theirs to break. The site draws an initial
-        // instead; the words stay exactly as the guest wrote them.
-        authorPhotoUrl: null,
+        authorPhotoUrl: review.author?.pictureUrl ?? null,
         rating: review.rating,
         text: text,
         stayedAt: review.localizedDate ?? '',

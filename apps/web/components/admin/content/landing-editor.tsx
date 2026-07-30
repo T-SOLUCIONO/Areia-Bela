@@ -57,10 +57,11 @@ const LAYOUT: Record<
     canHide: true,
     items: { kind: 'FEATURE_CARD', features: { icon: true, image: true, body: true } },
   },
+  // Only the eyebrow: the amenity tags now render inside the "everything
+  // about the house" card, which brings its own heading. A title and lead
+  // that no longer appear anywhere would be controls that pretend to save.
   AMENITIES: {
     eyebrow: true,
-    title: true,
-    body: true,
     canHide: true,
     items: { kind: 'AMENITY', features: { icon: true } },
   },

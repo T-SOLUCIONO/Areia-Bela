@@ -54,7 +54,14 @@ const TRIGGER = 'gap-3 py-4 text-left hover:no-underline [&>svg]:text-[#174d7a]'
  * Renders nothing when there is nothing published — an empty accordion is worse
  * than no section at all.
  */
-export function HouseDetails() {
+type AmenityTag = { key: string; icon: string; label: string }
+
+export function HouseDetails({
+  amenities,
+}: {
+  /** Rendered inside this card; see the note where it is passed in. */
+  amenities?: { label: string; tags: AmenityTag[] }
+} = {}) {
   const content = useSiteContent()
   const { language } = useLanguage()
   const copy = translations[language].details
@@ -64,7 +71,8 @@ export function HouseDetails() {
   )
   const faqs = content?.faqs ?? []
 
-  if (sections.length === 0 && faqs.length === 0) return null
+  const amenityTags = amenities?.tags ?? []
+  if (sections.length === 0 && faqs.length === 0 && amenityTags.length === 0) return null
 
   return (
     <section
@@ -82,7 +90,7 @@ export function HouseDetails() {
 
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[#174d7a]">
+            <div className="flex items-center gap-2 text-amber-600">
               <BookOpen className="h-5 w-5" aria-hidden />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                 {copy.eyebrow}
@@ -98,11 +106,30 @@ export function HouseDetails() {
           <p className="max-w-xl text-[15px] leading-7 text-slate-600">{copy.lead}</p>
         </div>
 
-        <div className="relative mt-8 grid gap-x-14 gap-y-10 lg:grid-cols-2">
+        {amenityTags.length > 0 && (
+          <div className="relative mt-8">
+            <ColumnHeading label={amenities?.label ?? ''} count={amenityTags.length} />
+            <div className="mt-4 flex flex-wrap gap-2">
+              {amenityTags.map((tag) => (
+                <span
+                  key={tag.key}
+                  className="flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-white py-1.5 pl-1.5 pr-4 text-sm text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#174d7a]/8 text-[#174d7a]">
+                    <ContentIcon name={tag.icon} className="h-3.5 w-3.5" />
+                  </span>
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="relative mt-10 grid gap-x-14 gap-y-10 lg:grid-cols-2">
           {sections.length > 0 && (
             <div>
               <ColumnHeading label={copy.house} count={sections.length} />
-              <Accordion type="single" collapsible>
+              <Accordion type="single" collapsible defaultValue={sections[0]?.slug}>
                 {sections.map(({ slug, icon, page }) => (
                   <AccordionItem key={slug} value={slug} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>
@@ -133,7 +160,7 @@ export function HouseDetails() {
           {faqs.length > 0 && (
             <div>
               <ColumnHeading label={copy.faqs} count={faqs.length} />
-              <Accordion type="single" collapsible>
+              <Accordion type="single" collapsible defaultValue={faqs[0]?.id}>
                 {faqs.map((faq) => (
                   <AccordionItem key={faq.id} value={faq.id} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>
