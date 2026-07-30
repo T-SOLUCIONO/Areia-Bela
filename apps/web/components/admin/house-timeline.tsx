@@ -1,23 +1,40 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, format, isSameDay, isWithinInterval, startOfDay } from 'date-fns'
+import {
+  addDays,
+  format,
+  isBefore,
+  isSameDay,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+} from 'date-fns'
 import { es as esLocale, enUS } from 'date-fns/locale'
 import { CalendarCheck, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
+import { apiFetch } from '@/lib/api-client'
 import { getBlockedDateRanges } from '@/lib/booking'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { cn } from '@/lib/utils'
 
 const DAYS_SHOWN = 21
 
+interface Stay {
+  checkIn: string
+  checkOut: string
+  guestName: string
+  status: string
+}
+
 /**
  * The one thing this business has that a hotel dashboard doesn't: a single
- * unit, so time is the only axis that matters. Instead of four generic stat
- * tiles, the panel opens with the house itself across the next three weeks.
+ * unit, so time is the only axis that matters. The panel opens with the house
+ * itself across the next three weeks.
  *
- * Uses the real blocked-date endpoint — it is the only live business data the
- * admin has today, so it is the one thing here that isn't invented.
+ * Shows bookings and blocks as separate states. It used to draw only blocked
+ * dates, so a paid stay appeared as a free night — on the first strip of the
+ * first screen the host sees.
  */
 export function HouseTimeline() {
   const { language } = useAdminLanguage()
@@ -25,21 +42,41 @@ export function HouseTimeline() {
   const locale = isEnglish ? enUS : esLocale
 
   const [ranges, setRanges] = useState<Array<{ from: Date; to: Date }>>([])
+  const [stays, setStays] = useState<Stay[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getBlockedDateRanges()
-      .then(setRanges)
-      .finally(() => setLoading(false))
+    void Promise.all([
+      getBlockedDateRanges().then(setRanges, () => setRanges([])),
+      apiFetch<Stay[]>('/bookings').then(
+        (bookings) => setStays(bookings.filter((b) => b.status !== 'CANCELLED')),
+        () => setStays([]),
+      ),
+    ]).finally(() => setLoading(false))
   }, [])
 
   const today = startOfDay(new Date())
   const days = Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(today, i))
-  const isBlocked = (day: Date) =>
+
+  const blockedOn = (day: Date) =>
     ranges.some((r) => isWithinInterval(day, { start: startOfDay(r.from), end: startOfDay(r.to) }))
 
-  const blockedCount = days.filter(isBlocked).length
-  const freeCount = DAYS_SHOWN - blockedCount
+  // checkOut is a departure morning, not a night — the same rule the exclusion
+  // constraint uses, so the strip and the database agree on who is in the house.
+  const stayOn = (day: Date) =>
+    stays.find(
+      (s) =>
+        !isBefore(day, startOfDay(parseISO(s.checkIn))) &&
+        isBefore(day, startOfDay(parseISO(s.checkOut))),
+    )
+
+  const bookedCount = days.filter((day) => stayOn(day)).length
+  const blockedCount = days.filter((day) => !stayOn(day) && blockedOn(day)).length
+  const freeCount = DAYS_SHOWN - bookedCount - blockedCount
+
+  const summary = isEnglish
+    ? `${freeCount} free · ${bookedCount} booked · ${blockedCount} blocked`
+    : `${freeCount} libres · ${bookedCount} reservadas · ${blockedCount} bloqueadas`
 
   return (
     <Card>
@@ -53,9 +90,7 @@ export function HouseTimeline() {
             ? isEnglish
               ? 'Checking availability...'
               : 'Consultando disponibilidad...'
-            : isEnglish
-              ? `${freeCount} nights free, ${blockedCount} taken`
-              : `${freeCount} noches libres, ${blockedCount} ocupadas`}
+            : summary}
         </CardDescription>
       </CardHeader>
 
@@ -69,18 +104,29 @@ export function HouseTimeline() {
           <>
             <ol className="flex gap-1 overflow-x-auto pb-2">
               {days.map((day) => {
-                const blocked = isBlocked(day)
+                const stay = stayOn(day)
+                const blocked = !stay && blockedOn(day)
                 const isToday = isSameDay(day, today)
+                // The first night of a stay carries the name; repeating it for
+                // seven days is noise, and dropping it entirely leaves a block
+                // of colour with no explanation.
+                const opensStay = stay && isSameDay(day, startOfDay(parseISO(stay.checkIn)))
 
                 return (
                   <li
                     key={day.toISOString()}
-                    title={format(day, 'PPPP', { locale })}
+                    title={
+                      stay
+                        ? `${stay.guestName} — ${format(day, 'PPPP', { locale })}`
+                        : format(day, 'PPPP', { locale })
+                    }
                     className={cn(
                       'flex min-w-[2.5rem] flex-1 flex-col items-center gap-1 rounded-lg border px-1 py-2 text-center transition-colors',
-                      blocked
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-secondary/40 text-foreground',
+                      stay
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : blocked
+                          ? 'border-slate-400 bg-slate-200 text-slate-700'
+                          : 'border-border bg-secondary/40 text-foreground',
                       isToday && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
                     )}
                   >
@@ -88,20 +134,28 @@ export function HouseTimeline() {
                       {format(day, 'EEEEE', { locale })}
                     </span>
                     <span className="text-sm font-semibold tabular-nums">{format(day, 'd')}</span>
+                    <span className="h-3 w-full truncate text-[9px] leading-3 opacity-90">
+                      {opensStay ? stay.guestName.split(' ')[0] : ''}
+                    </span>
                   </li>
                 )
               })}
             </ol>
 
-            {/* Legend: identity is never colour alone. */}
+            {/* Legend: identity is never colour alone — every state also has a
+                label here and a tooltip on the cell itself. */}
             <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded border border-border bg-secondary/40" />
                 {isEnglish ? 'Free' : 'Libre'}
               </span>
               <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded bg-primary" />
-                {isEnglish ? 'Taken or blocked' : 'Ocupada o bloqueada'}
+                <span className="h-3 w-3 rounded bg-emerald-600" />
+                {isEnglish ? 'Booked' : 'Reservada'}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded border border-slate-400 bg-slate-200" />
+                {isEnglish ? 'Blocked by you' : 'Bloqueada por ti'}
               </span>
               <span className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded ring-2 ring-ring" />

@@ -66,6 +66,8 @@ export const translations = {
       contactHost: 'Message the host',
     },
     checkout: {
+      datesTakenToast: 'Those nights are no longer free',
+      pickOthers: 'Pick other dates',
       missingDetails: 'Add your name and email before paying — the booking is made in that name.',
       datesTaken:
         'Those dates were booked while you were filling this in. Pick others and the price will update.',
@@ -232,6 +234,8 @@ export const translations = {
       contactHost: 'Escribir a la anfitriona',
     },
     checkout: {
+      datesTakenToast: 'Esas noches ya no están libres',
+      pickOthers: 'Elegir otras fechas',
       missingDetails: 'Completa tu nombre y correo antes de pagar — la reserva queda a ese nombre.',
       datesTaken:
         'Esas fechas se reservaron mientras completabas el formulario. Elige otras y el precio se actualiza.',
@@ -397,6 +401,8 @@ export const translations = {
       contactHost: 'Escrever para a anfitriã',
     },
     checkout: {
+      datesTakenToast: 'Essas noites não estão mais livres',
+      pickOthers: 'Escolher outras datas',
       missingDetails: 'Preencha seu nome e e-mail antes de pagar — a reserva fica nesse nome.',
       datesTaken:
         'Essas datas foram reservadas enquanto você preenchia o formulário. Escolha outras e o preço será atualizado.',
@@ -563,6 +569,8 @@ export const translations = {
       contactHost: 'Écrire à l’hôtesse',
     },
     checkout: {
+      datesTakenToast: 'Ces nuits ne sont plus libres',
+      pickOthers: 'Choisir d’autres dates',
       missingDetails:
         'Indiquez vos nom et e-mail avant de payer — la réservation est établie à ce nom.',
       datesTaken:
@@ -730,6 +738,8 @@ export const translations = {
       contactHost: 'Der Gastgeberin schreiben',
     },
     checkout: {
+      datesTakenToast: 'Diese Nächte sind nicht mehr frei',
+      pickOthers: 'Andere Daten wählen',
       missingDetails:
         'Geben Sie Name und E-Mail an, bevor Sie zahlen — die Buchung läuft auf diesen Namen.',
       datesTaken:

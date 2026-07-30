@@ -1975,3 +1975,107 @@ pnpm typecheck ✅   pnpm test ✅ (220 tests, 4 nuevos)
   `Customer` y se muestra, pero no hay dónde escribirlo.
 - **El panel calcula en el navegador** a partir de `/bookings`. Con una casa es
   trivial; con años de historial convendría un endpoint que agregue.
+
+---
+
+## 34. El 409 llegaba tarde y en silencio
+
+Cinco huecos, todos con la misma raíz: pantallas que sabían menos de lo que el
+API ya les contaba.
+
+### El aviso llega al entrar, no al pagar
+
+Seguía saliendo un 409 al reservar. La respuesta era correcta y el calendario
+ya no ofrece fechas vendidas (§33), pero se puede llegar al checkout con un
+enlace viejo, o quedarse una hora en la página mientras otro paga esa semana.
+
+Ahora el checkout **comprueba la disponibilidad al cargar**. Si las noches no
+están libres: un toast, un aviso rojo permanente con un botón a elegir otras
+fechas, y el botón de pagar desactivado. Enterarse después de escribir nombre,
+correo y teléfono era el peor momento posible.
+
+El sitio público no tenía `Toaster`; se añadió al layout, arriba y al centro,
+que es donde mira quien acaba de pulsar "Confirmar y pagar".
+
+### El cotizador abría en fechas vendidas
+
+`addDays(today, 1)` a `addDays(today, 4)`, sin mirar quién estaba en la casa
+esos días. Con una reserva mañana, la tarjeta abría directamente sobre ella.
+
+Ahora, cuando llegan las tarifas, busca la primera racha de tres noches libres
+y se mueve ahí — solo si lo que hay seleccionado está ocupado, para no pisar lo
+que el huésped acabe de elegir.
+
+### Colores
+
+Un solo color decía "no disponible" para dos cosas distintas. Ahora, en las
+tres pantallas:
+
+|                    | Reservada                         | Bloqueada por el anfitrión |
+| ------------------ | --------------------------------- | -------------------------- |
+| Panel y calendario | verde, con el nombre del huésped  | gris pizarra               |
+| Sitio público      | tachado, gris, con trama diagonal | igual                      |
+
+El huésped no necesita saber por qué la casa no está libre, así que ahí las dos
+se ven igual. La anfitriona sí: una es dinero, la otra es una decisión suya.
+Ninguna descansa solo en el color — hay leyenda, tooltip y, en el sitio,
+tachado.
+
+### "La casa, próximas tres semanas" no mostraba las reservas
+
+El mismo fallo que tenía el calendario y que se arregló en §32: el componente
+solo leía `blocked-dates`. Una estadía pagada aparecía como noche libre **en la
+primera franja de la primera pantalla** del panel. Ahora lee las dos fuentes,
+las distingue, y pone el nombre del huésped en la primera noche de cada
+estadía.
+
+### Bloquear una sola noche era imposible
+
+El diálogo solo se abría con `from && to`, y un clic solo fijaba `from`. Una
+noche suelta — una revisión de la piscina, un día entre huéspedes — no se podía
+bloquear de ninguna manera. Ahora un segundo clic en el mismo día cierra el
+rango, y el texto lo dice para que se descubra. El resumen colapsa a "Una
+noche" en vez de "del 15 de octubre al 15 de octubre".
+
+### Huéspedes: crear, editar, eliminar
+
+`POST`, `PATCH` y `DELETE /customers`, con notas privadas editables — el campo
+existía en el modelo y se mostraba, pero no había dónde escribirlo.
+
+Dos negativas deliberadas:
+
+- **No se borra a alguien con reservas.** Su fila es de lo que cuelga una
+  estadía; borrarla dejaría una reserva sin nombre. 409, nombrando el motivo.
+- **Un correo duplicado se nombra.** Es el único fallo que la anfitriona puede
+  arreglar; el resto son nuestros y un mensaje específico solo confundiría.
+
+Esto obligó a afinar quién sale en la lista. Antes se filtraba por "tiene
+reservas vivas", lo que habría escondido a un huésped recién creado a mano. La
+distinción real: **un hold siempre escribe una fila de `Booking`**, así que
+alguien con cero reservas en total fue añadido por una persona, y alguien con
+reservas todas canceladas es un checkout abandonado. Los primeros se muestran,
+los segundos no.
+
+### Verificación
+
+```
+crear a mano                      → 201, aparece con "todavía sin estadías"
+editar teléfono y nota            → 200, persiste
+correo duplicado                  → 409
+borrar a quien tiene reservas     → 409 "has bookings and cannot be deleted"
+borrar a quien nunca vino         → 204
+bloquear una sola noche           → 201, solo el 15 de octubre deja de estar libre
+primera estadía libre de 3 noches → 3 ago (31 jul, 1 y 2 ago están vendidos)
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (225 tests, 5 nuevos)
+```
+
+### Diferido
+
+- **El calendario del panel sigue mostrando un mes**, así que un bloqueo que
+  cruza meses obliga a navegar con la selección a medias.
+- **No se puede crear una reserva desde el panel.** Se puede añadir al huésped,
+  pero una estadía tomada por teléfono todavía no tiene por dónde entrar.

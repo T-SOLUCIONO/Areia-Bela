@@ -1,18 +1,20 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { format, parseISO, subDays } from 'date-fns'
-import { Star, ShieldCheck, Clock, CreditCard } from 'lucide-react'
+import { Star, ShieldCheck, Clock, CreditCard, CalendarX } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
 import {
   currency,
+  fetchNightRates,
   getQuoteFromStorage,
   fetchQuote,
   parseQuoteRequestFromSearchParams,
@@ -64,6 +66,11 @@ function CheckoutForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState<'taken' | 'failed' | 'missingDetails' | null>(null)
+  // Checked on arrival, not at payment. Someone can sit on this page for an
+  // hour, or land here from a stale link — finding out the week is gone after
+  // typing a name, an email and a phone number is the worst possible moment.
+  const [datesGone, setDatesGone] = useState(false)
+  const warned = useRef(false)
   const copy = translations[language].checkout
   const [formData, setFormData] = useState({
     firstName: '',
@@ -100,6 +107,29 @@ function CheckoutForm() {
     }
   }, [request, router])
 
+  useEffect(() => {
+    if (!request) return
+
+    let cancelled = false
+    void fetchNightRates(request.checkIn, request.checkOut).then((nights) => {
+      // The API returns one night per date in the range; check-out is not one
+      // of them, so every night it does return has to be free.
+      if (!cancelled && nights.some((night) => !night.available)) setDatesGone(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [request])
+
+  useEffect(() => {
+    // Once, and in whatever language is on screen when it happens. Switching
+    // language afterwards should not shout at the guest a second time.
+    if (!datesGone || warned.current) return
+    warned.current = true
+    toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
+  }, [datesGone, copy])
+
   if (!quote) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -115,7 +145,7 @@ function CheckoutForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!agreedToTerms) return
+    if (!agreedToTerms || datesGone) return
 
     // Belt and braces: native validation covers this, but a missing field must
     // never reach the API as an opaque 400 the guest cannot act on.
@@ -162,7 +192,14 @@ function CheckoutForm() {
       window.location.href = session.url
     } catch (err) {
       console.error('Checkout error:', err)
-      setError(err instanceof DatesUnavailableError ? 'taken' : 'failed')
+      if (err instanceof DatesUnavailableError) {
+        setError('taken')
+        setDatesGone(true)
+        toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
+      } else {
+        setError('failed')
+        toast.error(copy.checkoutFailed)
+      }
       setIsLoading(false)
     }
   }
@@ -197,6 +234,26 @@ function CheckoutForm() {
                 {isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}
               </h1>
             </div>
+
+            {/* A toast is dismissible and this is not a detail: the whole page
+                below is now pointless. It stays until they pick other dates. */}
+            {datesGone && (
+              <div
+                role="alert"
+                className="flex flex-col gap-4 rounded-[20px] border border-red-200 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-start gap-3">
+                  <CalendarX className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                  <div>
+                    <p className="font-semibold text-red-900">{copy.datesTakenToast}</p>
+                    <p className="mt-1 text-sm text-red-700">{copy.datesTaken}</p>
+                  </div>
+                </div>
+                <Button asChild variant="brand" size="sm" className="shrink-0">
+                  <Link href="/#reservar">{copy.pickOthers}</Link>
+                </Button>
+              </div>
+            )}
 
             {/* Property Card */}
             <div className="rounded-xl border border-border p-5">
@@ -503,7 +560,7 @@ function CheckoutForm() {
                   // the browser check the required fields before we send
                   // anything — an onClick handler skips all of that.
                   form="checkout-form"
-                  disabled={isLoading || !agreedToTerms}
+                  disabled={isLoading || !agreedToTerms || datesGone}
                   variant="brand"
                   size="lg"
                   className="mt-6 w-full text-base font-semibold shadow-[0_18px_50px_rgba(15,23,42,0.12)]"

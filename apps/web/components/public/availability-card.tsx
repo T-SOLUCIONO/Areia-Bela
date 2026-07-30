@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, differenceInCalendarDays, format, subDays } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { ChevronDown, Minus, Plus, ShieldCheck, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,7 @@ import {
   saveQuoteToStorage,
   serializeQuoteToSearchParams,
   type BookingQuote,
+  type NightRate,
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { useLanguage } from '@/components/language-provider'
@@ -30,14 +31,36 @@ type Props = {
   className?: string
 }
 
+/** How long the card proposes before the guest touches anything. */
+const DEFAULT_NIGHTS = 3
+
+/**
+ * The first run of free nights long enough for the default stay.
+ *
+ * Returns the check-out date too, which is the morning after the last night —
+ * so a three-night stay needs three free nights, not four.
+ */
+function findFirstFreeStay(nights: NightRate[], wanted: number): { from: Date; to: Date } | null {
+  let run = 0
+  for (let index = 0; index < nights.length; index += 1) {
+    run = nights[index].available ? run + 1 : 0
+    if (run === wanted) {
+      const first = nights[index - wanted + 1].date
+      return { from: parseISO(first), to: addDays(parseISO(nights[index].date), 1) }
+    }
+  }
+  return null
+}
+
 export function AvailabilityCard({ className }: Props) {
   const router = useRouter()
   const { language } = useLanguage()
   const copy = translations[language].availability
   const locale = { es, en: enUS, pt: ptBR, fr, de }[language]
   const today = new Date()
+  // Replaced once the rates arrive, if these nights turn out to be taken.
   const [checkIn, setCheckIn] = useState<Date | undefined>(addDays(today, 1))
-  const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 4))
+  const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 1 + DEFAULT_NIGHTS))
   const [guestsOpen, setGuestsOpen] = useState(false)
   const [serviceAnimalOpen, setServiceAnimalOpen] = useState(false)
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 })
@@ -60,7 +83,22 @@ export function AvailabilityCard({ className }: Props) {
     const to = format(addDays(today, 365), 'yyyy-MM-dd')
     fetchNightRates(from, to).then((nights) => {
       setRates(new Map(nights.map((night) => [night.date, night.rate])))
-      setUnavailable(new Set(nights.filter((night) => !night.available).map((n) => n.date)))
+
+      const taken = new Set(nights.filter((night) => !night.available).map((n) => n.date))
+      setUnavailable(taken)
+
+      // Opening on dates that are already sold sends the guest to a 409 at the
+      // end of a form. The default was tomorrow-plus-three regardless of who
+      // was in the house then, so it moves to the first free stretch instead.
+      const stay = findFirstFreeStay(nights, DEFAULT_NIGHTS)
+      if (stay) {
+        setCheckIn((current) =>
+          current && !taken.has(format(current, 'yyyy-MM-dd')) ? current : stay.from,
+        )
+        setCheckOut((current) =>
+          current && !taken.has(format(current, 'yyyy-MM-dd')) ? current : stay.to,
+        )
+      }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -274,8 +312,12 @@ export function AvailabilityCard({ className }: Props) {
                   : [],
             }}
             modifiersClassNames={{
-              blocked: 'line-through decoration-red-400 text-slate-300',
-              previewRange: 'bg-slate-100 rounded-none',
+              // A struck-through, greyed-out day reads as "sold" without a
+              // legend. The diagonal fill is the second signal, so the state
+              // does not rest on colour alone.
+              blocked:
+                'line-through decoration-slate-400 decoration-[1.5px] text-slate-300 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(241_245_249)_3px,rgb(241_245_249)_6px)]',
+              previewRange: 'bg-[#174d7a]/10 rounded-none',
             }}
             onDayMouseEnter={setHoverDate}
             onDayMouseLeave={() => setHoverDate(undefined)}

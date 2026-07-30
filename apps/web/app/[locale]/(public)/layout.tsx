@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Toaster } from '@areia-bela/ui/sonner'
 import { Header } from '@/components/public/header'
 import { Footer } from '@/components/public/footer'
 import { Reserve } from '@/components/public/reserve'
@@ -52,6 +53,9 @@ export default async function PublicLayout({
         <main className="flex-1">{children}</main>
         <Footer />
         <Reserve />
+        {/* Booking failures happen while the guest is looking at the price
+            card, not at the top of the page. A toast reaches them there. */}
+        <Toaster position="top-center" richColors closeButton />
       </div>
     </SiteContentProvider>
   )

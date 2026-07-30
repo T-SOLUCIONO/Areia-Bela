@@ -162,9 +162,11 @@ export default function CalendarPage() {
     if (!from || to) {
       setFrom(day)
       setTo(null)
-    } else {
-      setTo(day)
+      return
     }
+
+    // Clicking the same day again means "just this one night".
+    setTo(day)
   }
 
   const resetSelection = () => {
@@ -217,6 +219,10 @@ export default function CalendarPage() {
     }
   }
 
+  // Ready to confirm once both ends are chosen. A single night is a range
+  // whose ends are the same day, which is why one click plus a repeat works.
+  const confirming = selecting && from !== null && to !== null
+
   const monthDays = grid.filter((d) => isSameMonth(d, month))
   const takenCount = monthDays.filter((d) => blockFor(d) || bookingFor(d)).length
   const freeCount = monthDays.length - takenCount
@@ -225,6 +231,16 @@ export default function CalendarPage() {
     start: startOfWeek(today, { weekStartsOn: 1 }),
     end: endOfWeek(today, { weekStartsOn: 1 }),
   }).map((day) => format(day, 'EEEEEE', { locale }))
+
+  /** Human range, collapsing a single night rather than repeating the date. */
+  const rangeLabel = (start: Date, finish: Date, pattern: string) => {
+    const [a, b] = isBefore(finish, start) ? [finish, start] : [start, finish]
+    if (isSameDay(a, b)) return `${copy.oneNight} · ${format(a, pattern, { locale })}`
+    return fill(copy.selectedRange, {
+      from: format(a, pattern, { locale }),
+      to: format(b, pattern, { locale }),
+    })
+  }
 
   const dayTitle = (day: Date) => {
     const booking = bookingFor(day)
@@ -291,15 +307,8 @@ export default function CalendarPage() {
         <CardContent>
           {selecting && (
             <p className="mb-4 rounded-[12px] bg-primary/10 px-4 py-3 text-sm text-foreground">
-              {!from ? copy.selectStart : !to ? copy.selectEnd : null}
-              {from && to && (
-                <span className="font-medium">
-                  {fill(copy.selectedRange, {
-                    from: format(isBefore(to, from) ? to : from, 'd MMM', { locale }),
-                    to: format(isBefore(to, from) ? from : to, 'd MMM', { locale }),
-                  })}
-                </span>
-              )}
+              {!from ? copy.selectStart : !to ? copy.selectEndOrSame : null}
+              {from && to && <span className="font-medium">{rangeLabel(from, to, 'd MMM')}</span>}
             </p>
           )}
 
@@ -344,7 +353,7 @@ export default function CalendarPage() {
                         booking
                           ? 'border-emerald-600 bg-emerald-600 text-white'
                           : block
-                            ? 'border-primary bg-primary text-primary-foreground'
+                            ? 'border-slate-400 bg-slate-200 text-slate-700'
                             : selected
                               ? 'border-primary bg-primary/25 text-foreground'
                               : 'border-border bg-secondary/30 text-foreground',
@@ -378,7 +387,7 @@ export default function CalendarPage() {
                   {copy.booked}
                 </span>
                 <span className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded bg-primary" />
+                  <span className="h-3 w-3 rounded border border-slate-400 bg-slate-200" />
                   {copy.blocked}
                 </span>
                 <span className="flex items-center gap-2">
@@ -394,18 +403,11 @@ export default function CalendarPage() {
 
       {/* Asks for a reason once the range is picked. The host reads it months
           later and "why is October closed?" should have an answer. */}
-      <Dialog open={selecting && from !== null && to !== null} onOpenChange={() => setTo(null)}>
+      <Dialog open={confirming} onOpenChange={() => setTo(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{copy.blockDates}</DialogTitle>
-            <DialogDescription>
-              {from &&
-                to &&
-                fill(copy.selectedRange, {
-                  from: format(isBefore(to, from) ? to : from, 'PPP', { locale }),
-                  to: format(isBefore(to, from) ? from : to, 'PPP', { locale }),
-                })}
-            </DialogDescription>
+            <DialogDescription>{from && to && rangeLabel(from, to, 'PPP')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
@@ -436,10 +438,11 @@ export default function CalendarPage() {
             <DialogTitle>{copy.unblockTitle}</DialogTitle>
             <DialogDescription>
               {unblocking &&
-                `${fill(copy.selectedRange, {
-                  from: format(parseISO(unblocking.startDate), 'PPP', { locale }),
-                  to: format(parseISO(unblocking.endDate), 'PPP', { locale }),
-                })} — ${copy.unblockLead}`}
+                `${rangeLabel(
+                  parseISO(unblocking.startDate),
+                  parseISO(unblocking.endDate),
+                  'PPP',
+                )} — ${copy.unblockLead}`}
             </DialogDescription>
           </DialogHeader>
 
