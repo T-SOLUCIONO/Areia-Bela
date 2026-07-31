@@ -456,8 +456,8 @@ function CheckoutForm() {
               <h2 className="font-serif text-xl text-foreground">
                 {isEnglish ? 'Guest information' : 'Información del huésped'}
               </h2>
-              <form id="checkout-form" onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form id="checkout-form" onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
                       {isEnglish ? 'First name' : 'Nombre'}
@@ -465,10 +465,11 @@ function CheckoutForm() {
                     <Input
                       id="firstName"
                       name="firstName"
+                      autoComplete="given-name"
                       value={formData.firstName}
                       onChange={handleInputChange}
                       required
-                      className="rounded-lg border-input"
+                      className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
                     />
                   </div>
                   <div className="space-y-1">
@@ -478,10 +479,11 @@ function CheckoutForm() {
                     <Input
                       id="lastName"
                       name="lastName"
+                      autoComplete="family-name"
                       value={formData.lastName}
                       onChange={handleInputChange}
                       required
-                      className="rounded-lg border-input"
+                      className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
                     />
                   </div>
                 </div>
@@ -493,10 +495,11 @@ function CheckoutForm() {
                     id="email"
                     name="email"
                     type="email"
+                    autoComplete="email"
                     value={formData.email}
                     onChange={handleInputChange}
                     required
-                    className="rounded-lg border-input"
+                    className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
                   />
                   <p className="text-xs text-muted-foreground">
                     {isEnglish
@@ -512,11 +515,13 @@ function CheckoutForm() {
                     id="phone"
                     name="phone"
                     type="tel"
+                    autoComplete="tel"
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    className="rounded-lg border-input"
+                    className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
                   />
+                  <p className="text-xs text-muted-foreground">{copy.phoneWhy}</p>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="country" className="text-sm font-medium text-foreground">
@@ -527,7 +532,7 @@ function CheckoutForm() {
                     name="country"
                     value={formData.country}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-input px-3 py-2 text-sm"
+                    className="h-11 w-full rounded-[12px] border border-slate-200 bg-transparent px-3 text-sm focus-visible:border-[#174d7a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#174d7a]/20"
                   >
                     <option value="United States">United States</option>
                     <option value="Canada">Canada</option>

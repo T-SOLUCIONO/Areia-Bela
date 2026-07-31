@@ -151,6 +151,7 @@ export const translations = {
       statusCheckedOut: 'Completed',
     },
     checkout: {
+      phoneWhy: 'So the host can reach you on the day you arrive.',
       datesTakenToast: 'Those nights are no longer free',
       pickOthers: 'Pick other dates',
       missingDetails: 'Add your name and email before paying — the booking is made in that name.',
@@ -410,6 +411,7 @@ export const translations = {
       statusCheckedOut: 'Completada',
     },
     checkout: {
+      phoneWhy: 'Para que la anfitriona pueda localizarte el día que llegas.',
       datesTakenToast: 'Esas noches ya no están libres',
       pickOthers: 'Elegir otras fechas',
       missingDetails: 'Completa tu nombre y correo antes de pagar — la reserva queda a ese nombre.',
@@ -667,6 +669,7 @@ export const translations = {
       statusCheckedOut: 'Concluída',
     },
     checkout: {
+      phoneWhy: 'Para que a anfitriã possa contatá-lo no dia da chegada.',
       datesTakenToast: 'Essas noites não estão mais livres',
       pickOthers: 'Escolher outras datas',
       missingDetails: 'Preencha seu nome e e-mail antes de pagar — a reserva fica nesse nome.',
@@ -926,6 +929,7 @@ export const translations = {
       statusCheckedOut: 'Terminée',
     },
     checkout: {
+      phoneWhy: 'Pour que l’hôtesse puisse vous joindre le jour de votre arrivée.',
       datesTakenToast: 'Ces nuits ne sont plus libres',
       pickOthers: 'Choisir d’autres dates',
       missingDetails:
@@ -1186,6 +1190,7 @@ export const translations = {
       statusCheckedOut: 'Abgeschlossen',
     },
     checkout: {
+      phoneWhy: 'Damit die Gastgeberin Sie am Anreisetag erreichen kann.',
       datesTakenToast: 'Diese Nächte sind nicht mehr frei',
       pickOthers: 'Andere Daten wählen',
       missingDetails:

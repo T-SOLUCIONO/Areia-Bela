@@ -4,29 +4,24 @@ import { useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { CheckCircle, Users, MapPin, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle, Users, MapPin, Loader2, AlertCircle, Download } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
-import { currency } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
 import { API_URL } from '@/lib/api-client'
 import { useLanguage } from '@/components/language-provider'
 import { fill } from '@areia-bela/shared'
 import { translations } from '@/lib/i18n'
 import { StayBand } from '@/components/public/stay-band'
+import { BookingBillLines } from '@/components/public/booking-bill'
+import { BookingTerms } from '@/components/public/booking-terms'
+import type { MyBooking } from '@/lib/guest-client'
 
-interface ConfirmedBooking {
-  reference: string
-  checkIn: string
-  checkOut: string
-  nights: number
-  guests: number
-  total: number
-  guestName: string
-  guestEmail: string
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
-  checkInTime: string
-  checkOutTime: string
-}
+/**
+ * The same shape the guest area uses, plus who booked it. One description of a
+ * booking rather than two that drift: what they see now is what they will see
+ * when they sign in next month.
+ */
+type ConfirmedBooking = MyBooking & { guestName: string; guestEmail: string }
 
 /**
  * Stripe redirects here the moment the card clears, which is usually before
@@ -107,6 +102,7 @@ function ConfirmationContent() {
   // "{count} nights", borrowed from the guest area so the phrase is
   // written once for all five languages.
   const nightsLabel = translations[language].guestArea.nights
+  const downloadLabel = translations[language].guestArea.download
 
   if (state === 'loading') {
     return (
@@ -242,13 +238,12 @@ function ConfirmationContent() {
 
           <div className="my-6 h-px bg-border" />
 
-          <div className="flex items-baseline justify-between">
-            <span className="font-semibold text-foreground">{copy.total}</span>
-            <span className="text-2xl font-semibold text-foreground">
-              {currency(booking.total)}
-            </span>
+          <div className="grid gap-8 sm:grid-cols-2">
+            <BookingBillLines bill={booking.bill} nights={booking.nights} language={language} />
+            <BookingTerms booking={booking} language={language} />
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">
+
+          <p className="mt-6 border-t border-border pt-5 text-sm text-muted-foreground">
             {copy.emailedTo} <span className="font-medium">{booking.guestEmail}</span>
           </p>
         </div>
@@ -274,6 +269,17 @@ function ConfirmationContent() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {/* Downloadable without signing in: asking someone to request an
+              email link before they can keep the receipt for the payment they
+              made thirty seconds ago would be absurd. */}
+          <Button asChild variant="outline" size="lg" className="w-full px-6 sm:w-auto">
+            <a
+              href={`${API_URL}/bookings/session/${encodeURIComponent(sessionId ?? '')}/pdf?locale=${language}`}
+            >
+              <Download className="h-4 w-4" />
+              {downloadLabel}
+            </a>
+          </Button>
           <Button asChild variant="outline" size="lg" className="w-full px-6 sm:w-auto">
             <Link href="/#contact">{copy.contactHost}</Link>
           </Button>

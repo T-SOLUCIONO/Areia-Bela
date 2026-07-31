@@ -11,6 +11,6 @@ import { BookingPdfService } from './booking-pdf.service'
   imports: [JwtModule.register({}), MailModule],
   controllers: [GuestController],
   providers: [GuestAuthService, GuestService, GuestGuard, BookingPdfService],
-  exports: [GuestAuthService, GuestService],
+  exports: [GuestAuthService, GuestService, BookingPdfService],
 })
 export class GuestModule {}

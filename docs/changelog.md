@@ -2576,3 +2576,66 @@ pnpm typecheck ✅   pnpm test ✅ (235 tests, 2 nuevos)
 - **Escribir `accessNotes`** desde el panel, o decirme que lo quite.
 - **Confirmar que MODERATE es la política que quiere.** Es un campo editable;
   cambiarla es un `PATCH`, no un despliegue.
+
+---
+
+## 40. La confirmación enseña lo mismo que el área del huésped
+
+La página de confirmación describía la reserva con su propio tipo, más pobre
+que el del área del huésped: sin desglose, sin política, sin las condiciones.
+Dos descripciones de lo mismo se separan, y ya se estaban separando.
+
+`findBySession` devuelve ahora **la misma forma** que usa el área del huésped,
+más el nombre y el correo. Lo que ve alguien que acaba de pagar es exactamente
+lo que verá cuando entre el mes que viene.
+
+### El PDF, sin tener que entrar
+
+`GET /bookings/session/:sessionId/pdf`, público por el mismo motivo que la
+consulta: el id de sesión de Stripe no llega a nadie salvo a quien pagó, porque
+viaja en su URL de vuelta. Pedirle que solicite un enlace por correo para poder
+guardarse el recibo del pago que hizo hace treinta segundos sería absurdo.
+
+Un id inventado responde 404.
+
+### Los formularios del checkout
+
+Cuatro campos con `rounded-lg border-input` por defecto: más apretados que el
+resto del sitio y con un foco distinto al de las demás pantallas. Ahora
+comparten altura, radio y anillo de foco con el formulario de contacto y el
+del área del huésped.
+
+Tres cosas más que faltaban y se notan al rellenarlo en un móvil:
+
+- **`autoComplete` en nombre, apellido, correo y teléfono.** Sin ellos el
+  navegador no ofrece nada y hay que teclearlo todo.
+- **El teléfono no decía para qué se pide.** El correo sí lo decía. Un campo
+  que no explica por qué lo necesitas es un campo que se rellena mal o no se
+  rellena; ahora dice que es para localizarte el día que llegas.
+- **Un campo y una sección pesaban lo mismo** (`space-y-4` en ambos). Los
+  campos van ahora a 5 y las secciones respiran.
+
+### Verificación
+
+```
+GET /bookings/session/:id       → desglose, política, reglas y basura
+GET /bookings/session/:id/pdf   → 200, application/pdf, 27 KB
+con un id inventado             → 404
+dependencias circulares al arrancar → ninguna
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (235 tests)
+```
+
+### Pendientes del usuario, anotados para no perderlos
+
+1. **Rotar `STRIPE_SECRET_KEY`.** Sigue en el historial de un repositorio
+   público (§37). Es `sk_test_`, lo que limita mucho el daño, pero hay bots que
+   rastrean GitHub buscando exactamente ese patrón.
+2. **Escribir `Property.accessNotes`** desde el panel — dónde aparcar, cómo
+   funciona la puerta — o decidir que se quite el campo. Está vacío a
+   propósito: no se inventa un código de puerta.
+3. **Confirmar que MODERATE es la política de cancelación** que quiere. Es un
+   campo editable; cambiarla es un `PATCH`, no un despliegue.

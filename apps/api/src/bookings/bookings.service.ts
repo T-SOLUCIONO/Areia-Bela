@@ -18,6 +18,7 @@ import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { PaymentsService } from './payments.service'
+import { GuestService, type MyBooking } from '../guest/guest.service'
 
 /** Postgres' code for a violated exclusion constraint — two overlapping stays. */
 const EXCLUSION_VIOLATION = '23P01'
@@ -48,6 +49,7 @@ export class BookingsService {
     private readonly notifications: NotificationsService,
     private readonly payments: PaymentsService,
     private readonly config: ConfigService,
+    private readonly guests: GuestService,
   ) {}
 
   /**
@@ -344,47 +346,33 @@ export class BookingsService {
     )
   }
 
-  /** What the confirmation page shows. Keyed by the Stripe session id, which
-   * only the guest who paid ever sees. */
-  async findBySession(sessionId: string): Promise<{
-    reference: string
-    checkIn: string
-    checkOut: string
-    nights: number
-    guests: number
-    total: number
-    guestName: string
-    guestEmail: string
-    status: BookingStatus
-    checkInTime: string
-    checkOutTime: string
-  }> {
+  /**
+   * What the confirmation page shows, keyed by the Stripe session id — which
+   * reaches nobody but the guest who paid, since it arrives in their return
+   * URL.
+   *
+   * Returns the same shape the guest area uses, plus the name and email. One
+   * description of a booking rather than two that drift apart: the guest who
+   * just paid should see exactly what they will see when they sign in later.
+   */
+  async findBySession(
+    sessionId: string,
+  ): Promise<MyBooking & { guestName: string; guestEmail: string }> {
     const booking = await this.prisma.booking.findUnique({
       where: { stripeSessionId: sessionId },
-      // The arrival times belong to the house and are editable in the panel.
-      // Sent with the booking so the confirmation page has no reason to
-      // hard-code them, which is how it ended up claiming 4:00 PM.
-      include: {
-        customer: true,
-        extras: { include: { extra: true } },
-        property: { select: { checkInTime: true, checkOutTime: true } },
-      },
+      select: { id: true, customerId: true, reference: true },
     })
     if (!booking) throw new NotFoundException('Booking not found')
 
-    const notice = this.noticeFor(booking)
+    const [detail, customer] = await Promise.all([
+      this.guests.myBooking(booking.customerId, booking.reference),
+      this.prisma.customer.findUnique({ where: { id: booking.customerId } }),
+    ])
+
     return {
-      reference: notice.reference,
-      checkIn: notice.checkIn,
-      checkOut: notice.checkOut,
-      nights: notice.nights,
-      guests: notice.guests,
-      total: notice.total,
-      guestName: notice.guestName,
-      guestEmail: notice.guestEmail,
-      status: booking.status,
-      checkInTime: booking.property.checkInTime,
-      checkOutTime: booking.property.checkOutTime,
+      ...detail,
+      guestName: customer ? `${customer.firstName} ${customer.lastName}` : '',
+      guestEmail: customer?.email ?? '',
     }
   }
 

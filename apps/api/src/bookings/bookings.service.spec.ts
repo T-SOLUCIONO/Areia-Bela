@@ -6,6 +6,7 @@ import { BookingsService } from './bookings.service'
 import type { PropertiesService } from '../properties/properties.service'
 import type { NotificationsService } from '../notifications/notifications.service'
 import type { PaymentsService } from './payments.service'
+import type { GuestService } from '../guest/guest.service'
 import type { PrismaService } from '../prisma/prisma.service'
 import type { CreateHoldDto } from './dto/create-hold.dto'
 
@@ -143,6 +144,7 @@ describe('BookingsService', () => {
       {
         get: (key: string) => (key === 'PUBLIC_SITE_URL' ? 'http://localhost:3000' : undefined),
       } as unknown as ConfigService,
+      { myBooking: jest.fn() } as unknown as GuestService,
     )
   })
 
