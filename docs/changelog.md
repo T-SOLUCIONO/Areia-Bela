@@ -2893,3 +2893,66 @@ pudiera dibujar.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (243 tests, 6 nuevos)
 ```
+
+---
+
+## 45. El checkout, reordenado — y un extra que no hacía nada
+
+### "Huésped adicional" era un control muerto
+
+Aparecía en Precios → Extras con su interruptor de activo/inactivo, y **no
+cambiaba ni un centavo**: el cargo por huésped extra sale de
+`Property.additionalGuestFeePerNight`, no de ese `Extra`. La fila existía en el
+seed pero nadie la seleccionaba nunca.
+
+Eliminada del seed y de la base. El cargo sigue exactamente igual, verificado:
+
+```
+9 huéspedes → additionalGuestFee $90   (3 noches × $30)
+8 huéspedes → additionalGuestFee $0
+```
+
+Ninguna reserva la tenía contratada, así que no hubo nada que preservar. La
+cabecera del seed explica ahora por qué no debe volver: dos sitios donde parece
+configurarse lo mismo es de donde salen los errores.
+
+### El checkout
+
+La propiedad, las fechas, el grupo y el dinero estaban en **cuatro bloques
+separados por la columna izquierda**, por encima y por debajo de los
+formularios. Para cuando alguien llegaba al botón de pagar, lo que estaba
+pagando había desaparecido de la pantalla.
+
+`CheckoutSummary` los junta en una sola tarjeta fija a la derecha, siguiendo el
+orden de las capturas de Airbnb que envió el usuario: foto y valoración,
+cancelación con enlace a la política completa, fechas y huéspedes con
+**Modificar**, y el detalle del precio con el total.
+
+"Modificar" devuelve al cotizador **con esas fechas ya cargadas**, para que
+cambiar la reserva no signifique empezar de cero.
+
+La izquierda se queda con lo que es acción: mensaje a la anfitriona, extras,
+datos del huésped, condiciones y el botón.
+
+El detalle del precio dibuja solo lo que se cobra de verdad. Con la limpieza y
+el servicio en cero (§43), quedan dos líneas y el total, como en la captura.
+
+### Lo que no se copió de Airbnb, y por qué
+
+La sección **"Forma de pago" con tarjetas guardadas** no se replica. Airbnb
+tiene la tarjeta del huésped porque el huésped tiene cuenta con Airbnb; aquí el
+pago ocurre en la página alojada de Stripe y **este sitio nunca ve una
+tarjeta**. Dibujar una lista de tarjetas sería anunciar una capacidad que no
+existe — el mismo motivo por el que se quitaron los logos de Visa y Mastercard
+en §38.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests)
+```
+
+### Diferido
+
+- **El enlace "Política completa" apunta a `/#faqs`.** Hay una sección de
+  preguntas frecuentes, pero no una página de política de cancelación como tal.
+  Cuando exista, es cambiar el destino.

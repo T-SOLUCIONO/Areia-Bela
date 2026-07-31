@@ -13,7 +13,7 @@ import {
   halfRefundDeadline,
   type CancellationPolicy,
 } from '@areia-bela/shared'
-import { Star, ShieldCheck, Clock, CalendarX } from 'lucide-react'
+import { ShieldCheck, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
@@ -35,32 +35,9 @@ import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
 
 const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
-import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
+import { CheckoutSummary } from '@/components/public/checkout-summary'
 import { StayExtras } from '@/components/public/stay-extras'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
-
-const guestLabel = (
-  adults: number,
-  children: number,
-  infants: number,
-  pets: number,
-  isEnglish: boolean,
-) => {
-  const parts: string[] = []
-  const totalGuests = adults + children
-  parts.push(
-    `${totalGuests} ${totalGuests !== 1 ? (isEnglish ? 'guests' : 'huéspedes') : isEnglish ? 'guest' : 'huésped'}`,
-  )
-  if (infants > 0)
-    parts.push(
-      `${infants} ${infants !== 1 ? (isEnglish ? 'infants' : 'bebés') : isEnglish ? 'infant' : 'bebé'}`,
-    )
-  if (pets > 0)
-    parts.push(
-      `${pets} ${pets !== 1 ? (isEnglish ? 'pets' : 'mascotas') : isEnglish ? 'pet' : 'mascota'}`,
-    )
-  return parts.join(', ')
-}
 
 function CheckoutForm() {
   const router = useRouter()
@@ -304,87 +281,6 @@ function CheckoutForm() {
                 </Button>
               </div>
             )}
-
-            {/* Property Card */}
-            <div className="rounded-xl border border-border p-5">
-              <div className="flex gap-4">
-                <div className="relative h-24 w-32 flex-shrink-0 overflow-hidden rounded-lg">
-                  <Image
-                    src={propertyData.photos[0].large}
-                    alt={propertyData.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">{propertyData.name}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {propertyData.city}, {propertyData.country}
-                  </p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <Star className="h-4 w-4 fill-foreground text-foreground" />
-                    <span className="font-medium text-foreground">
-                      {propertyData.rating.toFixed(2)}
-                    </span>
-                    <span className="text-muted-foreground">
-                      ({propertyData.reviewsCount} {isEnglish ? 'reviews' : 'reseñas'})
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Trip Details */}
-            <section className="space-y-4">
-              <h2 className="font-serif text-xl text-foreground">
-                {isEnglish ? 'Your trip' : 'Tu viaje'}
-              </h2>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg border border-border p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {isEnglish ? 'Dates' : 'Fechas'}
-                  </p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {format(parseISO(quote.checkIn), 'MMM d')} -{' '}
-                    {format(parseISO(quote.checkOut), 'MMM d, yyyy')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {quote.nights} {isEnglish ? 'nights' : 'noches'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {isEnglish ? 'Guests' : 'Huéspedes'}
-                  </p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {guestLabel(
-                      quote.guests.adults,
-                      quote.guests.children,
-                      quote.guests.infants,
-                      quote.guests.pets,
-                      isEnglish,
-                    )}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* The refund terms the house actually has, derived from the same
-                rules the PDF and the guest area use. This block used to state
-                an invented policy — "a partial refund, then 50% minus the
-                service fee" — that appeared in no document the host had
-                written. See docs/changelog.md. */}
-            <section className="rounded-[20px] border border-border bg-muted/40 p-5">
-              <div className="flex items-start gap-4">
-                <Clock className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="font-semibold text-foreground">{guestCopy.policyTitle}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{policyText}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{guestCopy.policyNote}</p>
-                </div>
-              </div>
-            </section>
 
             {/* Message to Host */}
             <section className="space-y-4 rounded-[24px] border border-border bg-card p-5">
@@ -641,7 +537,7 @@ function CheckoutForm() {
                 className="mb-3 flex w-full items-center justify-between rounded-[16px] border border-border bg-card px-4 py-3 lg:hidden"
               >
                 <span className="text-sm font-semibold text-foreground">
-                  {isEnglish ? 'Price details' : 'Detalle del precio'} · {currency(quote.total)}
+                  {copy.summaryPriceDetails} · {currency(quote.total)}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {showPriceBreakdown
@@ -654,11 +550,13 @@ function CheckoutForm() {
                 </span>
               </button>
               <div className={showPriceBreakdown ? 'block' : 'hidden lg:block'}>
-                <PriceBreakdownCard
+                <CheckoutSummary
                   quote={quote}
-                  policy={policy}
                   language={language}
-                  propertyPreview
+                  policyText={policyText}
+                  // Back to the quoter with these dates already loaded, so
+                  // "change" edits the booking instead of starting over.
+                  changeHref={`/#reservar?checkin=${quote.checkIn}&checkout=${quote.checkOut}`}
                 />
               </div>
             </div>
