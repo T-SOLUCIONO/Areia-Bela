@@ -2240,3 +2240,77 @@ real. Sin él cada pago se queda en `PENDING` y hay que confirmarlo a mano.
 - Mínimos por temporada: hoy el mínimo es uno para todo el año, y lo habitual
   es exigir más noches en las fechas altas. Se declara porque el modelo actual
   no lo soporta sin una columna nueva en `PriceRule`.
+
+---
+
+## 37. Stripe se muda entero al backend
+
+Observación del usuario, y tenía razón: la clave secreta de Stripe estaba en
+`apps/web`.
+
+Nunca llegó a un navegador — la usaba un route handler de Next, que corre en el
+servidor — pero repartía la responsabilidad del pago entre dos aplicaciones
+cuando el precio, la reserva y el webhook viven todos en el API. Dos entornos
+con la misma clave es el doble de sitios donde puede filtrarse, para nada.
+
+Ahora `POST /bookings/:slug/hold` cotiza, reserva las fechas **y abre el pago**
+en una sola llamada, devolviendo `checkoutUrl`. El route handler
+`apps/web/app/api/checkout/route.ts` se borró, y `apps/web` **no tiene ninguna
+credencial de Stripe**.
+
+### La variable que no leía nadie
+
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` estaba documentada como requerida y no
+aparecía en una sola línea de código. Serviría para cargar Stripe.js con un
+formulario de tarjeta propio; el sitio redirige a la página alojada de Stripe,
+así que nunca hizo falta. Eliminada de `.env`, de los `.env.example` y de
+`docs/env.md`.
+
+### El origen de las URLs de vuelta
+
+Stripe rechaza una URL de retorno relativa, y el route handler la sacaba de
+`req.headers.origin`. Al mudarse al API había que decidir de dónde sale ahora.
+
+Se conserva la cabecera `Origin` **pero validada contra `CORS_ORIGINS`**, la
+misma lista que ya restringe quién puede llamar. Sin eso, cualquiera podría
+crear un hold cuya URL de éxito apunte a un sitio suyo. Un `Origin` ausente o
+ajeno responde 400.
+
+### Stripe fuera de la transacción
+
+La sesión se crea **después** de cerrar la transacción de base de datos. Es una
+llamada de red a un servicio de terceros, y mantener abierta la transacción que
+sostiene la restricción de exclusión mientras Stripe responde sería un candado
+sobre el calendario entero durante lo que tarde Stripe.
+
+### Verificación
+
+```
+hold con Origin válido      → 201, AB-2HARTB, $1245, URL de checkout.stripe.com
+hold con Origin ajeno       → 400 "Unknown origin"
+hold sin Origin             → 400 "Unknown origin"
+grep STRIPE en apps/web     → 0 resultados
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (231 tests)
+```
+
+### Seguridad — hallazgo aparte
+
+Auditando el historial de git para responder qué significa rotar una clave,
+apareció que `.env.backup`, `apps/web/.env.backup` y `apps/api/.env.backup`
+**están commiteados** y contienen `STRIPE_SECRET_KEY` real. El repositorio
+`T-SOLUCIONO/Areia-Bela` es **público**, y la clave del historial es la misma
+que estaba en uso.
+
+Atenúa mucho la gravedad que sea `sk_test_`: no mueve dinero real ni da acceso
+a datos de clientes. Pero hay bots que rastrean GitHub buscando este patrón
+exacto.
+
+Ya estaba anotado como pendiente en `docs/current-analysis.md` y en los quick
+wins del plan desde antes de esta fase. **Es una acción manual del usuario:**
+rotar en Stripe (modo test → API keys → Roll key) y, si se quiere, purgar el
+historial con `git filter-repo`. La purga limpia pero no rescata: con un repo
+público hay que asumir que la clave pudo ser leída.

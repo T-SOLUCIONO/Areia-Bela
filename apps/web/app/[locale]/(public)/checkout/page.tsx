@@ -22,7 +22,7 @@ import {
   type BookingQuote,
 } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
-import { createCheckoutSession, DatesUnavailableError } from '@/services/payment'
+import { createCheckoutSession, DatesUnavailableError, StayLengthError } from '@/services/payment'
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
@@ -210,6 +210,11 @@ function CheckoutForm() {
         setError('taken')
         setDatesGone(true)
         toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
+      } else if (err instanceof StayLengthError) {
+        // The server's message names the actual limit, which no fixed string
+        // here could — the host changes it from the panel.
+        setError('failed')
+        toast.error(err.message)
       } else {
         setError('failed')
         toast.error(copy.checkoutFailed)

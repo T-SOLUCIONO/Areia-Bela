@@ -1,13 +1,20 @@
 /**
  * The only payment call the site makes.
  *
+ * There is no route handler behind it any more. `POST /bookings/:slug/hold`
+ * prices the stay, takes the dates off the calendar and opens Stripe in one
+ * call, so the frontend holds no Stripe credentials at all — it only follows
+ * the URL it is handed.
+ *
  * `createPaymentIntent`, `processBookingPayment`, `refundPayment` and
  * `getPaymentMethods` used to live here as simulations — one of them decided
  * whether a payment succeeded with `Math.random() > 0.05`. None had a caller.
- * Real payment handling is Fase 7, and simulated money is worse than none.
  */
+import { API_URL } from '@/lib/api-client'
+import { PROPERTY_SLUG } from '@/lib/property-data'
+
 export interface CheckoutSession {
-  id: string
+  /** Stripe's hosted payment page. */
   url: string
   /** The booking reference the dates are held under. */
   reference: string
@@ -17,15 +24,15 @@ export interface CheckoutSession {
  * What the browser is allowed to say about a booking: when, who, and which
  * extras. Never how much.
  *
- * The route prices these dates against the API and charges that. It used to
- * accept `totalPrice` from here and pass it straight to Stripe, which made the
- * price a suggestion from whoever had the page open.
+ * The server prices these inputs and charges that. It used to accept
+ * `totalPrice` from here and pass it straight to Stripe, which made the price
+ * a suggestion from whoever had the page open (changelog §21).
  */
 export interface CheckoutRequest {
   checkIn: string
   checkOut: string
   extraIds: string[]
-  /** Units per extra — two dogs is two pet fees, and the route re-prices it. */
+  /** Units per extra — two dogs is two pet fees, and the server re-prices it. */
   extraUnits: Record<string, number>
   guests: { adults: number; children: number; infants: number; pets: number }
   /** Who the stay is for. The dates are held under this person's name. */
@@ -44,22 +51,44 @@ export interface CheckoutRequest {
 /** The dates were taken while the guest was filling in the form. */
 export class DatesUnavailableError extends Error {}
 
+/** The stay is shorter or longer than the house accepts. */
+export class StayLengthError extends Error {}
+
+interface HoldResponse {
+  reference: string
+  checkoutUrl: string
+}
+
 export async function createCheckoutSession(booking: CheckoutRequest): Promise<CheckoutSession> {
-  const response = await fetch('/api/checkout', {
+  const response = await fetch(`${API_URL}/bookings/${PROPERTY_SLUG}/hold`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(booking),
+    body: JSON.stringify({
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      guests: booking.guests,
+      guest: booking.guest,
+      extraIds: booking.extraIds,
+      extraUnits: booking.extraUnits,
+      specialRequests: booking.specialRequests,
+      locale: booking.locale,
+    }),
   })
 
   if (!response.ok) {
-    const error = (await response.json().catch(() => null)) as { error?: string } | null
-    // 409 is the one failure a guest can act on: pick other dates. Everything
-    // else is ours to fix, and saying so would only send them in circles.
+    const error = (await response.json().catch(() => null)) as { message?: string } | null
+    // 409 and 400 are the two the guest can act on: pick other dates, or pick
+    // a different length. Everything else is ours to fix, and a specific
+    // message would only send them in circles.
     if (response.status === 409) {
-      throw new DatesUnavailableError(error?.error ?? 'Those dates were just taken')
+      throw new DatesUnavailableError(error?.message ?? 'Those dates were just taken')
     }
-    throw new Error(error?.error ?? 'Failed to create checkout session')
+    if (response.status === 400) {
+      throw new StayLengthError(error?.message ?? 'That stay length is not accepted')
+    }
+    throw new Error(error?.message ?? 'Failed to create checkout session')
   }
 
-  return (await response.json()) as CheckoutSession
+  const hold = (await response.json()) as HoldResponse
+  return { url: hold.checkoutUrl, reference: hold.reference }
 }

@@ -26,6 +26,7 @@ cp apps/web/.env.example apps/web/.env
 | `TRANSLATION_PROVIDER`  | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
 | `LIBRETRANSLATE_URL`    | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
 | `ANTHROPIC_API_KEY`     | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
+| `STRIPE_SECRET_KEY`     | sí              | Abre la sesión de pago de Stripe. Sin ella `POST /bookings/:slug/hold` responde 503 y nadie puede reservar.                                                                                                                               |
 | `TWILIO_ACCOUNT_SID`    | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
 | `TWILIO_AUTH_TOKEN`     | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
 | `TWILIO_WHATSAPP_FROM`  | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
@@ -93,18 +94,22 @@ Dos reglas que evitan fallos silenciosos:
 
 ### Stripe y el webhook
 
-El pago se abre desde `apps/web` (que tiene la clave secreta) pero la reserva
-se confirma en `apps/api`. Por eso las variables están repartidas:
+**Las dos en `apps/api`, ninguna en el frontend.**
 
-| Dónde      | Variable                             | Para qué                           |
-| ---------- | ------------------------------------ | ---------------------------------- |
-| `apps/web` | `STRIPE_SECRET_KEY`                  | Crear la sesión de pago            |
-| `apps/web` | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | El widget de Stripe                |
-| `apps/api` | `STRIPE_WEBHOOK_SECRET`              | **Verificar la firma del webhook** |
+| Variable                | Para qué                           |
+| ----------------------- | ---------------------------------- |
+| `STRIPE_SECRET_KEY`     | Crear la sesión de pago            |
+| `STRIPE_WEBHOOK_SECRET` | **Verificar la firma del webhook** |
 
-El API **no** necesita la clave secreta: verificar una firma es criptografía
-sobre el cuerpo crudo y no llama a Stripe. Cuanta menos gente tenga la clave
-secreta, mejor.
+La clave secreta vivía en `apps/web`, donde la usaba un route handler. Nunca
+llegó a un navegador — esos handlers son de servidor — pero repartía Stripe
+entre dos aplicaciones cuando el precio, la reserva y el webhook viven todos
+aquí. Ahora `POST /bookings/:slug/hold` cotiza, reserva las fechas y abre el
+pago en una sola llamada, y el frontend solo sigue la URL que recibe.
+
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` **ya no existe**: serviría para cargar
+Stripe.js, y el sitio redirige a la página alojada de Stripe. Era una variable
+que no leía nadie.
 
 **Sin `STRIPE_WEBHOOK_SECRET` el webhook rechaza todo con un 400.** Es
 deliberado: un webhook sin verificar es un endpoint donde cualquiera que sepa
@@ -165,11 +170,9 @@ el enlace aparece en el log del API.
 
 ## apps/web
 
-| Variable                             | Requerida | Propósito                                                                                                                          |
-| ------------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`                | sí        | URL base del API. Sin ella el calendario público no puede excluir fechas bloqueadas (falla de forma suave) y el login no funciona. |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | sí        | Clave pública de Stripe (checkout).                                                                                                |
-| `STRIPE_SECRET_KEY`                  | sí        | Clave secreta de Stripe. Solo servidor.                                                                                            |
+| Variable              | Requerida | Propósito                                                                                                                          |
+| --------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | sí        | URL base del API. Sin ella el calendario público no puede excluir fechas bloqueadas (falla de forma suave) y el login no funciona. |
 
 El frontend **no** necesita `JWT_ACCESS_SECRET`: el middleware solo comprueba
 que exista la cookie de sesión, y la verificación real la hacen el layout

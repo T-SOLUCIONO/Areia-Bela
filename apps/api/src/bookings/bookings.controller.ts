@@ -22,6 +22,12 @@ import { CancelBookingDto } from './dto/cancel-booking.dto'
 
 @Controller('bookings')
 export class BookingsController {
+  /** The same allowlist CORS uses; a return URL must be one of these. */
+  private readonly allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+
   constructor(
     private readonly bookings: BookingsService,
     private readonly webhook: StripeWebhookService,
@@ -37,8 +43,16 @@ export class BookingsController {
   @Public()
   @Throttle({ default: { limit: 8, ttl: 600_000 } })
   @Post(':slug/hold')
-  hold(@Param('slug') slug: string, @Body() dto: CreateHoldDto) {
-    return this.bookings.hold(slug, dto)
+  hold(@Param('slug') slug: string, @Body() dto: CreateHoldDto, @Req() req: Request) {
+    // Stripe refuses a relative return URL, so it needs an absolute one. The
+    // Origin header is set by the browser and cannot be forged from a page on
+    // another site — and CORS already restricts who may call this at all.
+    const origin = req.headers.origin
+    if (!origin || !this.allowedOrigins.includes(origin)) {
+      throw new BadRequestException('Unknown origin')
+    }
+
+    return this.bookings.hold(slug, dto, origin)
   }
 
   /**

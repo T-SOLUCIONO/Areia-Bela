@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
+import { PaymentsService } from './payments.service'
 
 /** Postgres' code for a violated exclusion constraint — two overlapping stays. */
 const EXCLUSION_VIOLATION = '23P01'
@@ -28,6 +29,8 @@ export interface HoldResult {
   reference: string
   expiresAt: string
   quote: QuoteBreakdown
+  /** Where to send the guest to pay. */
+  checkoutUrl: string
 }
 
 type BookingWithGuest = Booking & { customer: Customer; extras: Array<{ extra: { name: string } }> }
@@ -42,6 +45,7 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly properties: PropertiesService,
     private readonly notifications: NotificationsService,
+    private readonly payments: PaymentsService,
   ) {}
 
   /**
@@ -51,7 +55,7 @@ export class BookingsService {
    * Stripe says the money arrived — a browser cannot confirm its own booking,
    * which is why nothing here trusts a success redirect.
    */
-  async hold(slug: string, dto: CreateHoldDto): Promise<HoldResult> {
+  async hold(slug: string, dto: CreateHoldDto, origin: string): Promise<HoldResult> {
     // Prices the stay and rejects impossible ones (bad dates, over capacity).
     // The same call the quote endpoint makes, so the figure the guest saw and
     // the figure Stripe charges come from one place.
@@ -97,7 +101,7 @@ export class BookingsService {
 
     for (let attempt = 0; attempt < REFERENCE_ATTEMPTS; attempt += 1) {
       try {
-        return await this.createHold(property.id, dto, quote, expiresAt)
+        return await this.createHold(property.id, dto, quote, expiresAt, origin)
       } catch (error) {
         if (this.isOverlap(error)) {
           // Someone else got these dates first. This is the only honest answer:
@@ -121,6 +125,7 @@ export class BookingsService {
     dto: CreateHoldDto,
     quote: QuoteBreakdown,
     expiresAt: Date,
+    origin: string,
   ): Promise<HoldResult> {
     const reference = generateReference()
 
@@ -183,11 +188,27 @@ export class BookingsService {
       })
     })
 
+    // Stripe last, and outside the transaction: it is a network call to
+    // someone else's service, and holding a database transaction open across
+    // it would be a lock on the whole calendar for as long as Stripe takes.
+    const checkoutUrl = await this.payments.checkoutUrlFor({
+      bookingId: booking.id,
+      reference: booking.reference,
+      email: dto.guest.email,
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      nights: quote.nights,
+      total: quote.total,
+      guests: dto.guests.adults + dto.guests.children,
+      origin,
+    })
+
     return {
       bookingId: booking.id,
       reference: booking.reference,
       expiresAt: expiresAt.toISOString(),
       quote,
+      checkoutUrl,
     }
   }
 
