@@ -258,3 +258,43 @@ describe('computeQuote', () => {
     expect(result.subtotal).toBe(0)
   })
 })
+
+/**
+ * The tax base, pinned down.
+ *
+ * Percentages apply to the accommodation only — not to the cleaning fee.
+ * Nothing else in the codebase states this, and a backfill written against the
+ * wrong assumption was off by exactly 25% of the cleaning fee on every
+ * booking. A test is cheaper than finding that out on a receipt.
+ */
+describe('what service fees and taxes are charged on', () => {
+  it('leaves the cleaning fee out of the base', () => {
+    const quote = computeQuote({
+      checkIn: '2026-07-31',
+      checkOut: '2026-08-03',
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    // 3 nights × $300, and the percentages ignore the $120 cleaning fee.
+    expect(quote.subtotal).toBe(900)
+    expect(quote.cleaningFee).toBe(120)
+    expect(quote.serviceFee).toBe(108) // 12% of 900, not of 1020
+    expect(quote.taxes).toBe(117) // 13% of 900, not of 1020
+    expect(quote.total).toBe(1245)
+  })
+
+  it('taxes what is actually paid, after the long-stay discount', () => {
+    // Charging tax on a sum nobody pays is the kind of thing guests notice.
+    const quote = computeQuote({
+      checkIn: '2026-07-01',
+      checkOut: '2026-07-08',
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    const accommodation = quote.subtotal - quote.weeklyDiscount
+    expect(quote.weeklyDiscount).toBeGreaterThan(0)
+    expect(quote.taxes).toBe(Math.round(accommodation * 0.13))
+  })
+})

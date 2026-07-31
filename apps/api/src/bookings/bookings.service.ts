@@ -179,6 +179,15 @@ export class BookingsService {
           pets: dto.guests.pets ?? 0,
           status: 'PENDING',
           totalPrice: quote.total,
+          // Frozen here, not recomputed later: this is the bill, and the bill
+          // does not change because the host raised the rate in March.
+          nightsSubtotal: quote.subtotal,
+          weeklyDiscount: quote.weeklyDiscount,
+          extrasTotal: quote.extrasTotal,
+          additionalGuestFee: quote.additionalGuestFee,
+          cleaningFee: quote.cleaningFee,
+          serviceFee: quote.serviceFee,
+          taxes: quote.taxes,
           expiresAt,
           specialRequests: dto.specialRequests,
           locale: dto.locale ?? 'es',

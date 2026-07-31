@@ -385,20 +385,40 @@ export class BookingPdfService {
     y += 18
 
     const money = (amount: number) => `$${amount.toLocaleString('en-US')}`
-    const lines: Array<[string, string]> = [
-      [`${copy.billNights} · ${booking.nights}`, money(booking.bill.nightsSubtotal)],
-    ]
-    if (booking.bill.weeklyDiscount > 0) {
+
+    // Same guard as the web: a receipt whose lines do not add up to the amount
+    // charged is worse than one that only states the amount. Bookings taken
+    // before the breakdown was stored have zeros here.
+    const sum =
+      booking.bill.nightsSubtotal -
+      booking.bill.weeklyDiscount +
+      booking.bill.extrasTotal +
+      booking.bill.additionalGuestFee +
+      booking.bill.cleaningFee +
+      booking.bill.serviceFee +
+      booking.bill.taxes
+    const reconciles = Math.abs(sum - booking.bill.total) < 0.02
+
+    const lines: Array<[string, string]> = reconciles
+      ? [[`${copy.billNights} · ${booking.nights}`, money(booking.bill.nightsSubtotal)]]
+      : []
+    if (reconciles && booking.bill.weeklyDiscount > 0) {
       lines.push([copy.billDiscount, `−${money(booking.bill.weeklyDiscount)}`])
     }
-    if (booking.bill.additionalGuestFee > 0) {
+    if (reconciles && booking.bill.additionalGuestFee > 0) {
       lines.push([copy.billGuestFee, money(booking.bill.additionalGuestFee)])
     }
-    if (booking.bill.extrasTotal > 0) lines.push([copy.billExtras, money(booking.bill.extrasTotal)])
+    if (reconciles && booking.bill.extrasTotal > 0) {
+      lines.push([copy.billExtras, money(booking.bill.extrasTotal)])
+    }
     if (booking.bill.cleaningFee > 0)
       lines.push([copy.billCleaning, money(booking.bill.cleaningFee)])
-    if (booking.bill.serviceFee > 0) lines.push([copy.billService, money(booking.bill.serviceFee)])
-    if (booking.bill.taxes > 0) lines.push([copy.billTaxes, money(booking.bill.taxes)])
+    if (reconciles && booking.bill.serviceFee > 0) {
+      lines.push([copy.billService, money(booking.bill.serviceFee)])
+    }
+    if (reconciles && booking.bill.taxes > 0) {
+      lines.push([copy.billTaxes, money(booking.bill.taxes)])
+    }
 
     lines.forEach(([label, amount]) => {
       doc.font('Helvetica').fontSize(10).fillColor(MUTED).text(label, left, y)

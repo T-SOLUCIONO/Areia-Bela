@@ -2728,3 +2728,62 @@ queden colgadas para siempre.
 `AB-36PN9X` es un pago real de $1245 sobre fechas que ahora son de otra
 reserva. Son cuentas de prueba, pero **el reembolso hay que hacerlo en Stripe**
 si se quiere dejar la cuenta limpia.
+
+---
+
+## 42. El desglose no se estaba guardando
+
+Reportado: los impuestos no salen en el detalle de la reserva.
+
+Primer diagnóstico, equivocado: "son reservas anteriores a la migración, las
+columnas tienen `DEFAULT 0`". Cierto para las que ya existían, pero al crear
+una reserva nueva para comprobarlo, la cotización devolvía $195 de impuestos y
+**la fila guardaba 0**.
+
+La causa: el bloque que añade el desglose a `booking.create` nunca llegó al
+archivo. El script que lo escribía falló en una sustitución posterior y no
+guardó nada; se corrigió la parte que había fallado y se dio por hecho que el
+resto había entrado. No se comprobó contra el archivo.
+
+Ahora se escribe y **se verifica leyendo el archivo de vuelta**, no confiando
+en que el script no lanzara error.
+
+### El relleno que también estaba mal
+
+Para recuperar el desglose de las reservas anteriores se escribió un `UPDATE`
+que calculaba servicio e impuestos sobre `noches + limpieza`. Daba **$30 de más
+en todas**, independientemente de las noches.
+
+La razón está en `computeQuote`:
+
+```ts
+const accommodation = subtotal - weeklyDiscount + additionalGuestFee
+const serviceFee = Math.round(accommodation * (pricing.serviceFeePercent / 100))
+const taxes = Math.round(accommodation * (pricing.taxesPercent / 100))
+```
+
+**Los porcentajes se aplican solo al alojamiento, no a la limpieza.** 12 % + 13 %
+de $120 son exactamente esos $30.
+
+El relleno se rehízo con la base correcta y **cada fila se comprobó contra su
+total guardado**; cualquiera que no cuadrara volvía a cero. Todas cuadraron.
+Rellenar un recibo con cifras que no suman lo cobrado es peor que dejarlo sin
+desglose.
+
+### Una guarda, para que no vuelva a pasar en silencio
+
+La web y el PDF suman las líneas y las comparan con el total. Si no cuadran,
+**se muestra solo el total**. Un desglose de "$0 + $0 + $0 = $1.245" haría que
+un huésped dude del cargo en vez de entenderlo.
+
+### Y una prueba, que es lo que faltaba
+
+`compute-quote.spec.ts` fija ahora la base imponible: los porcentajes se
+calculan sobre el alojamiento, después del descuento, sin la limpieza. Nada en
+el código lo decía, y por eso se pudo escribir un relleno contra la suposición
+contraria.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (237 tests, 2 nuevos)
+```

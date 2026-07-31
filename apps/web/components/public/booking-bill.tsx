@@ -23,6 +23,36 @@ export function BookingBillLines({
 }) {
   const copy = translations[language].guestArea
 
+  // A bill that does not add up to what was charged is worse than no bill.
+  // Bookings taken before the breakdown was stored have zeros in these
+  // columns, and showing "$0 + $0 + $0 = $1,245" would make a guest doubt the
+  // charge rather than understand it.
+  const sum =
+    bill.nightsSubtotal -
+    bill.weeklyDiscount +
+    bill.extrasTotal +
+    bill.additionalGuestFee +
+    bill.cleaningFee +
+    bill.serviceFee +
+    bill.taxes
+  const reconciles = Math.abs(sum - bill.total) < 0.02
+
+  if (!reconciles) {
+    return (
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {copy.billTitle}
+        </h3>
+        <div className="mt-3 flex items-baseline justify-between gap-4">
+          <span className="font-medium text-foreground">{copy.billTotal}</span>
+          <span className="font-serif text-xl tabular-nums text-foreground">
+            {currency(bill.total)}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   const lines: Array<{ label: string; amount: number; negative?: boolean }> = [
     {
       label: `${copy.billNights} · ${fill(copy.nights, { count: String(nights) })}`,
