@@ -94,11 +94,12 @@ describe('BookingsService', () => {
       update: jest.Mock
       updateMany: jest.Mock
     }
-    customer: { upsert: jest.Mock }
+    customer: { upsert: jest.Mock; findUnique?: jest.Mock }
     $transaction: jest.Mock
   }
   let properties: { getQuote: jest.Mock }
-  let payments: { checkoutUrlFor: jest.Mock }
+  let guests: { myBooking: jest.Mock }
+  let payments: { checkoutUrlFor: jest.Mock; sessionStatus?: jest.Mock }
   let notifications: {
     bookingCreated: jest.Mock
     bookingCancelled: jest.Mock
@@ -125,6 +126,7 @@ describe('BookingsService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
     }
     properties = { getQuote: jest.fn().mockResolvedValue(QUOTE) }
+    guests = { myBooking: jest.fn() }
     payments = {
       checkoutUrlFor: jest.fn().mockResolvedValue('https://checkout.stripe.com/c/pay/cs_test_1'),
     }
@@ -144,7 +146,7 @@ describe('BookingsService', () => {
       {
         get: (key: string) => (key === 'PUBLIC_SITE_URL' ? 'http://localhost:3000' : undefined),
       } as unknown as ConfigService,
-      { myBooking: jest.fn() } as unknown as GuestService,
+      guests as unknown as GuestService,
     )
   })
 
@@ -352,6 +354,46 @@ describe('BookingsService', () => {
 
       expect(prisma.booking.update).not.toHaveBeenCalled()
       expect(notifications.paymentNotCompleted).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('coming back from Stripe', () => {
+    it('confirms on the spot when no webhook has arrived', async () => {
+      // The guest is standing in front of the confirmation page having just
+      // paid. Telling them their booking does not exist while a webhook is in
+      // flight — or lost — is the worst answer available.
+      prisma.booking.findUnique
+        .mockResolvedValueOnce(null) // nothing keyed to this session yet
+        .mockResolvedValueOnce(BOOKING_ROW) // the row confirmPayment reads
+        .mockResolvedValueOnce({ id: 'booking-1', customerId: 'cust-1', reference: 'AB-XYZ123' })
+      payments.sessionStatus = jest
+        .fn()
+        .mockResolvedValue({ paid: true, bookingId: 'booking-1', amountTotal: 280_000 })
+      guests.myBooking = jest.fn().mockResolvedValue({ reference: 'AB-XYZ123' })
+      prisma.customer = {
+        ...prisma.customer,
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ firstName: 'Jane', lastName: 'Doe', email: 'j@e.com' }),
+      }
+
+      const result = await service.findBySession('cs_test_1')
+
+      expect(payments.sessionStatus).toHaveBeenCalledWith('cs_test_1')
+      expect(prisma.booking.update).toHaveBeenCalled()
+      expect(result.reference).toBe('AB-XYZ123')
+    })
+
+    it('does not confirm a session Stripe says was never paid', async () => {
+      prisma.booking.findUnique.mockResolvedValue(null)
+      payments.sessionStatus = jest
+        .fn()
+        .mockResolvedValue({ paid: false, bookingId: 'booking-1', amountTotal: 0 })
+
+      await expect(service.findBySession('cs_test_unpaid')).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
+      expect(prisma.booking.update).not.toHaveBeenCalled()
     })
   })
 

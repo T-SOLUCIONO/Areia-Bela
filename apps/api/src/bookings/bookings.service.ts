@@ -367,10 +367,31 @@ export class BookingsService {
   async findBySession(
     sessionId: string,
   ): Promise<MyBooking & { guestName: string; guestEmail: string }> {
-    const booking = await this.prisma.booking.findUnique({
+    let booking = await this.prisma.booking.findUnique({
       where: { stripeSessionId: sessionId },
       select: { id: true, customerId: true, reference: true },
     })
+
+    if (!booking) {
+      // The guest is standing in front of this page having just paid, and no
+      // webhook has arrived. Rather than tell them their booking does not
+      // exist, ask Stripe directly — the session id in their return URL is
+      // proof enough to look it up.
+      //
+      // The background reconciliation still exists for everyone who closed the
+      // tab; this is the same recovery, done while someone is waiting.
+      const status = await this.payments.sessionStatus(sessionId)
+      if (status?.paid && status.bookingId) {
+        this.logger.warn(`Confirming ${sessionId} on return: no webhook had arrived`)
+        await this.confirmPayment(status.bookingId, sessionId, status.amountTotal)
+
+        booking = await this.prisma.booking.findUnique({
+          where: { stripeSessionId: sessionId },
+          select: { id: true, customerId: true, reference: true },
+        })
+      }
+    }
+
     if (!booking) throw new NotFoundException('Booking not found')
 
     const [detail, customer] = await Promise.all([

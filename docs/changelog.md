@@ -3062,3 +3062,58 @@ hold → AB-JTFWMW · $1245 · redirige a checkout.stripe.com ✓
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (243 tests)
 ```
+
+---
+
+## 48. El webhook sale del camino crítico
+
+Cuarta vez que el túnel de Cloudflare se renombra y un pago vuelve con 404. La
+reconciliación de §41 lo recupera, pero tarda hasta diez minutos — y el huésped
+está mirando la pantalla **ahora**.
+
+### El arreglo
+
+`GET /bookings/session/:id` ya no se limita a buscar en la base. Si no
+encuentra nada con ese id de sesión, **le pregunta a Stripe**: si la sesión está
+pagada y lleva un `bookingId` en su metadata, confirma la reserva ahí mismo y
+devuelve el resultado.
+
+El id de sesión llega en la URL de vuelta del propio huésped, así que tenerlo es
+prueba suficiente para consultarlo. Y como pasa por `confirmPayment`, hereda su
+idempotencia y su manejo del caso "pagado pero las fechas ya son de otro".
+
+Los tres caminos quedan así, del más rápido al más lento:
+
+|                         | Cuándo actúa                             |
+| ----------------------- | ---------------------------------------- |
+| Webhook                 | segundos, si la red coopera              |
+| **Al volver de Stripe** | inmediato, mientras el huésped espera    |
+| Reconciliación          | cada 10 min, para quien cerró la pestaña |
+
+Ninguno depende de los otros. El túnel deja de importar para la experiencia del
+huésped: aunque no entregue nunca, la reserva se confirma en cuanto vuelve.
+
+### Verificación
+
+Con la reserva reseteada a `PENDING` a propósito y el endpoint del webhook
+muerto:
+
+```
+GET /bookings/session/cs_test_a1bqnp… → 200 · AB-D7AVTF · CONFIRMED · $1245
+log: "Confirming cs_test_a1bqnp… on return: no webhook had arrived"
+```
+
+Dos pruebas nuevas: confirma cuando Stripe dice que se pagó, y **no** confirma
+cuando dice que no.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests, 2 nuevos)
+```
+
+### Sigue pendiente del usuario
+
+El túnel se ha renombrado cuatro veces en esta sesión. Ya no rompe reservas,
+pero mientras el endpoint apunte a un dominio muerto, Stripe acumula reintentos
+fallidos. Instalar la CLI de Stripe (`stripe listen`) lo resuelve de raíz; un
+_quick tunnel_ sin cuenta no garantiza el nombre.

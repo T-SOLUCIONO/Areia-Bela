@@ -79,4 +79,37 @@ export class PaymentsService {
     }
     return session.url
   }
+
+  /**
+   * What Stripe says about a session, or null when it cannot be asked.
+   *
+   * Used when a guest comes back from paying and no webhook has arrived yet.
+   * Asking on demand takes the webhook out of the critical path for the one
+   * moment the guest is actually waiting — the background reconciliation still
+   * covers everyone who closed the tab.
+   */
+  async sessionStatus(
+    sessionId: string,
+  ): Promise<{ paid: boolean; bookingId?: string; amountTotal: number } | null> {
+    if (!this.configured) return null
+
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId)
+      return {
+        paid: session.payment_status === 'paid',
+        bookingId: session.metadata?.bookingId ?? undefined,
+        amountTotal: session.amount_total ?? 0,
+      }
+    } catch (error) {
+      // An unknown id is the ordinary case here — someone opening the
+      // confirmation URL with junk in it — so this is not an error worth
+      // shouting about.
+      this.logger.log(
+        `Could not read session ${sessionId}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+      return null
+    }
+  }
 }
