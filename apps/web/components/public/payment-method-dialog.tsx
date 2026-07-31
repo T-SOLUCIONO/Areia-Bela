@@ -1,45 +1,79 @@
 'use client'
 
-import { CreditCard, Loader2, Lock, ShieldCheck } from 'lucide-react'
+import { CreditCard, ExternalLink, Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@areia-bela/ui/dialog'
+import { Input } from '@areia-bela/ui/input'
+import { Label } from '@areia-bela/ui/label'
 import { currency } from '@/lib/booking'
 import { translations, type Language } from '@/lib/i18n'
+
+/** The countries the form offers, as the checkout page had them. */
+const COUNTRIES = [
+  'United States',
+  'Canada',
+  'United Kingdom',
+  'Australia',
+  'Germany',
+  'France',
+  'Spain',
+  'Brazil',
+]
+
+export interface GuestDetails {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  country: string
+}
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
+  details: GuestDetails
+  onDetailsChange: (details: GuestDetails) => void
   total: number
   busy: boolean
   language: Language
 }
 
 /**
- * The last step before Stripe: what is being charged, and by whom.
+ * Who the stay is for, and what happens next.
  *
- * Deliberately not a list of saved cards. Airbnb can show those because the
- * guest has an account with Airbnb; here the card is entered on Stripe's own
- * page and this site never sees one. A row of card numbers would be a
- * capability we do not have.
+ * The guest's details used to sit halfway down the checkout page, between the
+ * extras and the terms, so the pay button was far from the thing it acted on.
+ * Gathering them here puts every decision in one place: name, contact, what is
+ * being charged, and the one button that leaves for Stripe.
  *
- * The wallets are named but qualified. Stripe only offers Apple Pay, Google
- * Pay or Link when the device, browser and country allow it, so promising them
- * outright would be a promise made on someone else's behalf.
+ * The card is not asked for here and never will be. Stripe's own page collects
+ * it — this dialog says so rather than implying otherwise with card fields it
+ * would have to forward.
  */
 export function PaymentMethodDialog({
   open,
   onOpenChange,
   onConfirm,
+  details,
+  onDetailsChange,
   total,
   busy,
   language,
 }: Props) {
   const copy = translations[language].checkout
 
+  const set = (key: keyof GuestDetails) => (value: string) =>
+    onDetailsChange({ ...details, [key]: value })
+
+  // The three the API refuses without. Phone and country are asked for but the
+  // booking survives without them, so they do not block the button.
+  const ready =
+    details.firstName.trim() !== '' && details.lastName.trim() !== '' && details.email.trim() !== ''
+
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">{copy.payTitle}</DialogTitle>
         </DialogHeader>
@@ -50,11 +84,79 @@ export function PaymentMethodDialog({
             <div>
               <p className="font-medium text-foreground">{copy.payCard}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{copy.payCardBrands}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{copy.payWallets}</p>
             </div>
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">{copy.payWallets}</p>
+        <form
+          id="payment-details"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onConfirm()
+          }}
+          className="space-y-4"
+        >
+          <p className="text-sm font-medium text-foreground">{copy.guestDetails}</p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              id="pay-firstName"
+              label={copy.firstName}
+              autoComplete="given-name"
+              value={details.firstName}
+              onChange={set('firstName')}
+              required
+            />
+            <Field
+              id="pay-lastName"
+              label={copy.lastName}
+              autoComplete="family-name"
+              value={details.lastName}
+              onChange={set('lastName')}
+              required
+            />
+          </div>
+
+          <Field
+            id="pay-email"
+            label={copy.email}
+            type="email"
+            autoComplete="email"
+            value={details.email}
+            onChange={set('email')}
+            hint={copy.emailWhy}
+            required
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              id="pay-phone"
+              label={copy.phone}
+              type="tel"
+              autoComplete="tel"
+              value={details.phone}
+              onChange={set('phone')}
+              hint={copy.phoneWhy}
+            />
+            <div className="space-y-2">
+              <Label htmlFor="pay-country">{copy.country}</Label>
+              <select
+                id="pay-country"
+                autoComplete="country-name"
+                value={details.country}
+                onChange={(event) => set('country')(event.target.value)}
+                className="h-11 w-full rounded-[12px] border border-slate-200 bg-transparent px-3 text-sm focus-visible:border-[#174d7a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#174d7a]/20"
+              >
+                {COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </form>
 
         <div className="space-y-2 rounded-[16px] bg-muted/50 p-4 text-sm text-muted-foreground">
           <p className="flex items-start gap-2">
@@ -78,8 +180,20 @@ export function PaymentMethodDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             {copy.payCancel}
           </Button>
-          <Button variant="brand" size="lg" onClick={onConfirm} disabled={busy}>
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {/* Submits the form above, so the browser checks the required fields
+              and focuses the first empty one before anything is sent. */}
+          <Button
+            type="submit"
+            form="payment-details"
+            variant="brand"
+            size="lg"
+            disabled={busy || !ready}
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ExternalLink className="h-4 w-4" />
+            )}
             {copy.payContinue}
           </Button>
         </div>
@@ -88,13 +202,47 @@ export function PaymentMethodDialog({
   )
 }
 
+function Field({
+  id,
+  label,
+  value,
+  onChange,
+  type = 'text',
+  autoComplete,
+  hint,
+  required = false,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: string
+  autoComplete?: string
+  hint?: string
+  required?: boolean
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type={type}
+        autoComplete={autoComplete}
+        required={required}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
+      />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
+
 /**
- * Covers everything while the hold is taken and Stripe is asked for a session.
+ * Covers everything while the dates are held and Stripe is asked for a page.
  *
- * Two network calls happen behind this, and the page underneath is a form the
- * guest could still edit — changing a name after the booking is already held
- * would leave the two out of step. Blocking is the honest state: something is
- * happening and nothing else should.
+ * The dialog underneath is still editable; changing a name after the booking
+ * is already held would leave the two out of step.
  */
 export function PaymentOverlay({ language }: { language: Language }) {
   const copy = translations[language].checkout

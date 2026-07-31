@@ -16,8 +16,6 @@ import {
 import { ShieldCheck, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
-import { Input } from '@areia-bela/ui/input'
-import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
 import {
   currency,
@@ -151,32 +149,22 @@ function CheckoutForm() {
   }
 
   /**
-   * Opens the payment dialog. Native validation has already run: the button is
-   * this form's submit button, pointed at it by id.
-   */
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!agreedToTerms || datesGone) return
-
-    // Belt and braces: a missing field must never reach the API as an opaque
-    // 400 the guest cannot act on.
-    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
-      setError('missingDetails')
-      return
-    }
-
-    setError(null)
-    setPayOpen(true)
-  }
-
-  /**
-   * Holds the dates and opens Stripe, with the page blocked throughout.
+   * Holds the dates and leaves for Stripe, with the page blocked throughout.
+   *
+   * Called from the dialog, after the browser has validated the details it
+   * collects. The belt-and-braces check below stays because a missing field
+   * must never reach the API as an opaque 400 the guest cannot act on.
    *
    * Two network calls happen here and the form underneath is still editable;
    * changing a name after the dates are held would leave the booking and the
    * screen out of step.
    */
   const startPayment = async () => {
+    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
+      setError('missingDetails')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -366,102 +354,6 @@ function CheckoutForm() {
               className="border-t border-border pt-6"
             />
 
-            {/* Guest Information */}
-            <section className="space-y-4">
-              <h2 className="font-serif text-xl text-foreground">
-                {isEnglish ? 'Guest information' : 'Información del huésped'}
-              </h2>
-              <form id="checkout-form" onSubmit={handleSubmit} className="space-y-5">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
-                      {isEnglish ? 'First name' : 'Nombre'}
-                    </Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      autoComplete="given-name"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      required
-                      className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="lastName" className="text-sm font-medium text-foreground">
-                      {isEnglish ? 'Last name' : 'Apellido'}
-                    </Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      autoComplete="family-name"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      required
-                      className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="text-sm font-medium text-foreground">
-                    {isEnglish ? 'Email address' : 'Correo electrónico'}
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {isEnglish
-                      ? 'Confirmation will be sent to this email'
-                      : 'La confirmación se enviará a este correo'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="text-sm font-medium text-foreground">
-                    {isEnglish ? 'Phone number' : 'Número de teléfono'}
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    required
-                    className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
-                  />
-                  <p className="text-xs text-muted-foreground">{copy.phoneWhy}</p>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="country" className="text-sm font-medium text-foreground">
-                    {isEnglish ? 'Country/Region' : 'País/Región'}
-                  </Label>
-                  <select
-                    id="country"
-                    name="country"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                    className="h-11 w-full rounded-[12px] border border-slate-200 bg-transparent px-3 text-sm focus-visible:border-[#174d7a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#174d7a]/20"
-                  >
-                    <option value="United States">United States</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Australia">Australia</option>
-                    <option value="Germany">Germany</option>
-                    <option value="France">France</option>
-                    <option value="Spain">Spain</option>
-                    <option value="Brazil">Brazil</option>
-                  </select>
-                </div>
-              </form>
-            </section>
-
             {/* The card-brand chips that used to head this section are gone.
                 This page never sees a card — Stripe's own page does — so a row
                 of accepted-card logos was claiming a capability it does not
@@ -517,12 +409,13 @@ function CheckoutForm() {
                 )}
 
                 <Button
-                  type="submit"
-                  // The guest details are in a form two sections up. Pointing at
-                  // it by id makes this its submit button, which is what makes
-                  // the browser check the required fields before we send
-                  // anything — an onClick handler skips all of that.
-                  form="checkout-form"
+                  type="button"
+                  // Opens the dialog, which is where the details are asked for
+                  // and where the browser validates them.
+                  onClick={() => {
+                    setError(null)
+                    setPayOpen(true)
+                  }}
                   disabled={isLoading || !agreedToTerms || datesGone}
                   variant="brand"
                   size="lg"
@@ -580,6 +473,14 @@ function CheckoutForm() {
         open={payOpen}
         onOpenChange={setPayOpen}
         onConfirm={() => void startPayment()}
+        details={{
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          country: formData.country,
+        }}
+        onDetailsChange={(details) => setFormData((prev) => ({ ...prev, ...details }))}
         total={quote.total}
         busy={isLoading}
         language={language}

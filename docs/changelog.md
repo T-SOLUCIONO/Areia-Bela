@@ -3016,3 +3016,49 @@ total vuelve a ser $1245 para tres noches.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (243 tests)
 ```
+
+---
+
+## 47. Los datos del huésped, dentro del modal
+
+Aclaración del usuario tras un malentendido: el formulario que quería en el
+modal no era el de la tarjeta, sino **el suyo** — nombre, apellido, correo,
+teléfono y país. Stripe sigue en su propia página, como estaba.
+
+### Lo que se intentó y se revirtió
+
+Se llegó a implementar Checkout embebido (`ui_mode: 'embedded'`) para dibujar
+el formulario de tarjeta dentro del sitio. Revertido entero: los cuatro
+archivos del backend y del cliente vuelven a la versión commiteada, y
+`@stripe/stripe-js` y `@stripe/react-stripe-js` se desinstalan.
+
+De paso salió que **`stripe` seguía instalado en `apps/web`** desde que el
+route handler vivía ahí. Nadie lo importaba desde §37. Fuera también.
+
+La clave publicable vuelve a no existir en el frontend.
+
+### Lo que sí se hizo
+
+`PaymentMethodDialog` recoge ahora los datos del huésped: los cinco campos con
+`autoComplete`, la explicación de para qué se pide cada uno, el método de pago,
+el total y el botón que lleva a Stripe.
+
+Los datos vivían a mitad de la página del checkout, entre los extras y las
+condiciones, así que el botón de pagar estaba lejos de aquello sobre lo que
+actuaba. Ahora cada decisión está en el mismo sitio.
+
+El botón del diálogo es el `submit` de su formulario, de modo que el navegador
+comprueba los campos obligatorios y enfoca el primero vacío antes de enviar
+nada — el mismo mecanismo de §30, que allí faltaba porque el botón estaba fuera
+del formulario.
+
+### Verificación
+
+```
+hold → AB-JTFWMW · $1245 · redirige a checkout.stripe.com ✓
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests)
+```
