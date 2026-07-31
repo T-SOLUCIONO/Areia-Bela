@@ -242,6 +242,8 @@ export const translations = {
       'Fast Wi-Fi',
     ],
     availability: {
+      pricing: 'Working out the price',
+      pricingFailed: 'We could not work out the price right now. Try other dates, or try again.',
       minNights: 'This house takes stays of {count} nights or more.',
       maxNights: 'The longest stay is {count} nights. Write to us for anything longer.',
       legendToday: 'Today',
@@ -525,6 +527,9 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      pricing: 'Calculando el precio',
+      pricingFailed:
+        'No pudimos calcular el precio ahora mismo. Prueba otras fechas o inténtalo de nuevo.',
       minNights: 'Esta casa acepta estadías de {count} noches o más.',
       maxNights: 'La estadía más larga es de {count} noches. Escríbenos para algo mayor.',
       legendToday: 'Hoy',
@@ -807,6 +812,8 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      pricing: 'Calculando o preço',
+      pricingFailed: 'Não conseguimos calcular o preço agora. Tente outras datas ou tente de novo.',
       minNights: 'Esta casa aceita estadias de {count} noites ou mais.',
       maxNights: 'A estadia mais longa é de {count} noites. Escreva para nós para algo maior.',
       legendToday: 'Hoje',
@@ -1092,6 +1099,8 @@ export const translations = {
       'Wi-Fi rapide',
     ],
     availability: {
+      pricing: 'Calcul du prix',
+      pricingFailed: 'Nous n’avons pas pu calculer le prix. Essayez d’autres dates ou réessayez.',
       minNights: 'Cette maison accepte les séjours de {count} nuits ou plus.',
       maxNights: 'Le séjour le plus long est de {count} nuits. Écrivez-nous au-delà.',
       legendToday: 'Aujourd’hui',
@@ -1377,6 +1386,9 @@ export const translations = {
       'Schnelles WLAN',
     ],
     availability: {
+      pricing: 'Preis wird berechnet',
+      pricingFailed:
+        'Der Preis konnte gerade nicht berechnet werden. Versuchen Sie andere Daten oder erneut.',
       minNights: 'Dieses Haus nimmt Aufenthalte ab {count} Nächten.',
       maxNights: 'Der längste Aufenthalt sind {count} Nächte. Für mehr schreiben Sie uns.',
       legendToday: 'Heute',

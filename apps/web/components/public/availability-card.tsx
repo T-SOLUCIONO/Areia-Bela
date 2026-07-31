@@ -114,6 +114,8 @@ export function AvailabilityCard({ className }: Props) {
 
   const [quote, setQuote] = useState<BookingQuote | null>(null)
   const [isPricing, setIsPricing] = useState(false)
+  /** True only after an attempt finished with nothing. */
+  const [priceFailed, setPriceFailed] = useState(false)
 
   const checkInIso = checkIn ? format(checkIn, 'yyyy-MM-dd') : ''
   const checkOutIso = checkOut ? format(checkOut, 'yyyy-MM-dd') : ''
@@ -129,6 +131,7 @@ export function AvailabilityCard({ className }: Props) {
 
     let cancelled = false
     setIsPricing(true)
+    setPriceFailed(false)
     void fetchQuote({
       checkIn: checkInIso,
       checkOut: checkOutIso,
@@ -139,6 +142,9 @@ export function AvailabilityCard({ className }: Props) {
     }).then((result) => {
       if (cancelled) return
       setQuote(result)
+      // Distinct from "not started": `isPricing` alone would flash the failure
+      // message on the first render, before the effect has had a chance to run.
+      setPriceFailed(result === null)
       setIsPricing(false)
     })
 
@@ -214,6 +220,11 @@ export function AvailabilityCard({ className }: Props) {
               ? copy.perNightOne
               : fill(copy.perNights, { count: String(quote.nights) })}
           </p>
+        ) : isPricing ? (
+          // The dates are chosen; only the figure is missing. Saying "pick
+          // your dates" here would be telling the guest to redo what they
+          // just did.
+          <span className="h-8 w-44 animate-pulse rounded-full bg-slate-100" aria-hidden />
         ) : (
           <p className="text-[15px] text-slate-600">{copy.pickDates}</p>
         )}
@@ -573,16 +584,32 @@ export function AvailabilityCard({ className }: Props) {
         />
       )}
 
-      {/* No skeleton with numbers in it: a placeholder price is a wrong price. */}
-      {checkIn && checkOut && !quote && (
-        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          {isPricing
-            ? language === 'en'
-              ? 'Checking the price...'
-              : 'Consultando el precio...'
-            : language === 'en'
-              ? 'We could not get the price right now. Please try again.'
-              : 'No pudimos obtener el precio ahora mismo. Inténtalo de nuevo.'}
+      {/* Shape without figures. A skeleton that shows the rows coming is
+          honest; one with placeholder numbers in it would be a wrong price on
+          screen for as long as the request takes. */}
+      {checkIn && checkOut && !quote && !priceFailed && (
+        <div
+          role="status"
+          aria-label={copy.pricing}
+          className="mt-4 space-y-3 rounded-2xl p-4 ring-1 ring-slate-100"
+        >
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="flex items-center justify-between gap-6">
+              <span className="h-3 flex-1 animate-pulse rounded-full bg-slate-100" />
+              <span className="h-3 w-14 animate-pulse rounded-full bg-slate-100" />
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-6 border-t border-slate-100 pt-3">
+            <span className="h-4 w-20 animate-pulse rounded-full bg-slate-200" />
+            <span className="h-5 w-24 animate-pulse rounded-full bg-slate-200" />
+          </div>
+        </div>
+      )}
+
+      {/* Only once the attempt has actually finished and failed. */}
+      {checkIn && checkOut && !quote && priceFailed && (
+        <p role="alert" className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {copy.pricingFailed}
         </p>
       )}
 

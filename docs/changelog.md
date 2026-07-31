@@ -3117,3 +3117,48 @@ El túnel se ha renombrado cuatro veces en esta sesión. Ya no rompe reservas,
 pero mientras el endpoint apunte a un dominio muerto, Stripe acumula reintentos
 fallidos. Instalar la CLI de Stripe (`stripe listen`) lo resuelve de raíz; un
 _quick tunnel_ sin cuenta no garantiza el nombre.
+
+---
+
+## 49. El cotizador mientras piensa, y el área del huésped que se fundía con el fondo
+
+### El cotizador
+
+Al elegir fechas, la cabecera seguía diciendo "Elige tus fechas" — a alguien que
+acaba de elegirlas — y el precio aparecía de golpe sin nada entre medias.
+
+Ahora hay un esqueleto: una barra en la cabecera y las filas del desglose
+insinuadas, **sin cifras**. Un esqueleto con números de relleno sería un precio
+equivocado en pantalla durante lo que tarde la petición.
+
+Un detalle que casi se cuela: la primera versión mostraba el error cuando
+`!isPricing`, y ese estado arranca en `false`, así que el mensaje de fallo
+habría parpadeado en el primer render antes de que el efecto llegara a
+ejecutarse. Se separa en `priceFailed`, que solo se enciende cuando un intento
+terminó sin nada.
+
+### El área del huésped
+
+Reportado: los colores se pierden con el fondo.
+
+La causa, concreta: la cabecera de cada reserva usaba `bg-[#f7f2ea]`, que es
+**exactamente `--background`** — el crema de la página. La tarjeta y el fondo
+eran el mismo color, y el borde que debía separarlos (`#e2ddd0`) apenas
+contrasta contra ese crema.
+
+- La banda de fechas pasa a un tinte azul de marca al 7 %, que separa tanto del
+  blanco de la tarjeta como del crema de la página.
+- Las tarjetas ganan sombra y un anillo azul tenue, en vez de fiarlo todo a un
+  borde de bajo contraste.
+- El estado deja de ser un icono de calendario y pasa a distintivo con color —
+  verde confirmada, ámbar esperando el pago, gris cancelada — con el color
+  repitiendo lo que dice la etiqueta, nunca sustituyéndolo.
+- Iconos en azul de marca en lugar de gris sobre gris.
+- La referencia gana tamaño: es lo que el huésped viene a buscar.
+- La pantalla de acceso y la de datos pasan a tarjeta blanca, en vez de quedar
+  sueltas sobre el crema.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```
