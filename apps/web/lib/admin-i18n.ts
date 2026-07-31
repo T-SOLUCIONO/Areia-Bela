@@ -194,6 +194,18 @@ export const adminCopy = {
       loadFailed: 'Could not load availability.',
     },
     pricing: {
+      policyTitle: 'Cancellation and arrival',
+      policySubtitle: 'What a guest is promised, and what they need to know before they get here.',
+      policyLabel: 'Cancellation policy',
+      policyFlexible: 'Flexible — full refund up to 24 hours before check-in',
+      policyModerate: 'Moderate — full refund up to 5 days before check-in',
+      policyFirm: 'Firm — full refund up to 30 days before, 50% up to 7 days before',
+      policyStrict: 'Strict — full refund within 48 hours of booking, 50% up to 7 days before',
+      policyWarning:
+        'This is a direct booking, so you process the refund yourself in Stripe. Nothing here does it automatically.',
+      accessLabel: 'What every guest should know',
+      accessHint:
+        'Where to park, how the door works, anything they always ask. Shown on their booking and printed on the PDF. Leave it empty and the block does not appear.',
       stayRulesTitle: 'Rules of the stay',
       stayRulesSubtitle: 'How short, how long, and when a long stay starts paying less.',
       minNights: 'Minimum nights',
@@ -691,6 +703,18 @@ export const adminCopy = {
       loadFailed: 'No se pudo cargar la disponibilidad.',
     },
     pricing: {
+      policyTitle: 'Cancelación y llegada',
+      policySubtitle: 'Lo que se le promete al huésped, y lo que necesita saber antes de llegar.',
+      policyLabel: 'Política de cancelación',
+      policyFlexible: 'Flexible — reembolso total hasta 24 horas antes de la llegada',
+      policyModerate: 'Moderada — reembolso total hasta 5 días antes de la llegada',
+      policyFirm: 'Firme — reembolso total hasta 30 días antes, 50 % hasta 7 días antes',
+      policyStrict: 'Estricta — reembolso total en las 48 h tras reservar, 50 % hasta 7 días antes',
+      policyWarning:
+        'Es una reserva directa, así que el reembolso lo haces tú en Stripe. Nada de esto lo hace solo.',
+      accessLabel: 'Lo que todo huésped debe saber',
+      accessHint:
+        'Dónde aparcar, cómo funciona la puerta, lo que siempre preguntan. Se muestra en su reserva y se imprime en el PDF. Si lo dejas vacío, el bloque no aparece.',
       stayRulesTitle: 'Reglas de la estadía',
       stayRulesSubtitle: 'Cuán corta, cuán larga, y desde cuándo una estadía larga paga menos.',
       minNights: 'Noches mínimas',

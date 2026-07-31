@@ -2639,3 +2639,92 @@ pnpm typecheck ✅   pnpm test ✅ (235 tests)
    propósito: no se inventa un código de puerta.
 3. **Confirmar que MODERATE es la política de cancelación** que quiere. Es un
    campo editable; cambiarla es un `PATCH`, no un despliegue.
+
+---
+
+## 41. Un pago no puede depender de que un webhook llegue
+
+Reserva `AB-C445Q9`: pagada en Stripe, `PENDING` en la base, y la confirmación
+diciendo "el pago se procesó, la reserva está tardando". El túnel de Cloudflare
+se había renombrado por **tercera vez** y Stripe llevaba reintentando contra un
+dominio muerto.
+
+Pedir la URL nueva otra vez habría arreglado el síntoma. En vez de eso se
+arregló la clase de problema.
+
+### Reconciliación
+
+`PaymentReconciliationService` pregunta al revés: **qué sesiones dice Stripe
+que se pagaron, y cuáles de esas no tienen reserva confirmada aquí**. Corre al
+arrancar —el hueco más probable es justo mientras el API no estaba— y cada diez
+minutos.
+
+Un webhook es la promesa de que la red de otro alcanzará la tuya, y es una
+promesa que se rompe: un túnel se renombra, un despliegue tumba el API cuarenta
+segundos, el DNS tiene un mal minuto. Stripe reintenta, pero sus reintentos
+también caen sobre lo que estuviera inalcanzable. _Pull_ gana para ponerse al
+día; _push_ gana para ser rápido. Los dos juntos son lo que hace que un pago se
+convierta en reserva de forma fiable.
+
+Todo lo que encuentra pasa por `confirmPayment`, el mismo camino idempotente
+del webhook. Una reserva ya confirmada se deja en paz.
+
+### El hueco que tenía la primera versión
+
+Escrita para mirar solo reservas `PENDING`. Los datos reales enseñaron por qué
+no basta: `AB-36PN9X` se pagó, su webhook se perdió, **el hold venció y el
+barrido la canceló**. Buscar solo `PENDING` habría dejado fuera exactamente el
+caso para el que existe este trabajo — dinero cobrado sin reserva.
+
+Ahora mira `PENDING` y `CANCELLED` con `paidAt` nulo.
+
+### Y funcionó de verdad, con el peor caso
+
+Al ampliarla, la reconciliación encontró `AB-36PN9X` y la cadena entera se
+disparó sobre datos reales:
+
+```
+Recovering AB-36PN9X: paid on Stripe but no webhook arrived
+PAID BUT DOUBLE-BOOKED: AB-36PN9X (cs_test_a13HUi…) — the dates were taken
+Email sent to host@areiabela.com: ACCIÓN REQUERIDA · pago sin fechas · AB-36PN9X
+Reconciled 1 payment(s) whose webhook never arrived
+```
+
+Lo que pasó: `AB-36PN9X` (15–18 ago) se pagó y se perdió; después
+`AB-C445Q9` reservó **esas mismas fechas** y sí se confirmó. La restricción de
+exclusión se negó a duplicar la reserva, y el aviso de §31 escaló a un humano
+con el id de Stripe para el reembolso. Es el peor estado que este sistema
+puede alcanzar, y se comportó como se diseñó.
+
+### La política, seleccionable desde el panel
+
+Precios → Reglas de la estadía: las cuatro de Airbnb en un desplegable, y el
+campo `accessNotes` junto a ella. Con un aviso que se dice en voz alta porque
+es lo que sorprende: **es una reserva directa, el reembolso lo hace la
+anfitriona a mano en Stripe.** Nada de esto lo hace solo.
+
+### Verificación
+
+```
+AB-C445Q9  → CONFIRMED, pagada 19:35, con sesión
+             (Stripe todavía marca su webhook como pendiente de entregar)
+AB-36PN9X  → alerta de pago sin fechas, correo enviado
+cambiar la política a FIRM     → 200, y la reserva del huésped lo refleja
+un valor inventado ("GRATIS")  → 400
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (235 tests)
+```
+
+### Consecuencia para el usuario
+
+**El túnel deja de ser crítico.** Un pago cuyo webhook se pierda se recupera
+solo en diez minutos como mucho. Sigue siendo mejor tenerlo funcionando —diez
+minutos de "confirmando" es una espera fea— pero ya no hay reservas que se
+queden colgadas para siempre.
+
+`AB-36PN9X` es un pago real de $1245 sobre fechas que ahora son de otra
+reserva. Son cuentas de prueba, pero **el reembolso hay que hacerlo en Stripe**
+si se quiere dejar la cuenta limpia.

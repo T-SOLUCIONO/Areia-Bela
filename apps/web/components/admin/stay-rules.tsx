@@ -7,6 +7,7 @@ import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
+import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { cms, type PropertySettings } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
@@ -35,6 +36,8 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
     weeklyDiscountPercent: String(Number(property.weeklyDiscountPercent)),
     weeklyDiscountNights: String(property.weeklyDiscountNights),
   })
+  const [policy, setPolicy] = useState(property.cancellationPolicy)
+  const [accessNotes, setAccessNotes] = useState(property.accessNotes ?? '')
   const [busy, setBusy] = useState(false)
 
   const min = Number(draft.minNights)
@@ -51,6 +54,8 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
         maxNights: max,
         weeklyDiscountPercent: Number(draft.weeklyDiscountPercent),
         weeklyDiscountNights: Number(draft.weeklyDiscountNights),
+        cancellationPolicy: policy,
+        accessNotes: accessNotes.trim() || undefined,
       })
       toast.success(copy.stayRulesSaved)
       await onSaved()
@@ -115,6 +120,47 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
             {copy.minAboveMax}
           </p>
         )}
+
+        <div className="space-y-5 border-t border-border pt-5">
+          <div>
+            <h3 className="font-medium text-foreground">{copy.policyTitle}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{copy.policySubtitle}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cancellationPolicy">{copy.policyLabel}</Label>
+            <select
+              id="cancellationPolicy"
+              value={policy}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setPolicy(event.target.value as PropertySettings['cancellationPolicy'])
+              }
+              className="h-11 w-full rounded-[12px] border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <option value="FLEXIBLE">{copy.policyFlexible}</option>
+              <option value="MODERATE">{copy.policyModerate}</option>
+              <option value="FIRM">{copy.policyFirm}</option>
+              <option value="STRICT">{copy.policyStrict}</option>
+            </select>
+            {/* Said plainly, because it is the part that surprises people: the
+                policy is a promise the host keeps by hand. */}
+            <p className="text-xs text-amber-700">{copy.policyWarning}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="accessNotes">{copy.accessLabel}</Label>
+            <Textarea
+              id="accessNotes"
+              rows={3}
+              disabled={!canEdit}
+              value={accessNotes}
+              onChange={(event) => setAccessNotes(event.target.value)}
+              className="resize-none rounded-[12px]"
+            />
+            <p className="text-xs text-muted-foreground">{copy.accessHint}</p>
+          </div>
+        </div>
 
         {canEdit && (
           <div className="flex justify-end">
