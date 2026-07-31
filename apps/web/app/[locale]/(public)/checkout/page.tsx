@@ -36,6 +36,7 @@ import { translations } from '@/lib/i18n'
 
 const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
 import { CheckoutSummary } from '@/components/public/checkout-summary'
+import { PaymentMethodDialog, PaymentOverlay } from '@/components/public/payment-method-dialog'
 import { StayExtras } from '@/components/public/stay-extras'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
 
@@ -59,6 +60,7 @@ function CheckoutForm() {
   // typing a name, an email and a phone number is the worst possible moment.
   const [datesGone, setDatesGone] = useState(false)
   const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
+  const [payOpen, setPayOpen] = useState(false)
   const warned = useRef(false)
   const copy = translations[language].checkout
   // Extras the guest adds here, keyed by extra id. Seeded from the URL so the
@@ -148,17 +150,33 @@ function CheckoutForm() {
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * Opens the payment dialog. Native validation has already run: the button is
+   * this form's submit button, pointed at it by id.
+   */
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!agreedToTerms || datesGone) return
 
-    // Belt and braces: native validation covers this, but a missing field must
-    // never reach the API as an opaque 400 the guest cannot act on.
+    // Belt and braces: a missing field must never reach the API as an opaque
+    // 400 the guest cannot act on.
     if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
       setError('missingDetails')
       return
     }
 
+    setError(null)
+    setPayOpen(true)
+  }
+
+  /**
+   * Holds the dates and opens Stripe, with the page blocked throughout.
+   *
+   * Two network calls happen here and the form underneath is still editable;
+   * changing a name after the dates are held would leave the booking and the
+   * screen out of step.
+   */
+  const startPayment = async () => {
     setIsLoading(true)
     setError(null)
 
@@ -198,6 +216,7 @@ function CheckoutForm() {
       window.location.href = session.url
     } catch (err) {
       console.error('Checkout error:', err)
+      setPayOpen(false)
       if (err instanceof DatesUnavailableError) {
         setError('taken')
         setDatesGone(true)
@@ -509,14 +528,7 @@ function CheckoutForm() {
                   size="lg"
                   className="mt-6 w-full text-base font-semibold shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
                 >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      {isEnglish ? 'Processing...' : 'Procesando...'}
-                    </span>
-                  ) : (
-                    <>{isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}</>
-                  )}
+                  {isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}
                 </Button>
               </div>
             </section>
@@ -563,6 +575,19 @@ function CheckoutForm() {
           </div>
         </div>
       </main>
+
+      <PaymentMethodDialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        onConfirm={() => void startPayment()}
+        total={quote.total}
+        busy={isLoading}
+        language={language}
+      />
+
+      {/* Covers the whole page, including the form underneath, until Stripe
+          answers or the attempt fails. */}
+      {isLoading && <PaymentOverlay language={language} />}
     </div>
   )
 }

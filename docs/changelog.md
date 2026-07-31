@@ -2956,3 +2956,63 @@ pnpm typecheck ✅   pnpm test ✅ (243 tests)
 - **El enlace "Política completa" apunta a `/#faqs`.** Hay una sección de
   preguntas frecuentes, pero no una página de política de cancelación como tal.
   Cuando exista, es cambiar el destino.
+
+---
+
+## 46. El modal de pago, y bloquear la página mientras Stripe responde
+
+Pedido a partir del modal "Forma de pago" de Airbnb.
+
+### Lo que se hizo igual
+
+Un diálogo antes de salir a Stripe: qué se va a cobrar, quién lo procesa, y un
+botón para continuar. El pago sigue ocurriendo en la página alojada de Stripe y
+la vuelta es a `/confirmation`, que ya sabía esperar al webhook.
+
+Verificado de punta a punta:
+
+```
+1. reserva las fechas      → AB-UCD3H4
+2. devuelve la URL         → checkout.stripe.com/c/pay/cs_test_…
+3. Stripe acepta la sesión → open · $1017.00
+4. al pagar vuelve a       → /confirmation?session_id={CHECKOUT_SESSION_ID}
+```
+
+### Lo que no se copió, y por qué
+
+**La lista de tarjetas guardadas.** Airbnb puede mostrarlas porque el huésped
+tiene cuenta con Airbnb; aquí la tarjeta se introduce en Stripe y este sitio
+nunca ve una. Dibujar "VISA 3043" sería inventar un dato.
+
+**Los trece métodos que la cuenta tiene habilitados.** Se consultaron:
+`bancontact` (Bélgica), `blik` (Polonia), `eps` (Austria), `kakao_pay`,
+`naver_pay`, `payco` (Corea), `pix` (Brasil)… Stripe solo ofrece los
+compatibles con la moneda y el país de quien paga, y para un cobro en USD la
+sesión real devuelve `card, link, amazon_pay`. Listar los trece habría sido
+prometer métodos que nunca aparecen.
+
+El modal nombra la tarjeta —cierta siempre— y dice de las carteras lo que se
+puede decir con verdad: _"Apple Pay, Google Pay y Link aparecen en la página de
+Stripe si tu dispositivo los admite."_ Es una promesa hecha en nombre de otro,
+así que va condicionada.
+
+### El bloqueo
+
+`PaymentOverlay` cubre la página entera mientras se reserva y se pide la
+sesión. No es decoración: son dos llamadas de red y el formulario de debajo
+sigue siendo editable — cambiar un nombre con las fechas ya reservadas dejaría
+la reserva y la pantalla contando cosas distintas.
+
+Si algo falla, el modal se cierra para que el aviso se vea en la página, en vez
+de quedar detrás de un diálogo.
+
+### De paso
+
+Las tarifas de limpieza y servicio se habían quedado en cero de una prueba
+anterior de esta misma sesión. Restauradas a $120 y 12 %, verificado que el
+total vuelve a ser $1245 para tres noches.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests)
+```

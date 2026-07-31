@@ -151,6 +151,18 @@ export const translations = {
       statusCheckedOut: 'Completed',
     },
     checkout: {
+      payTitle: 'Payment method',
+      payCard: 'Credit or debit card',
+      payCardBrands: 'Visa · Mastercard · American Express · Discover',
+      payWallets:
+        'Apple Pay, Google Pay and Link appear on Stripe’s page if your device supports them.',
+      payWhere: 'Payment is handled by Stripe. This house never sees your card details.',
+      payHeld: 'Your dates are held while you pay.',
+      payContinue: 'Continue to payment',
+      payCancel: 'Cancel',
+      payOpening: 'Opening secure payment…',
+      payOpeningLead:
+        'We are holding your dates and preparing the payment. Do not close this page.',
       summaryDates: 'Dates',
       summaryGuests: 'Guests',
       summaryChange: 'Change',
@@ -416,6 +428,17 @@ export const translations = {
       statusCheckedOut: 'Completada',
     },
     checkout: {
+      payTitle: 'Forma de pago',
+      payCard: 'Tarjeta de crédito o débito',
+      payCardBrands: 'Visa · Mastercard · American Express · Discover',
+      payWallets:
+        'Apple Pay, Google Pay y Link aparecen en la página de Stripe si tu dispositivo los admite.',
+      payWhere: 'El pago lo procesa Stripe. Esta casa nunca ve los datos de tu tarjeta.',
+      payHeld: 'Tus fechas quedan reservadas mientras pagas.',
+      payContinue: 'Continuar al pago',
+      payCancel: 'Cancelar',
+      payOpening: 'Abriendo el pago seguro…',
+      payOpeningLead: 'Estamos reservando tus fechas y preparando el pago. No cierres esta página.',
       summaryDates: 'Fechas',
       summaryGuests: 'Huéspedes',
       summaryChange: 'Modificar',
@@ -679,6 +702,18 @@ export const translations = {
       statusCheckedOut: 'Concluída',
     },
     checkout: {
+      payTitle: 'Forma de pagamento',
+      payCard: 'Cartão de crédito ou débito',
+      payCardBrands: 'Visa · Mastercard · American Express · Discover',
+      payWallets:
+        'Apple Pay, Google Pay e Link aparecem na página da Stripe se o seu dispositivo os suportar.',
+      payWhere: 'O pagamento é processado pela Stripe. Esta casa nunca vê os dados do seu cartão.',
+      payHeld: 'Suas datas ficam reservadas enquanto você paga.',
+      payContinue: 'Continuar para o pagamento',
+      payCancel: 'Cancelar',
+      payOpening: 'Abrindo o pagamento seguro…',
+      payOpeningLead:
+        'Estamos reservando suas datas e preparando o pagamento. Não feche esta página.',
       summaryDates: 'Datas',
       summaryGuests: 'Hóspedes',
       summaryChange: 'Alterar',
@@ -944,6 +979,18 @@ export const translations = {
       statusCheckedOut: 'Terminée',
     },
     checkout: {
+      payTitle: 'Moyen de paiement',
+      payCard: 'Carte de crédit ou de débit',
+      payCardBrands: 'Visa · Mastercard · American Express · Discover',
+      payWallets:
+        'Apple Pay, Google Pay et Link apparaissent sur la page de Stripe si votre appareil les prend en charge.',
+      payWhere:
+        'Le paiement est traité par Stripe. Cette maison ne voit jamais les données de votre carte.',
+      payHeld: 'Vos dates sont retenues pendant le paiement.',
+      payContinue: 'Continuer vers le paiement',
+      payCancel: 'Annuler',
+      payOpening: 'Ouverture du paiement sécurisé…',
+      payOpeningLead: 'Nous retenons vos dates et préparons le paiement. Ne fermez pas cette page.',
       summaryDates: 'Dates',
       summaryGuests: 'Voyageurs',
       summaryChange: 'Modifier',
@@ -1210,6 +1257,18 @@ export const translations = {
       statusCheckedOut: 'Abgeschlossen',
     },
     checkout: {
+      payTitle: 'Zahlungsart',
+      payCard: 'Kredit- oder Debitkarte',
+      payCardBrands: 'Visa · Mastercard · American Express · Discover',
+      payWallets:
+        'Apple Pay, Google Pay und Link erscheinen auf der Stripe-Seite, wenn Ihr Gerät sie unterstützt.',
+      payWhere: 'Die Zahlung wickelt Stripe ab. Dieses Haus sieht Ihre Kartendaten nie.',
+      payHeld: 'Ihre Daten bleiben während der Zahlung reserviert.',
+      payContinue: 'Weiter zur Zahlung',
+      payCancel: 'Abbrechen',
+      payOpening: 'Sichere Zahlung wird geöffnet…',
+      payOpeningLead:
+        'Wir reservieren Ihre Daten und bereiten die Zahlung vor. Schließen Sie diese Seite nicht.',
       summaryDates: 'Daten',
       summaryGuests: 'Gäste',
       summaryChange: 'Ändern',
