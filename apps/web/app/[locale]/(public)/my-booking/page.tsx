@@ -7,12 +7,13 @@ import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { fill } from '@areia-bela/shared'
-import { currency } from '@/lib/booking'
 import { guest, type MyBooking, type MyDetails } from '@/lib/guest-client'
 import { API_URL } from '@/lib/api-client'
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
 import { StayBand } from '@/components/public/stay-band'
+import { BookingBillLines } from '@/components/public/booking-bill'
+import { BookingTerms } from '@/components/public/booking-terms'
 import { cn } from '@/lib/utils'
 
 type Screen = 'loading' | 'signedOut' | 'sent' | 'signedIn'
@@ -245,7 +246,23 @@ function BookingCard({
           </p>
         )}
 
-        <div className="flex flex-wrap items-end justify-between gap-4 border-t border-border pt-4">
+        {/* An unpaid hold with no way to pay is a dead end. While it lives,
+            the same Stripe session is one click away. */}
+        {booking.checkoutUrl && (
+          <div className="flex flex-col gap-3 rounded-[16px] bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-amber-900">{copy.finishPayingLead}</p>
+            <Button asChild variant="brand" size="sm" className="shrink-0">
+              <a href={booking.checkoutUrl}>{copy.finishPaying}</a>
+            </Button>
+          </div>
+        )}
+
+        <div className="grid gap-8 border-t border-border pt-5 sm:grid-cols-2">
+          <BookingBillLines bill={booking.bill} nights={booking.nights} language={language} />
+          <BookingTerms booking={booking} language={language} />
+        </div>
+
+        <div className="flex flex-wrap items-end justify-between gap-4 border-t border-border pt-5">
           <div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
               {copy.reference}
@@ -256,12 +273,6 @@ function BookingCard({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{copy.total}</p>
-              <p className="font-serif text-xl tabular-nums text-foreground">
-                {currency(booking.total)}
-              </p>
-            </div>
             {booking.status !== 'CANCELLED' && (
               <Button asChild variant="outline" size="sm">
                 <a href={`${API_URL}/guest/bookings/${booking.reference}/pdf`}>

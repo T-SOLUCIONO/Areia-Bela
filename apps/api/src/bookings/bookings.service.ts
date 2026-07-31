@@ -12,6 +12,7 @@ import {
   HOLD_TTL_MINUTES,
   type QuoteBreakdown,
 } from '@areia-bela/shared'
+import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
@@ -46,6 +47,7 @@ export class BookingsService {
     private readonly properties: PropertiesService,
     private readonly notifications: NotificationsService,
     private readonly payments: PaymentsService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -268,6 +270,8 @@ export class BookingsService {
           // A confirmed stay does not expire. Leaving this set would make the
           // sweep in hold() cancel a booking somebody paid for.
           expiresAt: null,
+          // A session that already paid is not a link to hand anyone.
+          checkoutUrl: null,
           cancelledAt: null,
           cancellationReason: null,
         },
@@ -298,13 +302,46 @@ export class BookingsService {
     })
   }
 
-  /** The guest walked away from the payment page. The dates go back. */
+  /**
+   * The guest walked away from the payment page. The dates go back, and they
+   * get told — otherwise they are left assuming they have a booking.
+   */
   async releaseHold(bookingId: string, reason: string): Promise<void> {
-    const { count } = await this.prisma.booking.updateMany({
-      where: { id: bookingId, status: 'PENDING' },
-      data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: reason },
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        customer: true,
+        extras: { include: { extra: true } },
+        property: { select: { slug: true, checkInTime: true, checkOutTime: true } },
+      },
     })
-    if (count) this.logger.log(`Released hold ${bookingId}: ${reason}`)
+    if (!booking || booking.status !== 'PENDING') return
+
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancellationReason: reason,
+        checkoutUrl: null,
+      },
+    })
+    this.logger.log(`Released hold ${booking.reference}: ${reason}`)
+
+    const base = this.config.get<string>('PUBLIC_SITE_URL') ?? 'http://localhost:3000'
+    const retry =
+      `${base}/${booking.locale}/checkout?checkin=${iso(booking.checkIn)}` +
+      `&checkout=${iso(booking.checkOut)}&adults=${booking.adults + booking.children}`
+
+    await this.notifications.paymentNotCompleted(
+      {
+        ...this.noticeFor(booking),
+        locale: booking.locale,
+        checkInTime: booking.property.checkInTime,
+        checkOutTime: booking.property.checkOutTime,
+      },
+      retry,
+    )
   }
 
   /** What the confirmation page shows. Keyed by the Stripe session id, which

@@ -1,4 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common'
+import type { ConfigService } from '@nestjs/config'
 import { Prisma } from '@prisma/client'
 import { generateReference } from '@areia-bela/shared'
 import { BookingsService } from './bookings.service'
@@ -71,7 +72,7 @@ const BOOKING_ROW = {
     phone: '+13055550100',
   },
   extras: [{ extra: { name: 'Mascota' } }],
-  property: { checkInTime: '16:00', checkOutTime: '10:00' },
+  property: { slug: 'areia-bela', checkInTime: '16:00', checkOutTime: '10:00' },
 }
 
 /** What Prisma surfaces when the exclusion constraint refuses an overlap. */
@@ -101,6 +102,7 @@ describe('BookingsService', () => {
     bookingCreated: jest.Mock
     bookingCancelled: jest.Mock
     bookingConflict: jest.Mock
+    paymentNotCompleted: jest.Mock
     guestConfirmation: jest.Mock
   }
   let service: BookingsService
@@ -129,6 +131,7 @@ describe('BookingsService', () => {
       bookingCreated: jest.fn().mockResolvedValue(undefined),
       bookingCancelled: jest.fn().mockResolvedValue(undefined),
       bookingConflict: jest.fn().mockResolvedValue(undefined),
+      paymentNotCompleted: jest.fn().mockResolvedValue(undefined),
       guestConfirmation: jest.fn().mockResolvedValue(undefined),
     }
 
@@ -137,6 +140,9 @@ describe('BookingsService', () => {
       properties as unknown as PropertiesService,
       notifications as unknown as NotificationsService,
       payments as unknown as PaymentsService,
+      {
+        get: (key: string) => (key === 'PUBLIC_SITE_URL' ? 'http://localhost:3000' : undefined),
+      } as unknown as ConfigService,
     )
   })
 
@@ -314,6 +320,36 @@ describe('BookingsService', () => {
 
       await expect(service.confirmPayment('ghost', 'cs_test_1', 100)).resolves.toBeUndefined()
       expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('a payment that never completed', () => {
+    it('frees the dates and tells the guest, with a way to try again', async () => {
+      // Saying nothing leaves someone who got halfway through checkout
+      // assuming they have a booking.
+      await service.releaseHold('booking-1', 'El huésped no completó el pago')
+
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'CANCELLED', checkoutUrl: null }),
+        }),
+      )
+      const [notice, retry] = notifications.paymentNotCompleted.mock.calls[0] as [
+        { locale: string },
+        string,
+      ]
+      expect(notice.locale).toBe('en')
+      expect(retry).toContain('checkin=2026-09-01')
+    })
+
+    it('does nothing to a booking that is no longer pending', async () => {
+      // A confirmed stay must never be released by a late expiry webhook.
+      prisma.booking.findUnique.mockResolvedValue({ ...BOOKING_ROW, status: 'CONFIRMED' })
+
+      await service.releaseHold('booking-1', 'tarde')
+
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+      expect(notifications.paymentNotCompleted).not.toHaveBeenCalled()
     })
   })
 

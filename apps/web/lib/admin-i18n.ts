@@ -93,6 +93,10 @@ export const adminCopy = {
       past: 'Past',
     },
     guests: {
+      sendLink: 'Resend sign-in link',
+      linkSent: 'Link sent to {email}',
+      linkFailed: 'Could not send the link.',
+      linkNoBookings: 'This guest has no bookings to sign in and see.',
       add: 'Add guest',
       edit: 'Edit',
       remove: 'Delete',
@@ -586,6 +590,10 @@ export const adminCopy = {
       past: 'Pasadas',
     },
     guests: {
+      sendLink: 'Reenviar enlace de acceso',
+      linkSent: 'Enlace enviado a {email}',
+      linkFailed: 'No se pudo enviar el enlace.',
+      linkNoBookings: 'Este huésped no tiene reservas que consultar.',
       add: 'Añadir huésped',
       edit: 'Editar',
       remove: 'Eliminar',

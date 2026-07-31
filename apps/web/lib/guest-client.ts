@@ -2,19 +2,44 @@ import { API_URL } from '@/lib/api-client'
 
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
 
+export type CancellationPolicy = 'FLEXIBLE' | 'MODERATE' | 'FIRM' | 'STRICT'
+
+/** The bill as charged, read off the booking rather than recomputed. */
+export interface BookingBill {
+  nightsSubtotal: number
+  weeklyDiscount: number
+  extrasTotal: number
+  additionalGuestFee: number
+  cleaningFee: number
+  serviceFee: number
+  taxes: number
+  total: number
+}
+
 export interface MyBooking {
   reference: string
   checkIn: string
   checkOut: string
   nights: number
   guests: number
+  adults: number
+  children: number
+  infants: number
   pets: number
   total: number
+  bill: BookingBill
   status: BookingStatus
   extras: string[]
   specialRequests: string | null
   checkInTime: string
   checkOutTime: string
+  /** Set only while an unpaid hold is still alive. */
+  checkoutUrl: string | null
+  cancellationPolicy: CancellationPolicy
+  accessNotes: string | null
+  houseRules: string | null
+  trashCollectionDays: string[]
+  address: string
   past: boolean
 }
 

@@ -2468,3 +2468,111 @@ dice "15 minutos" cuando el sistema da sesenta es peor que no decir nada.
 enlace recién emitido → vence en 60 minutos
 cookie de sesión      → caduca en 7 días
 ```
+
+---
+
+## 39. La política de cancelación estaba inventada
+
+Al preguntar el usuario por los términos que debe ver el huésped, salió esto:
+el sitio llevaba tiempo prometiendo una política de cancelación que **no
+existía en ningún dato suyo**.
+
+Tres archivos con `subDays(checkIn, 5)` a fuego, y el checkout llegando a
+decir:
+
+> _"Cancela antes del X para un reembolso parcial. Después, cancela antes del
+> check-in para obtener un reembolso del 50 %, menos la tarifa de servicio."_
+
+Ni `docs/domain-decisions.md` ni `datos.json` contienen una política de
+cancelación. Ese 5 y ese 50 % no salían de ninguna parte.
+
+Es peor que un precio inventado: un huésped puede apoyarse en eso en una
+disputa, y la anfitriona tendría que sostener una promesa que nadie escribió.
+
+### Lo que se hizo
+
+El usuario pidió "lo mismo que Airbnb". Airbnb no tiene una política, tiene un
+menú, así que se implementaron las cuatro como enum en `Property`, editable, y
+se eligió **MODERATE** por una razón concreta: el sitio ya venía diciendo
+"cancelación gratuita antes de [5 días antes]", y es la única opción que no
+contradice lo que ya se le mostró a la gente.
+
+`packages/shared/src/cancellation.ts` guarda **solo las reglas** — los días, no
+la prosa. La redacción vive en las traducciones, así que la misma política se
+lee natural en cinco idiomas en vez de en uno traducido mal. El PDF duplica el
+texto en dos idiomas porque no tiene capa de traducción a la que asomarse.
+
+Dos advertencias que van escritas en la propia pantalla: en una reserva directa
+**el reembolso lo procesa la anfitriona**, no hay plataforma que lo arbitre; y
+el reembolso automático sigue siendo Fase 7.
+
+### El desglose ahora se guarda
+
+`Booking` gana siete columnas: noches, descuento, extras, huésped adicional,
+limpieza, servicio e impuestos.
+
+**Un recibo tiene que decir lo que se cobró.** Recalcular el desglose al
+mostrarlo enseñaría los precios de hoy sobre una estadía comprada la temporada
+pasada — un recibo que cambia no es un recibo. Se congela al reservar.
+
+### "Esperando el pago" dejó de ser un callejón
+
+Un hold vivo mostraba "esperando el pago" sin forma de pagar. Ahora la reserva
+guarda su `checkoutUrl` mientras el hold dura, y el botón devuelve a la misma
+sesión de Stripe. Se limpia al confirmar: una sesión ya pagada no es un enlace
+que se le dé a nadie.
+
+Y cuando el pago no llega, `checkout.session.expired` ya no solo libera las
+fechas — **se lo dice al huésped**, con un enlace para reintentarlo. Callarse
+deja a alguien que llegó a la mitad del checkout creyendo que tiene una
+reserva.
+
+### Lo que ve el huésped ahora
+
+En la web y en el PDF, todo de fuentes reales: desglose línea a línea, política
+de cancelación, dirección, día de basura y las reglas de la casa que la
+anfitriona escribió en el CMS. **Los bloques sin nada detrás no se dibujan** —
+un encabezado "Reglas de la casa" sobre una caja vacía es peor que ningún
+encabezado.
+
+`Property.accessNotes` queda para lo que hace falta y nadie pregunta (dónde
+aparcar, cómo funciona la puerta). **Vacío hasta que la anfitriona lo escriba:**
+no se inventa un código de puerta.
+
+### Correos con plantilla
+
+`renderEmail` es el sobre de todos los envíos: logo, cabecera crema, botón de
+marca. Tablas y estilos en línea, no flexbox — Outlook sigue renderizando con
+el motor de Word y Gmail borra los bloques `<style>`. El logo es una URL
+absoluta: los adjuntos aparecen como clip en un mensaje que no lo tiene, y
+Gmail rechaza los `data:` en imágenes.
+
+### Detalles que se vieron al abrir el PDF
+
+- Las fechas salían en ISO. `31 de julio de 2026` en vez de `2026-07-31`; un
+  recibo lleno de números con guiones se lee como un volcado de base de datos.
+- Los días de basura salían como `wednesday, saturday`, las claves crudas.
+  Ahora se escriben en el idioma del documento.
+
+### Verificación
+
+```
+desglose en la reserva     → noches $900 · limpieza $120 · servicio $122 · impuestos $103 · total $1245
+política                   → MODERATE, "antes del 26 de julio de 2026"
+reglas de la casa          → 183 caracteres, del CMS
+día de basura              → miércoles, sábado
+terminar el pago           → ausente en una reserva ya pagada
+un pago no completado      → libera las fechas y avisa al huésped, con enlace
+un hold ya confirmado      → releaseHold no lo toca
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (235 tests, 2 nuevos)
+```
+
+### Pendiente del usuario
+
+- **Escribir `accessNotes`** desde el panel, o decirme que lo quite.
+- **Confirmar que MODERATE es la política que quiere.** Es un campo editable;
+  cambiarla es un `PATCH`, no un despliegue.

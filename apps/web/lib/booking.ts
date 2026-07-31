@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
+import type { CancellationPolicy } from '@areia-bela/shared'
 import { propertyData, PROPERTY_SLUG } from '@/lib/property-data'
 
 export type GuestCounts = {
@@ -192,25 +193,41 @@ export async function fetchNightRates(from: string, to: string): Promise<NightRa
 }
 
 /**
- * How short and how long a stay may be.
+ * The house's booking terms: how short and how long a stay may be, and which
+ * cancellation policy applies.
  *
  * Read so the calendar can refuse a too-short range before the guest fills in
  * a form. The server validates it again on the way to payment — this is a
  * convenience, not the rule.
  */
-export async function fetchStayLimits(): Promise<{ minNights: number; maxNights: number }> {
+export async function fetchStayLimits(): Promise<{
+  minNights: number
+  maxNights: number
+  cancellationPolicy: CancellationPolicy
+}> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
-  const fallback = { minNights: 1, maxNights: 365 }
+  // The seeded default, so a page that cannot reach the API states the policy
+  // the house actually has rather than nothing.
+  const fallback = {
+    minNights: 1,
+    maxNights: 365,
+    cancellationPolicy: 'MODERATE' as CancellationPolicy,
+  }
   if (!apiUrl) return fallback
 
   try {
     const response = await fetch(`${apiUrl}/properties/${PROPERTY_SLUG}`, { cache: 'no-store' })
     if (!response.ok) return fallback
 
-    const property = (await response.json()) as { minNights?: number; maxNights?: number }
+    const property = (await response.json()) as {
+      minNights?: number
+      maxNights?: number
+      cancellationPolicy?: CancellationPolicy
+    }
     return {
       minNights: property.minNights ?? fallback.minNights,
       maxNights: property.maxNights ?? fallback.maxNights,
+      cancellationPolicy: property.cancellationPolicy ?? fallback.cancellationPolicy,
     }
   } catch {
     // Fail-soft, like the rest of this file: the calendar still works, and the

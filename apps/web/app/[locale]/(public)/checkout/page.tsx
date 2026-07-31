@@ -5,7 +5,14 @@ import { useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { format, parseISO, subDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
+import {
+  fill,
+  fullRefundDeadline,
+  halfRefundDeadline,
+  type CancellationPolicy,
+} from '@areia-bela/shared'
 import { Star, ShieldCheck, Clock, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
@@ -15,6 +22,7 @@ import { Textarea } from '@areia-bela/ui/textarea'
 import {
   currency,
   fetchNightRates,
+  fetchStayLimits,
   getQuoteFromStorage,
   fetchQuote,
   parseQuoteRequestFromSearchParams,
@@ -25,6 +33,8 @@ import { propertyData } from '@/lib/property-data'
 import { createCheckoutSession, DatesUnavailableError, StayLengthError } from '@/services/payment'
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
+
+const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { StayExtras } from '@/components/public/stay-extras'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
@@ -71,6 +81,7 @@ function CheckoutForm() {
   // hour, or land here from a stale link — finding out the week is gone after
   // typing a name, an email and a phone number is the worst possible moment.
   const [datesGone, setDatesGone] = useState(false)
+  const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
   const warned = useRef(false)
   const copy = translations[language].checkout
   // Extras the guest adds here, keyed by extra id. Seeded from the URL so the
@@ -119,6 +130,10 @@ function CheckoutForm() {
       cancelled = true
     }
   }, [request, router, chosenExtras])
+
+  useEffect(() => {
+    void fetchStayLimits().then((terms) => setPolicy(terms.cancellationPolicy))
+  }, [])
 
   useEffect(() => {
     if (!request) return
@@ -230,7 +245,23 @@ function CheckoutForm() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const cancellationDate = format(subDays(parseISO(quote.checkIn), 5), 'MMM d')
+  // Derived from the house's policy, not a hard-coded five days.
+  const guestCopy = translations[language].guestArea
+  const refundDay = (value: string | null) =>
+    value ? format(parseISO(value), 'd MMMM', { locale: DATE_LOCALES[language] }) : ''
+  const policyText = {
+    FLEXIBLE: guestCopy.policyFlexible,
+    MODERATE: fill(guestCopy.policyModerate, {
+      date: refundDay(fullRefundDeadline(quote.checkIn, policy)),
+    }),
+    FIRM: fill(guestCopy.policyFirm, {
+      date: refundDay(fullRefundDeadline(quote.checkIn, policy)),
+      half: refundDay(halfRefundDeadline(quote.checkIn, policy)),
+    }),
+    STRICT: fill(guestCopy.policyStrict, {
+      half: refundDay(halfRefundDeadline(quote.checkIn, policy)),
+    }),
+  }[policy]
 
   return (
     <div className="min-h-screen bg-background">
@@ -339,19 +370,18 @@ function CheckoutForm() {
               </div>
             </section>
 
-            {/* Cancellation Policy */}
-            <section className="rounded-xl border border-border p-5 bg-muted/40">
+            {/* The refund terms the house actually has, derived from the same
+                rules the PDF and the guest area use. This block used to state
+                an invented policy — "a partial refund, then 50% minus the
+                service fee" — that appeared in no document the host had
+                written. See docs/changelog.md. */}
+            <section className="rounded-[20px] border border-border bg-muted/40 p-5">
               <div className="flex items-start gap-4">
-                <Clock className="h-6 w-6 text-muted-foreground mt-0.5" />
+                <Clock className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground" />
                 <div>
-                  <p className="font-semibold text-foreground">
-                    {isEnglish ? 'Free cancellation' : 'Cancelación gratuita'}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {isEnglish
-                      ? `Cancel before ${cancellationDate} for a partial refund. After that, cancel before check-in to get a 50% refund, minus the service fee.`
-                      : `Cancela antes del ${cancellationDate} para un reembolso parcial. Después de eso, cancela antes del check-in para obtener un reembolso del 50%, menos la tarifa de servicio.`}
-                  </p>
+                  <p className="font-semibold text-foreground">{guestCopy.policyTitle}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{policyText}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{guestCopy.policyNote}</p>
                 </div>
               </div>
             </section>
@@ -619,7 +649,12 @@ function CheckoutForm() {
                 </span>
               </button>
               <div className={showPriceBreakdown ? 'block' : 'hidden lg:block'}>
-                <PriceBreakdownCard quote={quote} language={language} propertyPreview />
+                <PriceBreakdownCard
+                  quote={quote}
+                  policy={policy}
+                  language={language}
+                  propertyPreview
+                />
               </div>
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
 } from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { MailService } from '../mail/mail.service'
+import { renderEmail } from '../mail/email-layout'
 
 export interface GuestIdentity {
   customerId: string
@@ -76,11 +77,14 @@ export class GuestAuthService {
         text: [copy.greeting(customer.firstName), '', link, '', copy.expiry, copy.ignore].join(
           '\n',
         ),
-        html: [
-          `<p>${copy.greeting(customer.firstName)}</p>`,
-          `<p><a href="${link}">${copy.button}</a></p>`,
-          `<p>${copy.expiry}<br>${copy.ignore}</p>`,
-        ].join(''),
+        html: renderEmail({
+          siteUrl: base,
+          preheader: copy.expiry,
+          heading: copy.subject.split('·')[0].trim(),
+          intro: copy.greeting(customer.firstName),
+          cta: { label: copy.button, href: link },
+          footnote: `${copy.expiry} ${copy.ignore}`,
+        }),
       })
     } catch (error) {
       // Logged, never thrown: the endpoint answers the same either way, and a

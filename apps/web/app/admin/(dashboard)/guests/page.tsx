@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { enUS, es as esLocale } from 'date-fns/locale'
 import {
+  KeyRound,
   Loader2,
   Mail,
   MapPin,
@@ -102,6 +103,7 @@ export default function GuestsPage() {
   const [editing, setEditing] = useState<GuestForm | null>(null)
   const [removing, setRemoving] = useState<Guest | null>(null)
   const [busy, setBusy] = useState(false)
+  const [sendingTo, setSendingTo] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -138,6 +140,28 @@ export default function GuestsPage() {
       toast.error(err instanceof ApiError && err.status === 409 ? copy.emailTaken : copy.saveFailed)
     } finally {
       setBusy(false)
+    }
+  }
+
+  /**
+   * Sends the guest their sign-in link again, for the phone call where they
+   * say they cannot find it. The host never sees the link — it is made on the
+   * server and goes straight to the guest's own address.
+   */
+  const sendLink = async (target: Guest) => {
+    setSendingTo(target.id)
+    try {
+      await apiFetch<void>(`/customers/${target.id}/send-login-link`, {
+        method: 'POST',
+        body: JSON.stringify({ locale: language }),
+      })
+      toast.success(fill(copy.linkSent, { email: target.email }))
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError && err.status === 409 ? copy.linkNoBookings : copy.linkFailed,
+      )
+    } finally {
+      setSendingTo(null)
     }
   }
 
@@ -415,6 +439,22 @@ export default function GuestsPage() {
                   )}
 
                   <div className="flex items-center gap-1">
+                    {guest.stays > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={copy.sendLink}
+                        title={copy.sendLink}
+                        disabled={sendingTo === guest.id}
+                        onClick={() => void sendLink(guest)}
+                      >
+                        {sendingTo === guest.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <KeyRound className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

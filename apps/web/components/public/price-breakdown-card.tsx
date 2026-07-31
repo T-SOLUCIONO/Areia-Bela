@@ -1,5 +1,6 @@
 import Image from 'next/image'
-import { format, parseISO, subDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { fullRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
 import { Clock, Info, Star } from 'lucide-react'
 import { currency, type BookingQuote } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
@@ -13,13 +14,32 @@ type Props = {
    * guest read the price breakdown in Spanish.
    */
   language: Language
+  /**
+   * The house's cancellation policy. Passed in rather than fetched here: this
+   * card renders inside pages that already know it, and a second request per
+   * render would be a request per keystroke on the quoter.
+   */
+  policy?: CancellationPolicy
   propertyPreview?: boolean
   className?: string
 }
 
-export function PriceBreakdownCard({ quote, language, propertyPreview = false, className }: Props) {
+export function PriceBreakdownCard({
+  quote,
+  language,
+  policy = 'MODERATE',
+  propertyPreview = false,
+  className,
+}: Props) {
   const copy = translations[language].quote
-  const cancellationDate = format(subDays(parseISO(quote.checkIn), 5), 'MMM d')
+  // The house's policy decides this date, not a hard-coded five days. Passed
+  // in rather than fetched: this card renders inside pages that already know.
+  const cancellationDate = policy
+    ? (() => {
+        const deadline = fullRefundDeadline(quote.checkIn, policy)
+        return deadline ? format(parseISO(deadline), 'MMM d') : ''
+      })()
+    : ''
   const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
   const savings = hasDiscount
     ? (quote.originalPricePerNight - quote.pricePerNight) * quote.nights

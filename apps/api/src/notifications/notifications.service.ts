@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma/prisma.service'
 import { MailService } from '../mail/mail.service'
+import { renderEmail } from '../mail/email-layout'
 import {
   deliver,
   EmailChannel,
@@ -213,6 +214,50 @@ export class NotificationsService {
     )
   }
 
+  /**
+   * The payment never completed and the dates went back on sale.
+   *
+   * Worth sending, and not spam: this is someone who tried to buy and got
+   * halfway. Saying nothing leaves them assuming they have a booking. It goes
+   * out regardless of the host's switches for the same reason the conflict
+   * alert does — it is addressed to the guest, not to her.
+   */
+  async paymentNotCompleted(booking: GuestConfirmation, retryUrl: string): Promise<void> {
+    const copy = ABANDONED_COPY[booking.locale] ?? ABANDONED_COPY.en
+    const base = this.config.get<string>('PUBLIC_SITE_URL') ?? 'http://localhost:3000'
+
+    try {
+      await this.mail.send({
+        to: booking.guestEmail,
+        toName: booking.guestName,
+        subject: copy.subject,
+        text: [
+          copy.greeting(booking.guestName.split(' ')[0]),
+          '',
+          copy.body(booking.checkIn, booking.checkOut),
+          '',
+          retryUrl,
+        ].join('\n'),
+        html: renderEmail({
+          siteUrl: base,
+          preheader: copy.preheader,
+          heading: copy.heading,
+          intro: copy.greeting(booking.guestName.split(' ')[0]),
+          blocks: [{ label: copy.dates, value: `${booking.checkIn} → ${booking.checkOut}` }],
+          cta: { label: copy.cta, href: retryUrl },
+          footnote: copy.footnote,
+        }),
+      })
+      this.logger.log(`Told ${booking.guestEmail} their payment did not complete`)
+    } catch (error) {
+      this.logger.error(
+        `Could not tell a guest their payment failed: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+    }
+  }
+
   async messageReceived(notice: MessageNotice): Promise<void> {
     await deliver(
       await this.destinationsFor('message'),
@@ -318,4 +363,80 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+/**
+ * The "your payment did not go through" email.
+ *
+ * Deliberately not apologetic and not alarming: nothing was charged, the dates
+ * are simply free again. The one thing it has to do is make trying again easy.
+ */
+const ABANDONED_COPY: Record<
+  string,
+  {
+    subject: string
+    preheader: string
+    heading: string
+    greeting: (name: string) => string
+    body: (checkIn: string, checkOut: string) => string
+    dates: string
+    cta: string
+    footnote: string
+  }
+> = {
+  es: {
+    subject: 'Tu reserva no llegó a completarse · Areia Bela',
+    preheader: 'No se te cobró nada. Las fechas siguen disponibles.',
+    heading: 'El pago no se completó',
+    greeting: (name) =>
+      `Hola ${name}, no llegamos a recibir el pago, así que la casa no quedó reservada.`,
+    body: (checkIn, checkOut) => `Las fechas ${checkIn} → ${checkOut} vuelven a estar disponibles.`,
+    dates: 'Las fechas que elegiste',
+    cta: 'Reservar esas fechas',
+    footnote:
+      'No se te cobró nada. Si el pago te falló y no sabes por qué, escríbenos y lo miramos.',
+  },
+  en: {
+    subject: 'Your booking was not completed · Areia Bela',
+    preheader: 'Nothing was charged. The dates are free again.',
+    heading: 'The payment did not go through',
+    greeting: (name) => `Hi ${name}, the payment never reached us, so the house was not booked.`,
+    body: (checkIn, checkOut) => `${checkIn} → ${checkOut} is available again.`,
+    dates: 'The dates you picked',
+    cta: 'Book those dates',
+    footnote: 'Nothing was charged. If the payment failed and you are not sure why, write to us.',
+  },
+  pt: {
+    subject: 'A sua reserva não foi concluída · Areia Bela',
+    preheader: 'Nada foi cobrado. As datas estão livres novamente.',
+    heading: 'O pagamento não foi concluído',
+    greeting: (name) =>
+      `Olá ${name}, o pagamento não chegou até nós, então a casa não ficou reservada.`,
+    body: (checkIn, checkOut) => `${checkIn} → ${checkOut} está disponível novamente.`,
+    dates: 'As datas que você escolheu',
+    cta: 'Reservar essas datas',
+    footnote: 'Nada foi cobrado. Se o pagamento falhou e não sabe por quê, escreva para nós.',
+  },
+  fr: {
+    subject: 'Votre réservation n’a pas abouti · Areia Bela',
+    preheader: 'Rien n’a été débité. Les dates sont de nouveau libres.',
+    heading: 'Le paiement n’a pas abouti',
+    greeting: (name) =>
+      `Bonjour ${name}, le paiement ne nous est pas parvenu, la maison n’a donc pas été réservée.`,
+    body: (checkIn, checkOut) => `${checkIn} → ${checkOut} est de nouveau disponible.`,
+    dates: 'Les dates choisies',
+    cta: 'Réserver ces dates',
+    footnote: 'Rien n’a été débité. Si le paiement a échoué sans raison claire, écrivez-nous.',
+  },
+  de: {
+    subject: 'Ihre Buchung wurde nicht abgeschlossen · Areia Bela',
+    preheader: 'Es wurde nichts abgebucht. Die Daten sind wieder frei.',
+    heading: 'Die Zahlung kam nicht zustande',
+    greeting: (name) =>
+      `Hallo ${name}, die Zahlung hat uns nicht erreicht, das Haus wurde also nicht gebucht.`,
+    body: (checkIn, checkOut) => `${checkIn} → ${checkOut} ist wieder verfügbar.`,
+    dates: 'Ihre gewählten Daten',
+    cta: 'Diese Daten buchen',
+    footnote: 'Es wurde nichts abgebucht. Falls die Zahlung fehlschlug, schreiben Sie uns.',
+  },
 }

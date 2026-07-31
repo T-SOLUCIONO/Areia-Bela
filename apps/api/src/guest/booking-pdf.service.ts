@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Injectable, Logger } from '@nestjs/common'
 import PDFDocument from 'pdfkit'
+import { fullRefundDeadline, halfRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import type { MyBooking } from './guest.service'
 
@@ -29,6 +30,20 @@ interface PdfCopy {
   guest: string
   contact: string
   footer: string
+  bill: string
+  billNights: string
+  billDiscount: string
+  billExtras: string
+  billGuestFee: string
+  billCleaning: string
+  billService: string
+  billTaxes: string
+  policy: string
+  policyNote: string
+  address: string
+  access: string
+  rules: string
+  trash: string
 }
 
 const COPY: Record<string, PdfCopy> = {
@@ -47,6 +62,20 @@ const COPY: Record<string, PdfCopy> = {
     guest: 'A nombre de',
     contact: 'Contacto',
     footer: 'Areia Bela · casa completa en St. Petersburg, Florida',
+    bill: 'Detalle del precio',
+    billNights: 'Noches',
+    billDiscount: 'Descuento por estadía larga',
+    billExtras: 'Extras',
+    billGuestFee: 'Huéspedes adicionales',
+    billCleaning: 'Limpieza',
+    billService: 'Tarifa de servicio',
+    billTaxes: 'Impuestos',
+    policy: 'Política de cancelación',
+    policyNote: 'El reembolso lo procesa la anfitriona directamente en Stripe.',
+    address: 'Dirección',
+    access: 'Cómo entrar',
+    rules: 'Reglas de la casa',
+    trash: 'Día de basura',
   },
   en: {
     title: 'Booking confirmation',
@@ -63,6 +92,20 @@ const COPY: Record<string, PdfCopy> = {
     guest: 'Booked by',
     contact: 'Contact',
     footer: 'Areia Bela · whole house in St. Petersburg, Florida',
+    bill: 'Price details',
+    billNights: 'Nights',
+    billDiscount: 'Long-stay discount',
+    billExtras: 'Extras',
+    billGuestFee: 'Additional guests',
+    billCleaning: 'Cleaning',
+    billService: 'Service fee',
+    billTaxes: 'Taxes',
+    policy: 'Cancellation policy',
+    policyNote: 'Refunds are processed by the host directly in Stripe.',
+    address: 'Address',
+    access: 'Getting in',
+    rules: 'House rules',
+    trash: 'Bin day',
   },
 }
 
@@ -79,6 +122,89 @@ const STATUS_EN: Record<string, string> = {
   CANCELLED: 'Cancelled',
   CHECKED_IN: 'Checked in',
   CHECKED_OUT: 'Completed',
+}
+
+/** Weekday keys as stored, spelled out. "wednesday" on a receipt is sloppy. */
+const WEEKDAYS: Record<string, { es: string; en: string }> = {
+  monday: { es: 'lunes', en: 'Monday' },
+  tuesday: { es: 'martes', en: 'Tuesday' },
+  wednesday: { es: 'miércoles', en: 'Wednesday' },
+  thursday: { es: 'jueves', en: 'Thursday' },
+  friday: { es: 'viernes', en: 'Friday' },
+  saturday: { es: 'sábado', en: 'Saturday' },
+  sunday: { es: 'domingo', en: 'Sunday' },
+}
+
+const MONTHS = {
+  es: [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ],
+  en: [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ],
+}
+
+/**
+ * "2026-07-31" as "31 de julio de 2026".
+ *
+ * Written out rather than left as ISO: a guest reads this document, and a
+ * receipt full of hyphenated numbers reads like a database export.
+ */
+function longDate(iso: string, locale: 'es' | 'en'): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  const name = MONTHS[locale][month - 1]
+  return locale === 'es' ? `${day} de ${name} de ${year}` : `${name} ${day}, ${year}`
+}
+
+/**
+ * The cancellation policy in prose, for the two languages the PDF speaks.
+ *
+ * The rules live in `@areia-bela/shared` so the site and this document decide
+ * refunds from the same numbers; only the wording is duplicated here, and only
+ * because a PDF has no translation layer to reach into.
+ */
+function describePolicy(policy: CancellationPolicy, checkIn: string, locale: 'es' | 'en'): string {
+  const full = fullRefundDeadline(checkIn, policy)
+  const half = halfRefundDeadline(checkIn, policy)
+  const day = (value: string | null) => (value ? longDate(value, locale) : '')
+
+  if (locale === 'es') {
+    return {
+      FLEXIBLE: 'Reembolso completo si cancelas hasta 24 horas antes de la llegada.',
+      MODERATE: `Reembolso completo si cancelas antes del ${day(full)}, cinco días antes de tu llegada.`,
+      FIRM: `Reembolso completo hasta el ${day(full)}. Después, 50 % hasta el ${day(half)}.`,
+      STRICT: `Reembolso completo si cancelas en las 48 horas siguientes a reservar y faltan más de 14 días. Después, 50 % hasta el ${day(half)}.`,
+    }[policy]
+  }
+
+  return {
+    FLEXIBLE: 'Full refund if you cancel up to 24 hours before check-in.',
+    MODERATE: `Full refund if you cancel before ${day(full)}, five days before you arrive.`,
+    FIRM: `Full refund until ${day(full)}. After that, 50% until ${day(half)}.`,
+    STRICT: `Full refund if you cancel within 48 hours of booking and check-in is more than 14 days away. After that, 50% until ${day(half)}.`,
+  }[policy]
 }
 
 /**
@@ -100,12 +226,31 @@ export class BookingPdfService {
 
   async render(booking: MyBooking, guestName: string, guestEmail: string, locale: string) {
     const copy = COPY[locale] ?? COPY.en
-    const statuses = copy === COPY.es ? STATUS_ES : STATUS_EN
+    const lang: 'es' | 'en' = locale === 'es' ? 'es' : 'en'
+    const statuses = lang === 'es' ? STATUS_ES : STATUS_EN
 
     // `address` is already the full line the host typed — "San Petersburgo,
     // Florida, Estados Unidos". Appending city, state and country to it
     // printed the place twice.
-    const property = await this.prisma.property.findFirst({ select: { address: true } })
+    const property = await this.prisma.property.findFirst({
+      select: {
+        address: true,
+        accessNotes: true,
+        trashCollectionDays: true,
+        cancellationPolicy: true,
+      },
+    })
+
+    // The rules the host wrote, not a set invented here. Absent blocks are
+    // simply not printed.
+    const rulesPage = await this.prisma.cMSPage.findFirst({
+      where: { slug: 'HOUSE_RULES', published: true },
+      select: { body: true },
+    })
+    const houseRules = rulesPage?.body?.trim() ?? ''
+
+    const policy = property?.cancellationPolicy ?? 'MODERATE'
+    const policyText = describePolicy(policy, booking.checkIn, lang)
 
     const doc = new PDFDocument({ size: 'A4', margin: 56 })
     const chunks: Buffer[] = []
@@ -171,7 +316,7 @@ export class BookingPdfService {
       doc.font('Helvetica-Bold').fontSize(size).fillColor(INK).text(text, x, top)
 
     heading(copy.arrival, left, y)
-    value(booking.checkIn, left, y + 13)
+    value(longDate(booking.checkIn, lang), left, y + 13, 13)
     doc
       .font('Helvetica')
       .fontSize(9)
@@ -179,7 +324,7 @@ export class BookingPdfService {
       .text(booking.checkInTime, left, y + 32)
 
     heading(copy.departure, left + half, y)
-    value(booking.checkOut, left + half, y + 13)
+    value(longDate(booking.checkOut, lang), left + half, y + 13, 13)
     doc
       .font('Helvetica')
       .fontSize(9)
@@ -233,21 +378,81 @@ export class BookingPdfService {
       y = doc.y + 18
     }
 
-    // --- Total ------------------------------------------------------------
-    doc.roundedRect(left, y, right - left, 56, 8).fill(CREAM)
+    // --- The bill, line by line -------------------------------------------
+    // Read off the booking as charged, not recomputed: a receipt that restates
+    // last season's stay at this season's prices is not a receipt.
+    heading(copy.bill, left, y)
+    y += 18
+
+    const money = (amount: number) => `$${amount.toLocaleString('en-US')}`
+    const lines: Array<[string, string]> = [
+      [`${copy.billNights} · ${booking.nights}`, money(booking.bill.nightsSubtotal)],
+    ]
+    if (booking.bill.weeklyDiscount > 0) {
+      lines.push([copy.billDiscount, `−${money(booking.bill.weeklyDiscount)}`])
+    }
+    if (booking.bill.additionalGuestFee > 0) {
+      lines.push([copy.billGuestFee, money(booking.bill.additionalGuestFee)])
+    }
+    if (booking.bill.extrasTotal > 0) lines.push([copy.billExtras, money(booking.bill.extrasTotal)])
+    if (booking.bill.cleaningFee > 0)
+      lines.push([copy.billCleaning, money(booking.bill.cleaningFee)])
+    if (booking.bill.serviceFee > 0) lines.push([copy.billService, money(booking.bill.serviceFee)])
+    if (booking.bill.taxes > 0) lines.push([copy.billTaxes, money(booking.bill.taxes)])
+
+    lines.forEach(([label, amount]) => {
+      doc.font('Helvetica').fontSize(10).fillColor(MUTED).text(label, left, y)
+      doc
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor(INK)
+        .text(amount, left, y, { width: right - left, align: 'right' })
+      y += 17
+    })
+
+    y += 4
+    doc.roundedRect(left, y, right - left, 50, 8).fill(CREAM)
     doc
       .font('Helvetica')
       .fontSize(10)
       .fillColor(BLUE)
-      .text(copy.total, left + 20, y + 21)
+      .text(copy.total, left + 20, y + 19)
     doc
       .font('Helvetica-Bold')
-      .fontSize(20)
+      .fontSize(18)
       .fillColor(INK)
-      .text(`$${booking.total.toLocaleString('en-US')}`, left + 20, y + 16, {
+      .text(money(booking.bill.total), left + 20, y + 15, {
         width: right - left - 40,
         align: 'right',
       })
+    y += 70
+
+    // --- What they need before arriving ------------------------------------
+    const block = (label: string, body: string) => {
+      if (!body) return
+      if (y > doc.page.height - 150) {
+        doc.addPage()
+        y = 56
+      }
+      heading(label, left, y)
+      doc
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor(INK)
+        .text(body, left, y + 14, { width: right - left })
+      y = doc.y + 16
+    }
+
+    block(copy.policy, `${policyText}\n${copy.policyNote}`)
+    block(copy.address, property?.address ?? '')
+    block(copy.access, property?.accessNotes ?? '')
+    block(
+      copy.trash,
+      (property?.trashCollectionDays ?? [])
+        .map((day) => WEEKDAYS[day.toLowerCase()]?.[lang] ?? day)
+        .join(', '),
+    )
+    block(copy.rules, houseRules ?? '')
 
     // --- Footer -----------------------------------------------------------
     const address = property?.address ?? ''

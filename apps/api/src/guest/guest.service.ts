@@ -1,7 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import type { BookingStatus } from '@prisma/client'
+import type { BookingStatus, CancellationPolicy } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { UpdateMyDetailsDto } from './dto/guest-auth.dto'
+
+/** The bill as charged, read off the booking rather than recomputed. */
+export interface BookingBill {
+  nightsSubtotal: number
+  weeklyDiscount: number
+  extrasTotal: number
+  additionalGuestFee: number
+  cleaningFee: number
+  serviceFee: number
+  taxes: number
+  total: number
+}
 
 export interface MyBooking {
   reference: string
@@ -9,13 +21,25 @@ export interface MyBooking {
   checkOut: string
   nights: number
   guests: number
+  adults: number
+  children: number
+  infants: number
   pets: number
   total: number
+  bill: BookingBill
   status: BookingStatus
   extras: string[]
   specialRequests: string | null
   checkInTime: string
   checkOutTime: string
+  /** Live only while a hold is unpaid; lets the guest finish paying. */
+  checkoutUrl: string | null
+  cancellationPolicy: CancellationPolicy
+  /** What the host wants every guest to know. Empty until they write it. */
+  accessNotes: string | null
+  houseRules: string | null
+  trashCollectionDays: string[]
+  address: string
   /** Past stays are shown differently and cannot be acted on. */
   past: boolean
 }
@@ -51,10 +75,27 @@ export class GuestService {
       },
       include: {
         extras: { include: { extra: true } },
-        property: { select: { checkInTime: true, checkOutTime: true } },
+        property: {
+          select: {
+            checkInTime: true,
+            checkOutTime: true,
+            cancellationPolicy: true,
+            accessNotes: true,
+            trashCollectionDays: true,
+            address: true,
+          },
+        },
       },
       orderBy: { checkIn: 'desc' },
     })
+
+    // The house rules the host wrote in the CMS, not a set invented here.
+    // Null when they have not written any, and the UI omits the block.
+    const rulesPage = await this.prisma.cMSPage.findFirst({
+      where: { slug: 'HOUSE_RULES', published: true },
+      select: { body: true },
+    })
+    const houseRules = rulesPage?.body?.trim() || null
 
     const today = new Date()
     today.setUTCHours(0, 0, 0, 0)
@@ -66,12 +107,33 @@ export class GuestService {
       nights: Math.round((booking.checkOut.getTime() - booking.checkIn.getTime()) / 86_400_000),
       guests: booking.adults + booking.children,
       pets: booking.pets,
+      adults: booking.adults,
+      children: booking.children,
+      infants: booking.infants,
       total: Number(booking.totalPrice),
+      bill: {
+        nightsSubtotal: Number(booking.nightsSubtotal),
+        weeklyDiscount: Number(booking.weeklyDiscount),
+        extrasTotal: Number(booking.extrasTotal),
+        additionalGuestFee: Number(booking.additionalGuestFee),
+        cleaningFee: Number(booking.cleaningFee),
+        serviceFee: Number(booking.serviceFee),
+        taxes: Number(booking.taxes),
+        total: Number(booking.totalPrice),
+      },
       status: booking.status,
       extras: booking.extras.map((line) => line.extra.name),
       specialRequests: booking.specialRequests,
       checkInTime: booking.property.checkInTime,
       checkOutTime: booking.property.checkOutTime,
+      // Only while the hold is alive and unpaid. A confirmed booking has it
+      // cleared, and an expired one never reaches this list.
+      checkoutUrl: booking.status === 'PENDING' ? booking.checkoutUrl : null,
+      cancellationPolicy: booking.property.cancellationPolicy,
+      accessNotes: booking.property.accessNotes,
+      houseRules,
+      trashCollectionDays: booking.property.trashCollectionDays,
+      address: booking.property.address,
       past: booking.checkOut < today,
     }))
   }

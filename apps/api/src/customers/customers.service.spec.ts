@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { CustomersService } from './customers.service'
+import type { GuestAuthService } from '../guest/guest-auth.service'
 import type { PrismaService } from '../prisma/prisma.service'
 
 const booking = (over: Partial<Record<string, unknown>> = {}) => ({
@@ -34,11 +35,16 @@ describe('CustomersService', () => {
       delete?: jest.Mock
     }
   }
+  let guestAuth: { requestLink: jest.Mock }
   let service: CustomersService
 
   beforeEach(() => {
     prisma = { customer: { findMany: jest.fn().mockResolvedValue([customer()]) } }
-    service = new CustomersService(prisma as unknown as PrismaService)
+    guestAuth = { requestLink: jest.fn().mockResolvedValue(undefined) }
+    service = new CustomersService(
+      prisma as unknown as PrismaService,
+      guestAuth as unknown as GuestAuthService,
+    )
   })
 
   it('adds up stays, nights and what they paid', async () => {
@@ -155,6 +161,30 @@ describe('CustomersService', () => {
       await expect(service.update('ghost', { phone: '2' })).rejects.toBeInstanceOf(
         NotFoundException,
       )
+    })
+  })
+
+  describe('resending the sign-in link', () => {
+    it('goes through the same path as the public request', async () => {
+      // One way a link is ever made: same expiry, same single use, same
+      // invalidation of whatever was outstanding.
+      prisma.customer.findUnique = jest.fn().mockResolvedValue({
+        id: 'c1',
+        email: 'jane@example.com',
+        _count: { bookings: 2 },
+      })
+
+      await service.resendLoginLink('c1', 'en')
+      expect(guestAuth.requestLink).toHaveBeenCalledWith('jane@example.com', 'en')
+    })
+
+    it('refuses for a guest with nothing to look at', async () => {
+      prisma.customer.findUnique = jest
+        .fn()
+        .mockResolvedValue({ id: 'c1', email: 'x@example.com', _count: { bookings: 0 } })
+
+      await expect(service.resendLoginLink('c1', 'es')).rejects.toBeInstanceOf(ConflictException)
+      expect(guestAuth.requestLink).not.toHaveBeenCalled()
     })
   })
 })

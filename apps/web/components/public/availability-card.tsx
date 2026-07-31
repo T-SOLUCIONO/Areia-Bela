@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { ChevronDown, Minus, Plus, ShieldCheck, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -23,7 +23,7 @@ import {
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { useLanguage } from '@/components/language-provider'
-import { fill } from '@areia-bela/shared'
+import { fill, fullRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
 import { translations } from '@/lib/i18n'
 import { propertyData } from '@/lib/property-data'
 import { cn } from '@/lib/utils'
@@ -77,10 +77,14 @@ export function AvailabilityCard({ className }: Props) {
   // Mirrors the house's rule in the calendar itself. The server is still the
   // authority — this only stops the guest picking something it would refuse.
   const [minNights, setMinNights] = useState(1)
+  const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
 
   useEffect(() => {
     getBlockedDateRanges().then(setBlockedRanges)
-    fetchStayLimits().then((limits) => setMinNights(limits.minNights))
+    fetchStayLimits().then((terms) => {
+      setMinNights(terms.minNights)
+      setPolicy(terms.cancellationPolicy)
+    })
 
     // A year ahead: enough for both calendar months and any paging, in one
     // request rather than one per month change.
@@ -184,7 +188,13 @@ export function AvailabilityCard({ className }: Props) {
 
   const stayLength = quote?.stayLength ?? null
   const selectedRange = checkIn ? { from: checkIn, to: checkOut } : undefined
-  const cancellationDate = checkIn ? format(subDays(checkIn, 5), 'd MMM', { locale }) : ''
+  // Derived from the house's policy, not a hard-coded five days: the two
+  // agreed by accident under MODERATE and would have diverged the moment the
+  // host changed it.
+  const refundDeadline = checkIn && fullRefundDeadline(format(checkIn, 'yyyy-MM-dd'), policy)
+  const cancellationDate = refundDeadline
+    ? format(parseISO(refundDeadline), 'd MMM', { locale })
+    : ''
   const nights = checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0
 
   return (
@@ -557,6 +567,7 @@ export function AvailabilityCard({ className }: Props) {
       {checkIn && checkOut && quote && (
         <PriceBreakdownCard
           quote={quote}
+          policy={policy}
           language={language}
           className="mt-4 shadow-none ring-1 ring-slate-100"
         />
