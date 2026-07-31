@@ -2787,3 +2787,48 @@ contraria.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (237 tests, 2 nuevos)
 ```
+
+---
+
+## 43. Limpieza y servicio, opcionales
+
+Pedido a partir de una captura de Airbnb donde el detalle del precio son dos
+líneas: noches e impuestos. Nada más.
+
+`cleaningFee` y `serviceFeePercent` ya estaban en `UpdatePropertyDto` —
+guardables por API— pero **no había dónde editarlos**: la pantalla de precios
+los mostraba de solo lectura. Ahora están en Reglas de la estadía, junto al
+porcentaje de impuestos.
+
+Poner cualquiera en cero lo hace desaparecer de la cuenta del huésped. El
+desglose de la reserva ya omitía las líneas en cero; **el cotizador público no**,
+y mostraba "Tarifa de limpieza $0". Una línea que dice cero es un cargo que el
+huésped tiene que leer y descartar.
+
+Con las dos en cero, el desglose queda exactamente como la captura:
+
+```
+3 noches          $900
+Impuestos         $117
+TOTAL            $1017
+```
+
+El campo de impuestos lleva su explicación al lado: 6 % estatal, 1 % del
+condado y 6 % de turismo, y que los recauda aquí pero los declara ella.
+
+### Fase 7.5 en el plan — módulo de impuestos
+
+Añadida a `docs/migration-plan.md` con alcance y criterio de salida: desglose
+por jurisdicción con tasas vigentes por fecha, informe por periodo exportable,
+marcar un periodo como declarado, y excluir canceladas y reembolsos.
+
+Queda anotada una decisión que **no se toma sin un contador**: si la tarifa de
+limpieza entra en la base imponible. Hoy los porcentajes se aplican solo al
+alojamiento (§42). En Florida la limpieza de un alquiler de corta estancia
+suele contar como parte de la contraprestación; si entra, son $15,60 por
+reserva que ahora mismo no se están cobrando.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (237 tests)
+```

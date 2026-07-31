@@ -87,20 +87,29 @@ export function PriceBreakdownCard({
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">{copy.cleaningFee}</span>
-          <span className="text-slate-800">{currency(quote.cleaningFee)}</span>
-        </div>
+        {/* Only what is actually charged. A line reading "$0" is a charge the
+            guest has to read and dismiss; the host can set the cleaning or
+            service fee to zero from the panel and it simply stops appearing. */}
+        {quote.cleaningFee > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 underline">{copy.cleaningFee}</span>
+            <span className="text-slate-800">{currency(quote.cleaningFee)}</span>
+          </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">{copy.serviceFee}</span>
-          <span className="text-slate-800">{currency(quote.serviceFee)}</span>
-        </div>
+        {quote.serviceFee > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 underline">{copy.serviceFee}</span>
+            <span className="text-slate-800">{currency(quote.serviceFee)}</span>
+          </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">{copy.taxes}</span>
-          <span className="text-slate-800">{currency(quote.taxes)}</span>
-        </div>
+        {quote.taxes > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 underline">{copy.taxes}</span>
+            <span className="text-slate-800">{currency(quote.taxes)}</span>
+          </div>
+        )}
       </div>
 
       <div className="pt-5">

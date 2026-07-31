@@ -35,6 +35,9 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
     maxNights: String(property.maxNights),
     weeklyDiscountPercent: String(Number(property.weeklyDiscountPercent)),
     weeklyDiscountNights: String(property.weeklyDiscountNights),
+    cleaningFee: String(Number(property.cleaningFee)),
+    serviceFeePercent: String(Number(property.serviceFeePercent)),
+    taxesPercent: String(Number(property.taxesPercent)),
   })
   const [policy, setPolicy] = useState(property.cancellationPolicy)
   const [accessNotes, setAccessNotes] = useState(property.accessNotes ?? '')
@@ -54,6 +57,9 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
         maxNights: max,
         weeklyDiscountPercent: Number(draft.weeklyDiscountPercent),
         weeklyDiscountNights: Number(draft.weeklyDiscountNights),
+        cleaningFee: Number(draft.cleaningFee),
+        serviceFeePercent: Number(draft.serviceFeePercent),
+        taxesPercent: Number(draft.taxesPercent),
         cancellationPolicy: policy,
         accessNotes: accessNotes.trim() || undefined,
       })
@@ -120,6 +126,30 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
             {copy.minAboveMax}
           </p>
         )}
+
+        <div className="space-y-5 border-t border-border pt-5">
+          <div>
+            <h3 className="font-medium text-foreground">{copy.feesTitle}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{copy.feesSubtitle}</p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-3">
+            {field('cleaningFee', copy.cleaningFeeLabel, copy.cleaningFeeHint, {
+              min: 0,
+              suffix: '$',
+            })}
+            {field('serviceFeePercent', copy.serviceFeeLabel, copy.serviceFeeHint, {
+              min: 0,
+              max: 100,
+              suffix: '%',
+            })}
+            {field('taxesPercent', copy.taxesLabel, copy.taxesHint, {
+              min: 0,
+              max: 100,
+              suffix: '%',
+            })}
+          </div>
+        </div>
 
         <div className="space-y-5 border-t border-border pt-5">
           <div>

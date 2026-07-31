@@ -194,6 +194,16 @@ export const adminCopy = {
       loadFailed: 'Could not load availability.',
     },
     pricing: {
+      feesTitle: 'What you charge on top of the nights',
+      feesSubtitle: 'Set either to zero and it stops appearing on the guest’s bill entirely.',
+      cleaningFeeLabel: 'Cleaning fee',
+      cleaningFeeHint: 'Charged once per stay, whatever its length.',
+      serviceFeeLabel: 'Service fee',
+      serviceFeeHint:
+        'A percentage of the nights, after any long-stay discount. Not of the cleaning fee.',
+      taxesLabel: 'Taxes',
+      taxesHint:
+        'Pinellas County: 6% state sales tax, 1% county surtax, 6% tourist development tax. You collect it here and remit it yourself.',
       policyTitle: 'Cancellation and arrival',
       policySubtitle: 'What a guest is promised, and what they need to know before they get here.',
       policyLabel: 'Cancellation policy',
@@ -703,6 +713,16 @@ export const adminCopy = {
       loadFailed: 'No se pudo cargar la disponibilidad.',
     },
     pricing: {
+      feesTitle: 'Lo que cobras además de las noches',
+      feesSubtitle: 'Pon cualquiera en cero y deja de aparecer en la cuenta del huésped.',
+      cleaningFeeLabel: 'Tarifa de limpieza',
+      cleaningFeeHint: 'Se cobra una vez por estadía, dure lo que dure.',
+      serviceFeeLabel: 'Tarifa de servicio',
+      serviceFeeHint:
+        'Un porcentaje de las noches, después del descuento por estadía larga. No de la limpieza.',
+      taxesLabel: 'Impuestos',
+      taxesHint:
+        'Condado de Pinellas: 6 % estatal, 1 % del condado y 6 % de turismo. Los cobras aquí y los declaras tú.',
       policyTitle: 'Cancelación y llegada',
       policySubtitle: 'Lo que se le promete al huésped, y lo que necesita saber antes de llegar.',
       policyLabel: 'Política de cancelación',

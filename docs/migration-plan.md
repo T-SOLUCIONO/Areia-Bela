@@ -89,6 +89,43 @@ sola cosa para que el flujo corra de punta a punta sin intervención:
 - El `Booking` se crea en el webhook, nunca en el frontend — **hecho en 6.3**.
 - Reembolsos desde admin, panel de pagos.
 
+## Fase 7.5 — Impuestos (módulo de recaudación y declaración)
+
+Pedido por el usuario: un módulo en `/admin` que haga lo que hace Stripe Tax
+—decir cuánto se debe y con qué desglose— porque **en una reserva directa la
+anfitriona recauda y declara ella misma**, no una plataforma.
+
+Contexto que ya existe: `Property.taxesPercent` está en 13 %, que es la suma
+correcta para el condado de Pinellas (6 % estatal + 1 % del condado + 6 % de
+turismo). Cada `Booking` guarda ya el importe cobrado en su columna `taxes`, así
+que los datos para el informe están.
+
+Alcance:
+
+- **Desglose por jurisdicción.** Hoy hay un solo porcentaje. Declarar exige
+  separar lo estatal (Florida DOR) de lo del condado (Pinellas Tax Collector),
+  porque se remiten por separado y con calendarios distintos. Implica una tabla
+  de tasas con vigencia por fecha: cambiar el porcentaje no debe reescribir lo
+  ya cobrado.
+- **Informe por periodo**: cuánto se recaudó en un mes o trimestre, por
+  jurisdicción, con las reservas que lo componen. Exportable a CSV para el
+  contador.
+- **Marcar un periodo como declarado**, con fecha y referencia del pago, para
+  que se vea qué falta remitir.
+- **Excluir lo que no toca**: las reservas canceladas y los reembolsos no se
+  declaran, y un reembolso parcial reduce la base.
+
+Decisión abierta, para confirmar con un contador antes de escribir código:
+**si la tarifa de limpieza forma parte de la base imponible.** El motor hoy
+aplica los porcentajes solo al alojamiento; en Florida la limpieza de un
+alquiler de corta estancia suele contar como parte de la contraprestación. Si
+entra, es un cambio de una línea en `computeQuote` — y afecta a lo que se cobra,
+así que no se toca sin confirmación.
+
+**Criterio de salida:** la anfitriona puede abrir un mes, ver cuánto debe a cada
+jurisdicción, exportarlo y marcarlo como declarado; las cifras cuadran con la
+suma de las columnas `taxes` de las reservas de ese periodo.
+
 ## Fase 8 — Calidad y producción
 
 - Tests unitarios (pricing, auth), integración (API), E2E Playwright (flujo de reserva completo).
