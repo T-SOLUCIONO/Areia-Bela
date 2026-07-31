@@ -75,8 +75,13 @@ export const PUBLIC_ADMIN_PATHS = [
  * for one or two stays a year, and one more thing for this house to store and
  * be responsible for. The email address is already the identifier a booking is
  * made under, so proving control of it is proof enough.
+ *
+ * An hour, not fifteen minutes: the case that breaks a short link is not
+ * "tomorrow" — the session below covers that — it is asking for a link and
+ * being interrupted. An hour survives that and still means a forwarded email
+ * stops being a key the same afternoon.
  */
-export const GUEST_LOGIN_TTL_MINUTES = 15
+export const GUEST_LOGIN_TTL_MINUTES = 60
 
 /**
  * How long a guest stays signed in.

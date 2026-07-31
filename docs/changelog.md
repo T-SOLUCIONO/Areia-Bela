@@ -2445,3 +2445,26 @@ tiene rotación. Se declara aquí en vez de omitirlo.
   partes que no toqué. Las cadenas nuevas van en los cinco.
 - **El PDF no se puede descargar desde la confirmación**, solo desde el área
   del huésped, porque ahí todavía no hay sesión.
+
+### Corrección posterior: el enlace dura una hora, no quince minutos
+
+Pregunta del usuario: si el correo llega hoy y el huésped quiere mirar mañana,
+no puede.
+
+Son dos cosas distintas, y la segunda ya cubría ese caso: **el enlace** es la
+llave (un solo uso) y **la sesión** es estar dentro (7 días). Quien entra hoy
+sigue dentro mañana sin pedir nada.
+
+Pero quince minutos era corto para el caso que sí rompe, que no es "mañana"
+sino "pedí el enlace y me interrumpieron". Sube a una hora, que es lo que usan
+Slack, Notion y Substack. Un enlace que no caducara nunca convertiría cualquier
+bandeja de entrada —una cuenta familiar compartida, un correo reenviado— en una
+llave permanente que el huésped ni sabe que existe.
+
+Actualizadas las cinco traducciones del correo y las de la web: una copia que
+dice "15 minutos" cuando el sistema da sesenta es peor que no decir nada.
+
+```
+enlace recién emitido → vence en 60 minutos
+cookie de sesión      → caduca en 7 días
+```
