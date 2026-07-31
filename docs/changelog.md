@@ -2832,3 +2832,64 @@ reserva que ahora mismo no se están cobrando.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (237 tests)
 ```
+
+---
+
+## 44. El descuento que se mostraba sin descontar
+
+Reportado: el descuento semanal aparece con dos o tres noches, y la cifra no se
+está descontando.
+
+Las dos mitades del problema son distintas, y la segunda explica la primera.
+
+### El motor estaba bien
+
+```
+2 noches → $0     6 noches → $0
+3 noches → $0     7 noches → $210
+```
+
+Aplica desde `weeklyDiscountNights`, que es 7. Nunca antes.
+
+### La pantalla mostraba otra cosa
+
+```ts
+const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
+const savings = (quote.originalPricePerNight - quote.pricePerNight) * quote.nights
+```
+
+`originalPricePerNight` **no viene del API**: `fetchQuote` lo inyectaba desde
+`datos.json`, un precio "antes" de marketing sin ninguna relación con el
+descuento por estadía larga. De ahí las dos cosas que se veían:
+
+- La línea aparecía **con cualquier número de noches**, porque ese precio de
+  marketing siempre es mayor que la tarifa actual.
+- El importe era `(antes − ahora) × noches`, **una cifra que nadie cobra**,
+  mientras `quote.weeklyDiscount` —el descuento real del servidor— estaba en el
+  mismo objeto sin usar.
+
+Ahora la tarjeta lee `quote.weeklyDiscount` y solo dibuja la línea si es mayor
+que cero. `originalPricePerNight` se elimina del tipo y de `fetchQuote`: era la
+única cosa en el flujo de precios que el navegador se inventaba.
+
+### El porcentaje, una lista
+
+Era un campo numérico libre. Pasa a 0 / 5 / 10 / 15 / 20 %, con "Sin descuento
+por estadía larga" como primera opción. Un descuento es una decisión comercial
+con un puñado de valores sensatos, y un campo de texto invita a un 7,5 % o a un
+dedazo que cambia todos los precios en silencio.
+
+El umbral de noches se queda editable y ahora explica qué hace: _"el descuento
+aparece solo a partir de estas noches"_.
+
+### Pruebas
+
+Seis nuevas fijan el contrato del motor: cero en 1, 2, 3 y 6 noches; $210
+exactos en la séptima; y cero cuando el porcentaje se pone a 0. El motor
+siempre estuvo bien — lo que faltaba era algo inequívoco que la pantalla
+pudiera dibujar.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests, 6 nuevos)
+```

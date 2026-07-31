@@ -194,6 +194,9 @@ export const adminCopy = {
       loadFailed: 'Could not load availability.',
     },
     pricing: {
+      discountOff: 'No long-stay discount',
+      discountNightsHint:
+        'The discount appears only from this many nights. Never on shorter stays.',
       feesTitle: 'What you charge on top of the nights',
       feesSubtitle: 'Set either to zero and it stops appearing on the guest’s bill entirely.',
       cleaningFeeLabel: 'Cleaning fee',
@@ -713,6 +716,9 @@ export const adminCopy = {
       loadFailed: 'No se pudo cargar la disponibilidad.',
     },
     pricing: {
+      discountOff: 'Sin descuento por estadía larga',
+      discountNightsHint:
+        'El descuento aparece solo a partir de estas noches. Nunca en estadías más cortas.',
       feesTitle: 'Lo que cobras además de las noches',
       feesSubtitle: 'Pon cualquiera en cero y deja de aparecer en la cuenta del huésped.',
       cleaningFeeLabel: 'Tarifa de limpieza',

@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import type { CancellationPolicy } from '@areia-bela/shared'
-import { propertyData, PROPERTY_SLUG } from '@/lib/property-data'
+import { PROPERTY_SLUG } from '@/lib/property-data'
 
 export type GuestCounts = {
   adults: number
@@ -17,7 +17,6 @@ export type BookingQuote = {
   nights: number
   guests: GuestCounts
   pricePerNight: number
-  originalPricePerNight: number
   /**
    * `price` is a unit price whose unit depends on `pricingType`: a night, an
    * hour, or the whole stay. The pet fee is per stay, and treating every extra
@@ -34,6 +33,8 @@ export type BookingQuote = {
   /** Every night with the rate that applied, so a total is explainable. */
   nightly: Array<{ date: string; rate: number; season: 'LOW' | 'HIGH' | 'WEEKEND' }>
   subtotal: number
+  /** Positive when the long-stay discount applies; subtracted from the total. */
+  weeklyDiscount: number
   extrasTotal: number
   additionalGuestFee: number
   cleaningFee: number
@@ -96,7 +97,7 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
 
     const breakdown = (await response.json()) as Omit<
       BookingQuote,
-      'checkIn' | 'checkOut' | 'guests' | 'originalPricePerNight'
+      'checkIn' | 'checkOut' | 'guests'
     >
 
     return {
@@ -104,9 +105,6 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
       checkIn: input.checkIn,
       checkOut: input.checkOut,
       guests: input.guests,
-      // Only used to draw a struck-through price; the server has no notion of
-      // a "was" price, so it comes from the listing.
-      originalPricePerNight: propertyData.pricing.original_price_per_night,
     }
   } catch {
     return null

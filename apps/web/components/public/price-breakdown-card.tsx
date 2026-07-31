@@ -40,10 +40,15 @@ export function PriceBreakdownCard({
         return deadline ? format(parseISO(deadline), 'MMM d') : ''
       })()
     : ''
-  const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
-  const savings = hasDiscount
-    ? (quote.originalPricePerNight - quote.pricePerNight) * quote.nights
-    : 0
+  // The server's figure, not a "was" price from the listing.
+  //
+  // This used to be `(originalPricePerNight - pricePerNight) * nights`, where
+  // `originalPricePerNight` is a static marketing price unrelated to the
+  // long-stay discount. It showed a "weekly discount" on a two-night booking,
+  // for an amount nobody was being charged, while the real `weeklyDiscount`
+  // sat in the same object unused.
+  const savings = quote.weeklyDiscount
+  const hasDiscount = savings > 0
 
   return (
     <div

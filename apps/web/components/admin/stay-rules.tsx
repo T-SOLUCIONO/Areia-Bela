@@ -113,12 +113,29 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {field('minNights', copy.minNights, copy.minNightsHint, { min: 1 })}
           {field('maxNights', copy.maxNights, copy.maxNightsHint, { min: 1 })}
-          {field('weeklyDiscountPercent', copy.discountPercent, copy.discountPercentHint, {
-            min: 0,
-            max: 100,
-            suffix: '%',
-          })}
-          {field('weeklyDiscountNights', copy.discountNights, undefined, { min: 2 })}
+          {/* A list, not a free number: a discount is a commercial decision
+              with a handful of sensible values, and a text field invites 7.5%
+              or a typo that quietly changes every price. */}
+          <div className="space-y-2">
+            <Label htmlFor="weeklyDiscountPercent">{copy.discountPercent}</Label>
+            <select
+              id="weeklyDiscountPercent"
+              value={draft.weeklyDiscountPercent}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setDraft({ ...draft, weeklyDiscountPercent: event.target.value })
+              }
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <option value="0">{copy.discountOff}</option>
+              <option value="5">5 %</option>
+              <option value="10">10 %</option>
+              <option value="15">15 %</option>
+              <option value="20">20 %</option>
+            </select>
+            <p className="text-xs text-muted-foreground">{copy.discountPercentHint}</p>
+          </div>
+          {field('weeklyDiscountNights', copy.discountNights, copy.discountNightsHint, { min: 2 })}
         </div>
 
         {invalid && (

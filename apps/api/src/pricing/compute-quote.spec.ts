@@ -298,3 +298,55 @@ describe('what service fees and taxes are charged on', () => {
     expect(quote.taxes).toBe(Math.round(accommodation * 0.13))
   })
 })
+
+/**
+ * The threshold, pinned down.
+ *
+ * The price card used to draw a "weekly discount" on a two-night stay, for an
+ * amount nobody was charged: it compared a static marketing price against the
+ * nightly rate instead of reading the quote's own `weeklyDiscount`. The engine
+ * was always right; the screen was not. These fix the engine's contract so the
+ * screen has something unambiguous to render.
+ */
+describe('when the long-stay discount applies', () => {
+  const nightsFor = (count: number) => {
+    const end = new Date('2027-01-10T00:00:00Z')
+    end.setUTCDate(end.getUTCDate() + count)
+    return end.toISOString().slice(0, 10)
+  }
+
+  it.each([1, 2, 3, 6])('is zero at %i nights', (count) => {
+    const quote = computeQuote({
+      checkIn: '2027-01-10',
+      checkOut: nightsFor(count),
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    expect(quote.nights).toBe(count)
+    expect(quote.weeklyDiscount).toBe(0)
+  })
+
+  it('starts exactly at the configured threshold', () => {
+    const quote = computeQuote({
+      checkIn: '2027-01-10',
+      checkOut: nightsFor(7),
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    // 7 nights × $300 × 10%
+    expect(quote.weeklyDiscount).toBe(210)
+  })
+
+  it('disappears entirely when the host sets the percentage to zero', () => {
+    const quote = computeQuote({
+      checkIn: '2027-01-10',
+      checkOut: nightsFor(10),
+      selectedExtraIds: [],
+      pricing: { ...PRICING, weeklyDiscountPercent: 0 },
+    })
+
+    expect(quote.weeklyDiscount).toBe(0)
+  })
+})
