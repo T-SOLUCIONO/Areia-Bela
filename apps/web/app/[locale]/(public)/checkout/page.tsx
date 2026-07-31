@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { format, parseISO, subDays } from 'date-fns'
-import { Star, ShieldCheck, Clock, CreditCard, CalendarX } from 'lucide-react'
+import { Star, ShieldCheck, Clock, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
@@ -512,48 +512,30 @@ function CheckoutForm() {
               </form>
             </section>
 
-            {/* Payment */}
+            {/* The card-brand chips that used to head this section are gone.
+                This page never sees a card — Stripe's own page does — so a row
+                of accepted-card logos was claiming a capability it does not
+                have, and putting it above the total implied the card was
+                entered here. */}
             <section className="space-y-4">
-              <h2 className="font-serif text-xl text-foreground">
-                {isEnglish ? 'Payment' : 'Pago'}
-              </h2>
-              <div className="rounded-xl border border-border p-5 bg-muted/40">
-                <div className="flex items-center gap-3 mb-4">
-                  <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-muted-foreground">
-                    {isEnglish ? 'Credit or debit card' : 'Tarjeta de crédito o débito'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {['Visa', 'Mastercard', 'Amex', 'Discover'].map((brand) => (
-                    <span
-                      key={brand}
-                      className="rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground"
-                    >
-                      {brand}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-medium text-foreground">Total (USD)</span>
-                  <span className="text-xl font-semibold text-foreground">
+              <div className="rounded-[20px] bg-[#f7f2ea] p-6">
+                <div className="mb-5 flex items-baseline justify-between border-b border-[#174d7a]/15 pb-4">
+                  <span className="font-medium text-[#173a57]">Total (USD)</span>
+                  <span className="font-serif text-3xl tabular-nums text-[#173a57]">
                     {currency(quote.total)}
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
                       id="agreeTerms"
                       checked={agreedToTerms}
                       onChange={(e) => setAgreedToTerms(e.target.checked)}
-                      className="h-4 w-4 rounded border-input accent-primary"
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#174d7a]"
                     />
-                    <label htmlFor="agreeTerms" className="text-sm text-muted-foreground">
+                    <label htmlFor="agreeTerms" className="text-sm text-slate-600">
                       {isEnglish ? 'I agree to the ' : 'Acepto los '}
                       <Link href="#" className="underline">
                         {isEnglish ? 'Terms of Service' : 'Términos de servicio'}

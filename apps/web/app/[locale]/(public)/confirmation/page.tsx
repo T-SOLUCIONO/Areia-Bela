@@ -4,15 +4,15 @@ import { useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { format, parseISO } from 'date-fns'
-import { es as esLocale, ptBR, fr as frLocale, de as deLocale } from 'date-fns/locale'
-import { CheckCircle, Calendar, Users, MapPin, Clock, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle, Users, MapPin, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { currency } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
 import { API_URL } from '@/lib/api-client'
 import { useLanguage } from '@/components/language-provider'
+import { fill } from '@areia-bela/shared'
 import { translations } from '@/lib/i18n'
+import { StayBand } from '@/components/public/stay-band'
 
 interface ConfirmedBooking {
   reference: string
@@ -27,14 +27,6 @@ interface ConfirmedBooking {
   checkInTime: string
   checkOutTime: string
 }
-
-const DATE_LOCALES = {
-  es: esLocale,
-  en: undefined,
-  pt: ptBR,
-  fr: frLocale,
-  de: deLocale,
-} as const
 
 /**
  * Stripe redirects here the moment the card clears, which is usually before
@@ -112,8 +104,9 @@ function ConfirmationContent() {
     }
   }, [fetchBooking])
 
-  const longDate = (value: string) =>
-    format(parseISO(value), 'PPP', { locale: DATE_LOCALES[language] })
+  // "{count} nights", borrowed from the guest area so the phrase is
+  // written once for all five languages.
+  const nightsLabel = translations[language].guestArea.nights
 
   if (state === 'loading') {
     return (
@@ -225,24 +218,25 @@ function ConfirmationContent() {
                 </span>
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-5">
-                <Detail icon={Calendar} label={copy.checkIn}>
-                  {longDate(booking.checkIn)}
-                  <span className="block text-sm text-muted-foreground">{booking.checkInTime}</span>
-                </Detail>
-                <Detail icon={Calendar} label={copy.checkOut}>
-                  {longDate(booking.checkOut)}
-                  <span className="block text-sm text-muted-foreground">
-                    {booking.checkOutTime}
-                  </span>
-                </Detail>
-                <Detail icon={Users} label={copy.guests}>
-                  {booking.guests}
-                </Detail>
-                <Detail icon={Clock} label={copy.nights}>
-                  {booking.nights}
-                </Detail>
-              </dl>
+              {/* The stay as one thing with two ends — the same shape the
+                  calendar used when they picked it — instead of four
+                  disconnected facts in a grid. */}
+              <StayBand
+                checkIn={booking.checkIn}
+                checkOut={booking.checkOut}
+                nights={booking.nights}
+                nightsLabel={fill(nightsLabel, { count: String(booking.nights) })}
+                arrivalLabel={copy.checkIn}
+                departureLabel={copy.checkOut}
+                checkInTime={booking.checkInTime}
+                checkOutTime={booking.checkOutTime}
+                language={language}
+              />
+
+              <p className="mt-5 inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {booking.guests} {copy.guests.toLowerCase()}
+              </p>
             </div>
           </div>
 
@@ -288,26 +282,6 @@ function ConfirmationContent() {
           </Button>
         </div>
       </main>
-    </div>
-  )
-}
-
-function Detail({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: typeof Calendar
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-5 w-5 text-muted-foreground" />
-      <div>
-        <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-        <dd className="font-medium text-foreground">{children}</dd>
-      </div>
     </div>
   )
 }

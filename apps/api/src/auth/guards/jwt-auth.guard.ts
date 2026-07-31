@@ -30,9 +30,11 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing access token')
     }
 
-    let payload: AccessTokenPayload & { purpose?: string }
+    let payload: AccessTokenPayload & { purpose?: string; aud?: string }
     try {
-      payload = await this.jwtService.verifyAsync<AccessTokenPayload & { purpose?: string }>(token)
+      payload = await this.jwtService.verifyAsync<
+        AccessTokenPayload & { purpose?: string; aud?: string }
+      >(token)
     } catch {
       throw new UnauthorizedException('Invalid or expired access token')
     }
@@ -40,6 +42,15 @@ export class JwtAuthGuard implements CanActivate {
     // The half-finished-login challenge token is signed with the same key, so
     // reject anything carrying a purpose claim: only access tokens get through.
     if (payload.purpose) {
+      throw new UnauthorizedException('Invalid or expired access token')
+    }
+
+    // Same reasoning for guest sessions, which are also signed with this key.
+    // `verifyAsync` only checks `aud` when an audience is expected, so without
+    // this a guest could present their own token as a Bearer header and be
+    // taken for staff — with `role: undefined`, but authenticated. Staff
+    // tokens carry no audience at all, so any `aud` here is not one of ours.
+    if (payload.aud) {
       throw new UnauthorizedException('Invalid or expired access token')
     }
 

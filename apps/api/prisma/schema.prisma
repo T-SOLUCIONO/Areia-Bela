@@ -59,7 +59,8 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookings Booking[]
+  bookings    Booking[]
+  loginTokens GuestLoginToken[]
 }
 
 enum BookingStatus {
@@ -68,6 +69,25 @@ enum BookingStatus {
   CANCELLED
   CHECKED_IN
   CHECKED_OUT
+}
+
+// Emailed sign-in links for the guest area. Same shape as PasswordResetToken —
+// hashed, single-use, short-lived — because it is the same problem: a secret
+// travelling through email, a channel we do not control.
+//
+// New entity, justified: guests authenticate against Customer, never User.
+// Staff accounts and guests are different populations with different powers,
+// and a shared table would be one bug away from a guest holding a staff role.
+model GuestLoginToken {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
 }
 
 model Booking {

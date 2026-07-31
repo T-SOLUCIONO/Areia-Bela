@@ -2314,3 +2314,134 @@ wins del plan desde antes de esta fase. **Es una acción manual del usuario:**
 rotar en Stripe (modo test → API keys → Roll key) y, si se quiere, purgar el
 historial con `git filter-repo`. La purga limpia pero no rescata: con un repo
 público hay que asumir que la clave pudo ser leída.
+
+---
+
+## 38. El huésped entra a ver su reserva, sin contraseña
+
+Pedido: que el huésped pueda entrar a revisar sus reservas y sus datos, y
+descargar un PDF de la reserva.
+
+### Enlace por correo, no contraseña
+
+Una contraseña sería una credencial que el huésped tiene que inventar,
+recordar y probablemente reutilizar, para una o dos estadías al año — y una
+cosa más que esta casa guarda y de la que responde. El correo ya es el
+identificador bajo el que se hace una reserva, así que demostrar que se
+controla es prueba suficiente.
+
+`GuestLoginToken` es entidad nueva y se justifica: misma forma que
+`PasswordResetToken` — hasheado, de un solo uso, 15 minutos — porque es el
+mismo problema, un secreto viajando por correo. **Los huéspedes se autentican
+contra `Customer`, nunca contra `User`.** Son poblaciones distintas con poderes
+distintos, y una tabla compartida está a un bug de que un huésped tenga un rol
+de staff.
+
+`POST /guest/login` responde **204 siempre**, exista o no ese correo.
+Contestar distinto lo convertiría en una forma de preguntarle a la casa si
+alguien concreto se ha alojado aquí.
+
+### El agujero que abrí y cerré antes de seguir
+
+Las sesiones de huésped se firman con `JWT_ACCESS_SECRET`, el mismo del panel.
+El guard del staff verificaba **sin comprobar la audiencia** y aceptaba
+`Authorization: Bearer`, así que un huésped podía presentar su propio token y
+quedar autenticado — con `role: undefined`, bloqueado en las rutas con
+`@Roles`, pero **no en las que solo exigen sesión**.
+
+Se cierra rechazando cualquier token con `aud`, igual que ya se hacía con el
+claim `purpose` del reto de 2FA. Los tokens del staff no llevan audiencia, así
+que cualquier `aud` no es de los nuestros.
+
+Verificado que es ese arreglo el que actúa, no otra cosa:
+
+```
+token sin aud → 401 "Account is no longer active"   (pasó el guard, murió después)
+token aud=guest → 401 "Invalid or expired access token"  (lo corta el guard)
+```
+
+### Todo se filtra por la sesión
+
+Ninguna ruta del área acepta un identificador: el servidor consulta por quien
+diga la cookie. Una referencia en una URL no es una credencial.
+
+```
+AB-T45RMB (de otro huésped) con la sesión de Erick → 404
+/guest/me y /guest/bookings sin sesión             → 401
+```
+
+El correo **no es editable** desde dentro de la sesión: es el identificador del
+que cuelgan sus reservas y la dirección a la que va su enlace de acceso, así
+que cambiarlo desde dentro sería una forma de apropiarse de una cuenta con una
+cookie robada. Cambiarlo es una conversación con la anfitriona.
+
+### El PDF
+
+Se genera en el servidor con `pdfkit`, no en el navegador: así salen los mismos
+bytes le pida quien le pida y con lo que sea, y las cifras son las almacenadas,
+no algo que una página recalculó.
+
+Solo español e inglés. Un PDF es un artefacto casi legal que la gente reenvía a
+terceros, y uno traducido a máquina es peor que uno en un idioma que al menos
+se reconoce. Los cinco idiomas del sitio son otra promesa.
+
+Al revisarlo salió un fallo: el pie imprimía **la dirección dos veces**, porque
+`Property.address` ya es la línea completa y encima se le añadían `city`,
+`state` y `country`.
+
+### Rediseño: la estadía como una banda
+
+El componente `StayBand` dibuja una estadía como lo que es — dos extremos
+anclados y el tramo entre ellos — la misma forma que el calendario usa para un
+rango seleccionado. Un huésped que eligió sus fechas en la portada se
+reencuentra con esa figura en la confirmación y en su historial. Cuatro datos
+sueltos en una cuadrícula se leen como cuatro hechos; esto se lee como una
+estadía, que es lo que compró.
+
+### Lo que se quitó del checkout
+
+La sección "Pago" encabezaba con `Visa · Mastercard · Amex · Discover` y un
+icono de tarjeta. **Esta página nunca ve una tarjeta** — eso ocurre en la
+página de Stripe — así que esa fila anunciaba una capacidad que no tiene, y
+ponerla sobre el total daba a entender que la tarjeta se introducía ahí.
+
+### Verificación
+
+```
+pedir enlace: con reserva y desconocido → 204 los dos, indistinguibles
+correo real enviado por Brevo           → "Email sent to egiraldom@outlook.com"
+canjear el enlace                       → entra como Erick Giraldo
+reusarlo                                → 401 (un solo uso)
+editar teléfono                         → guarda; editar el correo → 400
+PDF                                     → 200, application/pdf, 1 página, con logo
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (231 tests)
+```
+
+### Checklist de seguridad, para esta pieza
+
+|                                                                 |            |
+| --------------------------------------------------------------- | ---------- |
+| Cookie `HttpOnly`, `Secure` en producción, `SameSite` explícito | ✅         |
+| Rate limiting en el envío de enlaces (5 cada 15 min)            | ✅         |
+| El endpoint no revela si un correo existe                       | ✅         |
+| Token hasheado, un solo uso, vida corta                         | ✅         |
+| Sin auth de demo ni formularios prellenados                     | ✅         |
+| Variables documentadas por nombre en `docs/env.md`              | ✅         |
+| **Sin rotación ni revocación de la sesión**                     | ⚠ diferido |
+
+Lo último, explícito: la sesión de huésped es un JWT de 7 días sin refresh
+rotado ni tabla de revocación. Es una decisión de proporción — un huésped ve
+sus propias reservas y edita su propio teléfono — pero significa que una cookie
+robada vale una semana y no hay forma de matarla desde el panel. El staff sí
+tiene rotación. Se declara aquí en vez de omitirlo.
+
+### Diferido
+
+- **La confirmación y el checkout siguen con ternarios de dos idiomas** en las
+  partes que no toqué. Las cadenas nuevas van en los cinco.
+- **El PDF no se puede descargar desde la confirmación**, solo desde el área
+  del huésped, porque ahí todavía no hay sesión.

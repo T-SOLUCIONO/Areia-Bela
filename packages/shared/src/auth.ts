@@ -65,3 +65,33 @@ export const PUBLIC_ADMIN_PATHS = [
   '/admin/forgot-password',
   '/admin/reset-password',
 ] as const
+
+// --- Guest area ------------------------------------------------------------
+
+/**
+ * Guests sign in with a link emailed to them, never a password.
+ *
+ * A password would be a credential the guest has to invent, remember and reuse
+ * for one or two stays a year, and one more thing for this house to store and
+ * be responsible for. The email address is already the identifier a booking is
+ * made under, so proving control of it is proof enough.
+ */
+export const GUEST_LOGIN_TTL_MINUTES = 15
+
+/**
+ * How long a guest stays signed in.
+ *
+ * Longer than the staff access token because the blast radius is smaller — a
+ * guest sees their own bookings and can edit their own contact details — and
+ * because asking someone to re-request a link on every visit would make the
+ * area useless. There is no refresh rotation here; the trade-off is stated in
+ * docs/changelog.md.
+ */
+export const GUEST_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
+
+export const GUEST_SESSION_COOKIE = 'areia_bela_guest'
+
+/** Marks a token as a guest session, so it can never authenticate an admin. */
+export const GUEST_TOKEN_AUDIENCE = 'guest'
+
+export const GUEST_AREA_PATH = '/my-booking'
