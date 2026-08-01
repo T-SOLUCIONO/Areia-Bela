@@ -1,11 +1,15 @@
+import { CancellationPolicy } from '@prisma/client'
 import { Type } from 'class-transformer'
 import {
   IsArray,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
   Matches,
+  Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator'
@@ -25,6 +29,21 @@ export class UpdatePropertyDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) maxGuests?: number
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) bedrooms?: number
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) bathrooms?: number
+
+  // How long a stay may be, and when it starts earning the long-stay discount.
+  // Commercial levers the host pulls, not constants of the house.
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) minNights?: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) maxNights?: number
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) weeklyDiscountPercent?: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(2) weeklyDiscountNights?: number
+
+  // Airbnb's ladder, because it is the vocabulary guests already know.
+  @IsOptional()
+  @IsIn(Object.values(CancellationPolicy))
+  cancellationPolicy?: CancellationPolicy
+
+  // What every guest needs and nobody asks: where to park, how the door works.
+  @IsOptional() @IsString() @MaxLength(2000) accessNotes?: string
 
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) additionalGuestFeePerNight?: number
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) cleaningFee?: number

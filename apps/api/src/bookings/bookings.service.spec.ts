@@ -1,9 +1,12 @@
 import { ConflictException, NotFoundException } from '@nestjs/common'
+import type { ConfigService } from '@nestjs/config'
 import { Prisma } from '@prisma/client'
 import { generateReference } from '@areia-bela/shared'
 import { BookingsService } from './bookings.service'
 import type { PropertiesService } from '../properties/properties.service'
 import type { NotificationsService } from '../notifications/notifications.service'
+import type { PaymentsService } from './payments.service'
+import type { GuestService } from '../guest/guest.service'
 import type { PrismaService } from '../prisma/prisma.service'
 import type { CreateHoldDto } from './dto/create-hold.dto'
 
@@ -30,6 +33,8 @@ const QUOTE = {
   taxes: 180,
   total: 2800,
 }
+
+const ORIGIN = 'http://localhost:3000'
 
 const DTO: CreateHoldDto = {
   checkIn: '2026-09-01',
@@ -68,7 +73,7 @@ const BOOKING_ROW = {
     phone: '+13055550100',
   },
   extras: [{ extra: { name: 'Mascota' } }],
-  property: { checkInTime: '16:00', checkOutTime: '10:00' },
+  property: { slug: 'areia-bela', checkInTime: '16:00', checkOutTime: '10:00' },
 }
 
 /** What Prisma surfaces when the exclusion constraint refuses an overlap. */
@@ -89,14 +94,17 @@ describe('BookingsService', () => {
       update: jest.Mock
       updateMany: jest.Mock
     }
-    customer: { upsert: jest.Mock }
+    customer: { upsert: jest.Mock; findUnique?: jest.Mock }
     $transaction: jest.Mock
   }
   let properties: { getQuote: jest.Mock }
+  let guests: { myBooking: jest.Mock }
+  let payments: { checkoutUrlFor: jest.Mock; sessionStatus?: jest.Mock }
   let notifications: {
     bookingCreated: jest.Mock
     bookingCancelled: jest.Mock
     bookingConflict: jest.Mock
+    paymentNotCompleted: jest.Mock
     guestConfirmation: jest.Mock
   }
   let service: BookingsService
@@ -118,10 +126,15 @@ describe('BookingsService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
     }
     properties = { getQuote: jest.fn().mockResolvedValue(QUOTE) }
+    guests = { myBooking: jest.fn() }
+    payments = {
+      checkoutUrlFor: jest.fn().mockResolvedValue('https://checkout.stripe.com/c/pay/cs_test_1'),
+    }
     notifications = {
       bookingCreated: jest.fn().mockResolvedValue(undefined),
       bookingCancelled: jest.fn().mockResolvedValue(undefined),
       bookingConflict: jest.fn().mockResolvedValue(undefined),
+      paymentNotCompleted: jest.fn().mockResolvedValue(undefined),
       guestConfirmation: jest.fn().mockResolvedValue(undefined),
     }
 
@@ -129,12 +142,17 @@ describe('BookingsService', () => {
       prisma as unknown as PrismaService,
       properties as unknown as PropertiesService,
       notifications as unknown as NotificationsService,
+      payments as unknown as PaymentsService,
+      {
+        get: (key: string) => (key === 'PUBLIC_SITE_URL' ? 'http://localhost:3000' : undefined),
+      } as unknown as ConfigService,
+      guests as unknown as GuestService,
     )
   })
 
   describe('holding the dates', () => {
     it('prices the stay through the same service the quote endpoint uses', async () => {
-      await service.hold('areia-bela', DTO)
+      await service.hold('areia-bela', DTO, ORIGIN)
 
       expect(properties.getQuote).toHaveBeenCalledWith(
         'areia-bela',
@@ -151,7 +169,7 @@ describe('BookingsService', () => {
 
     it('creates the hold PENDING, with an expiry', async () => {
       const before = Date.now()
-      const result = await service.hold('areia-bela', DTO)
+      const result = await service.hold('areia-bela', DTO, ORIGIN)
 
       const { data } = prisma.booking.create.mock.calls[0][0] as {
         data: { status: string; expiresAt: Date }
@@ -165,7 +183,7 @@ describe('BookingsService', () => {
       // The exclusion constraint cannot check an expiry — its predicate has to
       // be immutable — so this sweep is the only thing keeping an abandoned
       // checkout from blocking the week forever.
-      await service.hold('areia-bela', DTO)
+      await service.hold('areia-bela', DTO, ORIGIN)
 
       expect(prisma.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -181,13 +199,17 @@ describe('BookingsService', () => {
     it('answers 409 when the database refuses an overlap', async () => {
       prisma.booking.create.mockRejectedValue(overlapError())
 
-      await expect(service.hold('areia-bela', DTO)).rejects.toBeInstanceOf(ConflictException)
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
     })
 
     it('refuses dates the host blocked, which no constraint covers', async () => {
       prisma.blockedDate.findFirst.mockResolvedValue({ id: 'blocked-1' })
 
-      await expect(service.hold('areia-bela', DTO)).rejects.toBeInstanceOf(ConflictException)
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
       expect(prisma.booking.create).not.toHaveBeenCalled()
     })
 
@@ -198,14 +220,14 @@ describe('BookingsService', () => {
         )
         .mockResolvedValue(BOOKING_ROW)
 
-      await expect(service.hold('areia-bela', DTO)).resolves.toMatchObject({
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).resolves.toMatchObject({
         reference: 'AB-XYZ123',
       })
       expect(prisma.booking.create).toHaveBeenCalledTimes(2)
     })
 
     it('keeps a returning guest on their existing customer row', async () => {
-      await service.hold('areia-bela', DTO)
+      await service.hold('areia-bela', DTO, ORIGIN)
 
       expect(prisma.customer.upsert).toHaveBeenCalledWith(
         expect.objectContaining({ where: { email: 'jane@example.com' } }),
@@ -215,7 +237,7 @@ describe('BookingsService', () => {
     it('rejects an unknown property instead of holding nothing', async () => {
       prisma.property.findUnique.mockResolvedValue(null)
 
-      await expect(service.hold('nope', DTO)).rejects.toBeInstanceOf(NotFoundException)
+      await expect(service.hold('nope', DTO, ORIGIN)).rejects.toBeInstanceOf(NotFoundException)
     })
   })
 
@@ -301,6 +323,76 @@ describe('BookingsService', () => {
       prisma.booking.findUnique.mockResolvedValue(null)
 
       await expect(service.confirmPayment('ghost', 'cs_test_1', 100)).resolves.toBeUndefined()
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('a payment that never completed', () => {
+    it('frees the dates and tells the guest, with a way to try again', async () => {
+      // Saying nothing leaves someone who got halfway through checkout
+      // assuming they have a booking.
+      await service.releaseHold('booking-1', 'El huésped no completó el pago')
+
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'CANCELLED', checkoutUrl: null }),
+        }),
+      )
+      const [notice, retry] = notifications.paymentNotCompleted.mock.calls[0] as [
+        { locale: string },
+        string,
+      ]
+      expect(notice.locale).toBe('en')
+      expect(retry).toContain('checkin=2026-09-01')
+    })
+
+    it('does nothing to a booking that is no longer pending', async () => {
+      // A confirmed stay must never be released by a late expiry webhook.
+      prisma.booking.findUnique.mockResolvedValue({ ...BOOKING_ROW, status: 'CONFIRMED' })
+
+      await service.releaseHold('booking-1', 'tarde')
+
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+      expect(notifications.paymentNotCompleted).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('coming back from Stripe', () => {
+    it('confirms on the spot when no webhook has arrived', async () => {
+      // The guest is standing in front of the confirmation page having just
+      // paid. Telling them their booking does not exist while a webhook is in
+      // flight — or lost — is the worst answer available.
+      prisma.booking.findUnique
+        .mockResolvedValueOnce(null) // nothing keyed to this session yet
+        .mockResolvedValueOnce(BOOKING_ROW) // the row confirmPayment reads
+        .mockResolvedValueOnce({ id: 'booking-1', customerId: 'cust-1', reference: 'AB-XYZ123' })
+      payments.sessionStatus = jest
+        .fn()
+        .mockResolvedValue({ paid: true, bookingId: 'booking-1', amountTotal: 280_000 })
+      guests.myBooking = jest.fn().mockResolvedValue({ reference: 'AB-XYZ123' })
+      prisma.customer = {
+        ...prisma.customer,
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ firstName: 'Jane', lastName: 'Doe', email: 'j@e.com' }),
+      }
+
+      const result = await service.findBySession('cs_test_1')
+
+      expect(payments.sessionStatus).toHaveBeenCalledWith('cs_test_1')
+      expect(prisma.booking.update).toHaveBeenCalled()
+      expect(result.reference).toBe('AB-XYZ123')
+    })
+
+    it('does not confirm a session Stripe says was never paid', async () => {
+      prisma.booking.findUnique.mockResolvedValue(null)
+      payments.sessionStatus = jest
+        .fn()
+        .mockResolvedValue({ paid: false, bookingId: 'booking-1', amountTotal: 0 })
+
+      await expect(service.findBySession('cs_test_unpaid')).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
       expect(prisma.booking.update).not.toHaveBeenCalled()
     })
   })

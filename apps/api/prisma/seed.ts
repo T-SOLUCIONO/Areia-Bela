@@ -8,8 +8,13 @@ import propertyListing from '../../web/datos.json'
  * - apps/web/datos.json: the actual scraped Airbnb listing (name, address,
  *   amenities, pricing) that apps/web/lib/property-data.ts already reads.
  * - docs/domain-decisions.md: business rules not present in the scraped
- *   listing (extras beyond heated-pool, additional-guest fee, penalties,
- *   check-in/out times, trash days).
+ *   listing (extras beyond heated-pool, penalties, check-in/out times,
+ *   trash days).
+ *
+ * The additional-guest fee is NOT an Extra: it lives on the property as
+ * `additionalGuestFeePerNight` and is charged automatically from the party
+ * size. It was seeded as one too, which put a switch in the panel that looked
+ * like it controlled the charge and controlled nothing.
  *
  * Known gap, disclosed rather than papered over: no Spanish translation of
  * the property description exists yet anywhere in the codebase, so
@@ -109,13 +114,6 @@ async function main() {
       price: 20,
       refundable: true,
       requiresRequest: true,
-    },
-    {
-      key: 'additional-guest',
-      name: 'Huésped adicional',
-      pricingType: 'PER_NIGHT',
-      price: 30,
-      refundable: true,
     },
     {
       key: 'pet',

@@ -11,6 +11,7 @@ import { CmsModule } from './cms/cms.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { BookingsModule } from './bookings/bookings.module'
 import { CustomersModule } from './customers/customers.module'
+import { GuestModule } from './guest/guest.module'
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CustomersModule } from './customers/customers.module'
     NotificationsModule,
     BookingsModule,
     CustomersModule,
+    GuestModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

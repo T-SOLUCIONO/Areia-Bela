@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { propertyData, PROPERTY_SLUG } from '@/lib/property-data'
+import type { CancellationPolicy } from '@areia-bela/shared'
+import { PROPERTY_SLUG } from '@/lib/property-data'
 
 export type GuestCounts = {
   adults: number
@@ -16,7 +17,6 @@ export type BookingQuote = {
   nights: number
   guests: GuestCounts
   pricePerNight: number
-  originalPricePerNight: number
   /**
    * `price` is a unit price whose unit depends on `pricingType`: a night, an
    * hour, or the whole stay. The pet fee is per stay, and treating every extra
@@ -33,12 +33,23 @@ export type BookingQuote = {
   /** Every night with the rate that applied, so a total is explainable. */
   nightly: Array<{ date: string; rate: number; season: 'LOW' | 'HIGH' | 'WEEKEND' }>
   subtotal: number
+  /** Positive when the long-stay discount applies; subtracted from the total. */
+  weeklyDiscount: number
   extrasTotal: number
   additionalGuestFee: number
   cleaningFee: number
   serviceFee: number
   taxes: number
   total: number
+  /**
+   * Set when the stay is priced but not bookable because of its length. The
+   * quote still carries a total — the guest needs to see what a valid stay
+   * costs, not an error where the price should be.
+   */
+  stayLength?:
+    | { kind: 'tooShort'; minNights: number; nights: number }
+    | { kind: 'tooLong'; maxNights: number; nights: number }
+    | null
 }
 
 export const getNights = (checkIn: string, checkOut: string) =>
@@ -86,7 +97,7 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
 
     const breakdown = (await response.json()) as Omit<
       BookingQuote,
-      'checkIn' | 'checkOut' | 'guests' | 'originalPricePerNight'
+      'checkIn' | 'checkOut' | 'guests'
     >
 
     return {
@@ -94,9 +105,6 @@ export async function fetchQuote(input: QuoteRequest): Promise<BookingQuote | nu
       checkIn: input.checkIn,
       checkOut: input.checkOut,
       guests: input.guests,
-      // Only used to draw a struck-through price; the server has no notion of
-      // a "was" price, so it comes from the listing.
-      originalPricePerNight: propertyData.pricing.original_price_per_night,
     }
   } catch {
     return null
@@ -179,6 +187,50 @@ export async function fetchNightRates(from: string, to: string): Promise<NightRa
     return (await response.json()) as NightRate[]
   } catch {
     return []
+  }
+}
+
+/**
+ * The house's booking terms: how short and how long a stay may be, and which
+ * cancellation policy applies.
+ *
+ * Read so the calendar can refuse a too-short range before the guest fills in
+ * a form. The server validates it again on the way to payment — this is a
+ * convenience, not the rule.
+ */
+export async function fetchStayLimits(): Promise<{
+  minNights: number
+  maxNights: number
+  cancellationPolicy: CancellationPolicy
+}> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  // The seeded default, so a page that cannot reach the API states the policy
+  // the house actually has rather than nothing.
+  const fallback = {
+    minNights: 1,
+    maxNights: 365,
+    cancellationPolicy: 'MODERATE' as CancellationPolicy,
+  }
+  if (!apiUrl) return fallback
+
+  try {
+    const response = await fetch(`${apiUrl}/properties/${PROPERTY_SLUG}`, { cache: 'no-store' })
+    if (!response.ok) return fallback
+
+    const property = (await response.json()) as {
+      minNights?: number
+      maxNights?: number
+      cancellationPolicy?: CancellationPolicy
+    }
+    return {
+      minNights: property.minNights ?? fallback.minNights,
+      maxNights: property.maxNights ?? fallback.maxNights,
+      cancellationPolicy: property.cancellationPolicy ?? fallback.cancellationPolicy,
+    }
+  } catch {
+    // Fail-soft, like the rest of this file: the calendar still works, and the
+    // server refuses anything it should not accept.
+    return fallback
   }
 }
 

@@ -23,6 +23,17 @@ model Property {
   // a commercial lever the host pulls, not a constant of the house.
   weeklyDiscountPercent      Decimal  @default(10) @db.Decimal(5, 2)
   weeklyDiscountNights       Int      @default(7)
+  // Commercial levers, like the discount above: the real listing allows a
+  // single night and up to a year, but the host changes these by season.
+  minNights                  Int      @default(1)
+  maxNights                  Int      @default(365)
+  // MODERATE matches what the site has been telling guests all along —
+  // "free cancellation until 5 days before" — so it is the only default that
+  // does not contradict a promise already made. Editable from the panel.
+  cancellationPolicy         CancellationPolicy @default(MODERATE)
+  // Anything every guest needs and nobody thinks to ask: where to park, how
+  // the door works. Empty until the host writes it; nothing here is invented.
+  accessNotes                String?
   serviceFeePercent          Decimal  @db.Decimal(5, 2)
   taxesPercent               Decimal  @db.Decimal(5, 2)
   bedrooms                   Int
@@ -55,7 +66,8 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookings Booking[]
+  bookings    Booking[]
+  loginTokens GuestLoginToken[]
 }
 
 enum BookingStatus {
@@ -64,6 +76,25 @@ enum BookingStatus {
   CANCELLED
   CHECKED_IN
   CHECKED_OUT
+}
+
+// Emailed sign-in links for the guest area. Same shape as PasswordResetToken —
+// hashed, single-use, short-lived — because it is the same problem: a secret
+// travelling through email, a channel we do not control.
+//
+// New entity, justified: guests authenticate against Customer, never User.
+// Staff accounts and guests are different populations with different powers,
+// and a shared table would be one bug away from a guest holding a staff role.
+model GuestLoginToken {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
 }
 
 model Booking {
@@ -84,6 +115,23 @@ model Booking {
 
   status     BookingStatus @default(PENDING)
   totalPrice Decimal       @db.Decimal(10, 2)
+
+  // The bill as it was charged, frozen at the moment of booking.
+  //
+  // Recomputing it later would show today's prices on a stay bought last
+  // season: a receipt has to say what was paid, not what the same nights
+  // would cost now. Every figure here is the server's, never the browser's.
+  nightsSubtotal     Decimal @default(0) @db.Decimal(10, 2)
+  weeklyDiscount     Decimal @default(0) @db.Decimal(10, 2)
+  extrasTotal        Decimal @default(0) @db.Decimal(10, 2)
+  additionalGuestFee Decimal @default(0) @db.Decimal(10, 2)
+  cleaningFee        Decimal @default(0) @db.Decimal(10, 2)
+  serviceFee         Decimal @default(0) @db.Decimal(10, 2)
+  taxes              Decimal @default(0) @db.Decimal(10, 2)
+
+  // Where to finish paying, while the hold is alive. Cleared on confirmation:
+  // a Stripe session that already paid is not a link to hand anyone.
+  checkoutUrl String?
   // When a PENDING hold stops holding the dates. Null once paid: a confirmed
   // stay never expires. The date range is guarded by an exclusion constraint
   // (see the migration), so two guests cannot pay for the same week.
@@ -141,6 +189,15 @@ model BookingExtra {
   quantity  Int     @default(1)
 
   @@unique([bookingId, extraId])
+}
+
+// Airbnb's ladder, because it is the vocabulary guests already know. The host
+// picks one; the site states it in their language and prints it on the PDF.
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  FIRM
+  STRICT
 }
 
 enum SeasonType {

@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common'
+import { ScheduleModule } from '@nestjs/schedule'
 import { PropertiesModule } from '../properties/properties.module'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { GuestModule } from '../guest/guest.module'
 import { BookingsController } from './bookings.controller'
 import { BookingsService } from './bookings.service'
 import { StripeWebhookService } from './stripe-webhook.service'
+import { PaymentsService } from './payments.service'
+import { PaymentReconciliationService } from './payment-reconciliation.service'
 
 @Module({
-  imports: [PropertiesModule, NotificationsModule],
+  imports: [ScheduleModule.forRoot(), PropertiesModule, NotificationsModule, GuestModule],
   controllers: [BookingsController],
-  providers: [BookingsService, StripeWebhookService],
+  providers: [BookingsService, StripeWebhookService, PaymentsService, PaymentReconciliationService],
 })
 export class BookingsModule {}

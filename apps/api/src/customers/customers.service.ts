@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto'
+import { GuestAuthService } from '../guest/guest-auth.service'
 
 export interface GuestSummary {
   id: string
@@ -35,7 +36,10 @@ const iso = (date: Date) => date.toISOString().slice(0, 10)
  */
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly guestAuth: GuestAuthService,
+  ) {}
 
   async list(): Promise<GuestSummary[]> {
     const customers = await this.prisma.customer.findMany({
@@ -138,6 +142,28 @@ export class CustomersService {
     }
 
     await this.prisma.customer.delete({ where: { id } })
+  }
+
+  /**
+   * Re-sends the guest's sign-in link, at the host's request.
+   *
+   * Delegates to the same service the public endpoint uses, so there is one
+   * way a link is ever made: same expiry, same single use, same invalidation
+   * of whatever was outstanding. A second path would be a second thing to get
+   * wrong.
+   */
+  async resendLoginLink(id: string, locale: string): Promise<void> {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: { _count: { select: { bookings: true } } },
+    })
+    if (!customer) throw new NotFoundException('Guest not found')
+
+    if (customer._count.bookings === 0) {
+      throw new ConflictException('This guest has no bookings to sign in and see')
+    }
+
+    await this.guestAuth.requestLink(customer.email, locale)
   }
 
   /** Email is unique, and a duplicate is the one failure worth naming. */

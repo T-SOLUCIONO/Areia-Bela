@@ -7,24 +7,34 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   RawBodyRequest,
   Req,
+  Res,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { UserRole } from '@prisma/client'
-import type { Request } from 'express'
+import type { Request, Response } from 'express'
 import { Public } from '../auth/decorators/public.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { BookingsService } from './bookings.service'
 import { StripeWebhookService } from './stripe-webhook.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { CancelBookingDto } from './dto/cancel-booking.dto'
+import { BookingPdfService } from '../guest/booking-pdf.service'
 
 @Controller('bookings')
 export class BookingsController {
+  /** The same allowlist CORS uses; a return URL must be one of these. */
+  private readonly allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+
   constructor(
     private readonly bookings: BookingsService,
     private readonly webhook: StripeWebhookService,
+    private readonly pdfs: BookingPdfService,
   ) {}
 
   /**
@@ -37,8 +47,16 @@ export class BookingsController {
   @Public()
   @Throttle({ default: { limit: 8, ttl: 600_000 } })
   @Post(':slug/hold')
-  hold(@Param('slug') slug: string, @Body() dto: CreateHoldDto) {
-    return this.bookings.hold(slug, dto)
+  hold(@Param('slug') slug: string, @Body() dto: CreateHoldDto, @Req() req: Request) {
+    // Stripe refuses a relative return URL, so it needs an absolute one. The
+    // Origin header is set by the browser and cannot be forged from a page on
+    // another site — and CORS already restricts who may call this at all.
+    const origin = req.headers.origin
+    if (!origin || !this.allowedOrigins.includes(origin)) {
+      throw new BadRequestException('Unknown origin')
+    }
+
+    return this.bookings.hold(slug, dto, origin)
   }
 
   /**
@@ -75,6 +93,39 @@ export class BookingsController {
   @Get('session/:sessionId')
   findBySession(@Param('sessionId') sessionId: string) {
     return this.bookings.findBySession(sessionId)
+  }
+
+  /**
+   * The same PDF the guest area serves, for someone who just paid and has not
+   * signed in yet.
+   *
+   * Keyed by the Stripe session id on the same reasoning as the route above:
+   * it reaches nobody but the guest who paid. Asking them to request an email
+   * link before they can download the receipt for the payment they made thirty
+   * seconds ago would be absurd.
+   */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 600_000 } })
+  @Get('session/:sessionId/pdf')
+  async sessionPdf(
+    @Param('sessionId') sessionId: string,
+    @Query('locale') locale: string | undefined,
+    @Res() res: Response,
+  ) {
+    const booking = await this.bookings.findBySession(sessionId)
+    const pdf = await this.pdfs.render(
+      booking,
+      booking.guestName,
+      booking.guestEmail,
+      locale === 'en' ? 'en' : 'es',
+    )
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="areia-bela-${booking.reference}.pdf"`,
+    )
+    res.send(pdf)
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER, UserRole.VIEWER)

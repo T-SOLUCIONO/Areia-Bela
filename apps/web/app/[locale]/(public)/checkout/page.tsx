@@ -5,16 +5,22 @@ import { useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { format, parseISO, subDays } from 'date-fns'
-import { Star, ShieldCheck, Clock, CreditCard, CalendarX } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
+import {
+  fill,
+  fullRefundDeadline,
+  halfRefundDeadline,
+  type CancellationPolicy,
+} from '@areia-bela/shared'
+import { ShieldCheck, CalendarX } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
-import { Input } from '@areia-bela/ui/input'
-import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
 import {
   currency,
   fetchNightRates,
+  fetchStayLimits,
   getQuoteFromStorage,
   fetchQuote,
   parseQuoteRequestFromSearchParams,
@@ -22,34 +28,17 @@ import {
   type BookingQuote,
 } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
-import { createCheckoutSession, DatesUnavailableError } from '@/services/payment'
+import { createCheckoutSession, DatesUnavailableError, StayLengthError } from '@/services/payment'
 import { useLanguage } from '@/components/language-provider'
 import { translations } from '@/lib/i18n'
-import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
-import { HostResponseBadges } from '@/components/public/host-response-badges'
 
-const guestLabel = (
-  adults: number,
-  children: number,
-  infants: number,
-  pets: number,
-  isEnglish: boolean,
-) => {
-  const parts: string[] = []
-  const totalGuests = adults + children
-  parts.push(
-    `${totalGuests} ${totalGuests !== 1 ? (isEnglish ? 'guests' : 'huéspedes') : isEnglish ? 'guest' : 'huésped'}`,
-  )
-  if (infants > 0)
-    parts.push(
-      `${infants} ${infants !== 1 ? (isEnglish ? 'infants' : 'bebés') : isEnglish ? 'infant' : 'bebé'}`,
-    )
-  if (pets > 0)
-    parts.push(
-      `${pets} ${pets !== 1 ? (isEnglish ? 'pets' : 'mascotas') : isEnglish ? 'pet' : 'mascota'}`,
-    )
-  return parts.join(', ')
-}
+const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
+import { CheckoutSummary } from '@/components/public/checkout-summary'
+import { PaymentMethodDialog, PaymentOverlay } from '@/components/public/payment-method-dialog'
+import { EditDatesDialog, EditGuestsDialog } from '@/components/public/edit-stay-dialogs'
+import { ServiceAnimalDialog } from '@/components/public/service-animal-dialog'
+import { StayExtras } from '@/components/public/stay-extras'
+import { HostResponseBadges } from '@/components/public/host-response-badges'
 
 function CheckoutForm() {
   const router = useRouter()
@@ -70,8 +59,18 @@ function CheckoutForm() {
   // hour, or land here from a stale link — finding out the week is gone after
   // typing a name, an email and a phone number is the worst possible moment.
   const [datesGone, setDatesGone] = useState(false)
+  const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
+  const [payOpen, setPayOpen] = useState(false)
+  const [datesOpen, setDatesOpen] = useState(false)
+  const [guestsOpen, setGuestsOpen] = useState(false)
+  const [serviceAnimalOpen, setServiceAnimalOpen] = useState(false)
   const warned = useRef(false)
   const copy = translations[language].checkout
+  // Extras the guest adds here, keyed by extra id. Seeded from the URL so the
+  // pet fee picked in the quoter survives, and so does a page refresh.
+  const [chosenExtras, setChosenExtras] = useState<Record<string, number>>(
+    () => request?.extraUnits ?? {},
+  )
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -92,7 +91,14 @@ function CheckoutForm() {
     }
 
     let cancelled = false
-    void fetchQuote(request).then((priced) => {
+    // Re-priced whenever the extras change. The browser never adds the new
+    // line itself: the server owns the arithmetic, so the figure on screen is
+    // the figure Stripe will charge.
+    void fetchQuote({
+      ...request,
+      selectedExtraIds: Object.keys(chosenExtras),
+      extraUnits: chosenExtras,
+    }).then((priced) => {
       if (cancelled) return
       if (priced) {
         setQuote(priced)
@@ -105,7 +111,11 @@ function CheckoutForm() {
     return () => {
       cancelled = true
     }
-  }, [request, router])
+  }, [request, router, chosenExtras])
+
+  useEffect(() => {
+    void fetchStayLimits().then((terms) => setPolicy(terms.cancellationPolicy))
+  }, [])
 
   useEffect(() => {
     if (!request) return
@@ -143,12 +153,18 @@ function CheckoutForm() {
     )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!agreedToTerms || datesGone) return
-
-    // Belt and braces: native validation covers this, but a missing field must
-    // never reach the API as an opaque 400 the guest cannot act on.
+  /**
+   * Holds the dates and leaves for Stripe, with the page blocked throughout.
+   *
+   * Called from the dialog, after the browser has validated the details it
+   * collects. The belt-and-braces check below stays because a missing field
+   * must never reach the API as an opaque 400 the guest cannot act on.
+   *
+   * Two network calls happen here and the form underneath is still editable;
+   * changing a name after the dates are held would leave the booking and the
+   * screen out of step.
+   */
+  const startPayment = async () => {
     if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
       setError('missingDetails')
       return
@@ -174,10 +190,11 @@ function CheckoutForm() {
         },
         specialRequests: formData.specialRequests || undefined,
         locale: language,
-        extraIds: quote.extras.map((extra: BookingQuote['extras'][number]) => extra.id),
-        extraUnits: Object.fromEntries(
-          quote.extras.map((extra: BookingQuote['extras'][number]) => [extra.id, extra.quantity]),
-        ),
+        // What was chosen, not what the quote came back with: an extra whose
+        // season covers none of these nights is priced at zero and must not be
+        // re-sent as if it had been bought.
+        extraIds: Object.keys(chosenExtras),
+        extraUnits: chosenExtras,
       })
 
       // Kept for the confirmation page: if the webhook is slow, that page can
@@ -192,16 +209,35 @@ function CheckoutForm() {
       window.location.href = session.url
     } catch (err) {
       console.error('Checkout error:', err)
+      setPayOpen(false)
       if (err instanceof DatesUnavailableError) {
         setError('taken')
         setDatesGone(true)
         toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
+      } else if (err instanceof StayLengthError) {
+        // The server's message names the actual limit, which no fixed string
+        // here could — the host changes it from the panel.
+        setError('failed')
+        toast.error(err.message)
       } else {
         setError('failed')
         toast.error(copy.checkoutFailed)
       }
       setIsLoading(false)
     }
+  }
+
+  /**
+   * Rewrites the stay in the URL.
+   *
+   * The quote is read from the search params, so changing them is what makes
+   * the price re-fetch — there is no second copy of the stay that could fall
+   * out of step with the one being priced.
+   */
+  const updateStay = (changes: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    Object.entries(changes).forEach(([key, value]) => params.set(key, value))
+    router.replace(`?${params.toString()}`, { scroll: false })
   }
 
   const handleInputChange = (
@@ -211,7 +247,23 @@ function CheckoutForm() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const cancellationDate = format(subDays(parseISO(quote.checkIn), 5), 'MMM d')
+  // Derived from the house's policy, not a hard-coded five days.
+  const guestCopy = translations[language].guestArea
+  const refundDay = (value: string | null) =>
+    value ? format(parseISO(value), 'd MMMM', { locale: DATE_LOCALES[language] }) : ''
+  const policyText = {
+    FLEXIBLE: guestCopy.policyFlexible,
+    MODERATE: fill(guestCopy.policyModerate, {
+      date: refundDay(fullRefundDeadline(quote.checkIn, policy)),
+    }),
+    FIRM: fill(guestCopy.policyFirm, {
+      date: refundDay(fullRefundDeadline(quote.checkIn, policy)),
+      half: refundDay(halfRefundDeadline(quote.checkIn, policy)),
+    }),
+    STRICT: fill(guestCopy.policyStrict, {
+      half: refundDay(halfRefundDeadline(quote.checkIn, policy)),
+    }),
+  }[policy]
 
   return (
     <div className="min-h-screen bg-background">
@@ -254,88 +306,6 @@ function CheckoutForm() {
                 </Button>
               </div>
             )}
-
-            {/* Property Card */}
-            <div className="rounded-xl border border-border p-5">
-              <div className="flex gap-4">
-                <div className="relative h-24 w-32 flex-shrink-0 overflow-hidden rounded-lg">
-                  <Image
-                    src={propertyData.photos[0].large}
-                    alt={propertyData.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-foreground">{propertyData.name}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {propertyData.city}, {propertyData.country}
-                  </p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <Star className="h-4 w-4 fill-foreground text-foreground" />
-                    <span className="font-medium text-foreground">
-                      {propertyData.rating.toFixed(2)}
-                    </span>
-                    <span className="text-muted-foreground">
-                      ({propertyData.reviewsCount} {isEnglish ? 'reviews' : 'reseñas'})
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Trip Details */}
-            <section className="space-y-4">
-              <h2 className="font-serif text-xl text-foreground">
-                {isEnglish ? 'Your trip' : 'Tu viaje'}
-              </h2>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg border border-border p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {isEnglish ? 'Dates' : 'Fechas'}
-                  </p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {format(parseISO(quote.checkIn), 'MMM d')} -{' '}
-                    {format(parseISO(quote.checkOut), 'MMM d, yyyy')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {quote.nights} {isEnglish ? 'nights' : 'noches'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {isEnglish ? 'Guests' : 'Huéspedes'}
-                  </p>
-                  <p className="mt-1 font-medium text-foreground">
-                    {guestLabel(
-                      quote.guests.adults,
-                      quote.guests.children,
-                      quote.guests.infants,
-                      quote.guests.pets,
-                      isEnglish,
-                    )}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Cancellation Policy */}
-            <section className="rounded-xl border border-border p-5 bg-muted/40">
-              <div className="flex items-start gap-4">
-                <Clock className="h-6 w-6 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {isEnglish ? 'Free cancellation' : 'Cancelación gratuita'}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {isEnglish
-                      ? `Cancel before ${cancellationDate} for a partial refund. After that, cancel before check-in to get a 50% refund, minus the service fee.`
-                      : `Cancela antes del ${cancellationDate} para un reembolso parcial. Después de eso, cancela antes del check-in para obtener un reembolso del 50%, menos la tarifa de servicio.`}
-                  </p>
-                </div>
-              </div>
-            </section>
 
             {/* Message to Host */}
             <section className="space-y-4 rounded-[24px] border border-border bg-card p-5">
@@ -390,139 +360,42 @@ function CheckoutForm() {
               </p>
             </section>
 
-            {/* Guest Information */}
-            <section className="space-y-4">
-              <h2 className="font-serif text-xl text-foreground">
-                {isEnglish ? 'Guest information' : 'Información del huésped'}
-              </h2>
-              <form id="checkout-form" onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="firstName" className="text-sm font-medium text-foreground">
-                      {isEnglish ? 'First name' : 'Nombre'}
-                    </Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      required
-                      className="rounded-lg border-input"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="lastName" className="text-sm font-medium text-foreground">
-                      {isEnglish ? 'Last name' : 'Apellido'}
-                    </Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      required
-                      className="rounded-lg border-input"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="text-sm font-medium text-foreground">
-                    {isEnglish ? 'Email address' : 'Correo electrónico'}
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    className="rounded-lg border-input"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {isEnglish
-                      ? 'Confirmation will be sent to this email'
-                      : 'La confirmación se enviará a este correo'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="text-sm font-medium text-foreground">
-                    {isEnglish ? 'Phone number' : 'Número de teléfono'}
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    required
-                    className="rounded-lg border-input"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="country" className="text-sm font-medium text-foreground">
-                    {isEnglish ? 'Country/Region' : 'País/Región'}
-                  </Label>
-                  <select
-                    id="country"
-                    name="country"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-input px-3 py-2 text-sm"
-                  >
-                    <option value="United States">United States</option>
-                    <option value="Canada">Canada</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Australia">Australia</option>
-                    <option value="Germany">Germany</option>
-                    <option value="France">France</option>
-                    <option value="Spain">Spain</option>
-                    <option value="Brazil">Brazil</option>
-                  </select>
-                </div>
-              </form>
-            </section>
+            {/* Before the form: the guest decides what they are buying, then
+                gives their details. Reversing that means typing a phone number
+                and then being surprised by a new line on the total. */}
+            <StayExtras
+              checkIn={quote.checkIn}
+              checkOut={quote.checkOut}
+              selected={chosenExtras}
+              onChange={setChosenExtras}
+              language={language}
+              className="border-t border-border pt-6"
+            />
 
-            {/* Payment */}
+            {/* The card-brand chips that used to head this section are gone.
+                This page never sees a card — Stripe's own page does — so a row
+                of accepted-card logos was claiming a capability it does not
+                have, and putting it above the total implied the card was
+                entered here. */}
             <section className="space-y-4">
-              <h2 className="font-serif text-xl text-foreground">
-                {isEnglish ? 'Payment' : 'Pago'}
-              </h2>
-              <div className="rounded-xl border border-border p-5 bg-muted/40">
-                <div className="flex items-center gap-3 mb-4">
-                  <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-muted-foreground">
-                    {isEnglish ? 'Credit or debit card' : 'Tarjeta de crédito o débito'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {['Visa', 'Mastercard', 'Amex', 'Discover'].map((brand) => (
-                    <span
-                      key={brand}
-                      className="rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground"
-                    >
-                      {brand}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-medium text-foreground">Total (USD)</span>
-                  <span className="text-xl font-semibold text-foreground">
+              <div className="rounded-[20px] bg-[#f7f2ea] p-6">
+                <div className="mb-5 flex items-baseline justify-between border-b border-[#174d7a]/15 pb-4">
+                  <span className="font-medium text-[#173a57]">Total (USD)</span>
+                  <span className="font-serif text-3xl tabular-nums text-[#173a57]">
                     {currency(quote.total)}
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
                       id="agreeTerms"
                       checked={agreedToTerms}
                       onChange={(e) => setAgreedToTerms(e.target.checked)}
-                      className="h-4 w-4 rounded border-input accent-primary"
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#174d7a]"
                     />
-                    <label htmlFor="agreeTerms" className="text-sm text-muted-foreground">
+                    <label htmlFor="agreeTerms" className="text-sm text-slate-600">
                       {isEnglish ? 'I agree to the ' : 'Acepto los '}
                       <Link href="#" className="underline">
                         {isEnglish ? 'Terms of Service' : 'Términos de servicio'}
@@ -554,25 +427,19 @@ function CheckoutForm() {
                 )}
 
                 <Button
-                  type="submit"
-                  // The guest details are in a form two sections up. Pointing at
-                  // it by id makes this its submit button, which is what makes
-                  // the browser check the required fields before we send
-                  // anything — an onClick handler skips all of that.
-                  form="checkout-form"
+                  type="button"
+                  // Opens the dialog, which is where the details are asked for
+                  // and where the browser validates them.
+                  onClick={() => {
+                    setError(null)
+                    setPayOpen(true)
+                  }}
                   disabled={isLoading || !agreedToTerms || datesGone}
                   variant="brand"
                   size="lg"
                   className="mt-6 w-full text-base font-semibold shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
                 >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      {isEnglish ? 'Processing...' : 'Procesando...'}
-                    </span>
-                  ) : (
-                    <>{isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}</>
-                  )}
+                  {isEnglish ? 'Confirm and pay' : 'Confirmar y pagar'}
                 </Button>
               </div>
             </section>
@@ -593,7 +460,7 @@ function CheckoutForm() {
                 className="mb-3 flex w-full items-center justify-between rounded-[16px] border border-border bg-card px-4 py-3 lg:hidden"
               >
                 <span className="text-sm font-semibold text-foreground">
-                  {isEnglish ? 'Price details' : 'Detalle del precio'} · {currency(quote.total)}
+                  {copy.summaryPriceDetails} · {currency(quote.total)}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {showPriceBreakdown
@@ -606,12 +473,73 @@ function CheckoutForm() {
                 </span>
               </button>
               <div className={showPriceBreakdown ? 'block' : 'hidden lg:block'}>
-                <PriceBreakdownCard quote={quote} language={language} propertyPreview />
+                <CheckoutSummary
+                  quote={quote}
+                  language={language}
+                  policyText={policyText}
+                  onChangeDates={() => setDatesOpen(true)}
+                  onChangeGuests={() => setGuestsOpen(true)}
+                />
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      <PaymentMethodDialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        onConfirm={() => void startPayment()}
+        details={{
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          country: formData.country,
+        }}
+        onDetailsChange={(details) => setFormData((prev) => ({ ...prev, ...details }))}
+        total={quote.total}
+        busy={isLoading}
+        language={language}
+      />
+
+      {/* Covers the whole page, including the form underneath, until Stripe
+          answers or the attempt fails. */}
+      {/* Editing the stay in place. Both write to the URL, which is where the
+          quote is read from, so the price re-fetches on its own. */}
+      <EditDatesDialog
+        open={datesOpen}
+        onOpenChange={setDatesOpen}
+        checkIn={quote.checkIn}
+        checkOut={quote.checkOut}
+        onSave={(checkIn, checkOut) => updateStay({ checkin: checkIn, checkout: checkOut })}
+        language={language}
+      />
+
+      <EditGuestsDialog
+        open={guestsOpen}
+        onOpenChange={setGuestsOpen}
+        guests={quote.guests}
+        maxGuests={propertyData.capacity}
+        onSave={(guests) =>
+          updateStay({
+            adults: String(guests.adults),
+            children: String(guests.children),
+            infants: String(guests.infants),
+            pets: String(guests.pets),
+          })
+        }
+        onServiceAnimal={() => setServiceAnimalOpen(true)}
+        language={language}
+      />
+
+      <ServiceAnimalDialog
+        open={serviceAnimalOpen}
+        onOpenChange={setServiceAnimalOpen}
+        language={language}
+      />
+
+      {isLoading && <PaymentOverlay language={language} />}
     </div>
   )
 }

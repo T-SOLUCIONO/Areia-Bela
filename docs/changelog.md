@@ -2125,3 +2125,1147 @@ estadía" dibujada como extremo-banda-extremo en vez de un cuadrado de color.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (225 tests)
 ```
+
+---
+
+## 36. Fase 6, cerrada: lo que quedaba de su alcance
+
+Faltaban los dos ítems del plan que no eran el flujo de pago: **mínimo de
+noches** y **temporada de piscina climatizada**.
+
+### Extras que nadie podía comprar
+
+Este era el hueco serio. `heated-pool` ($20/noche, 1 oct – 1 may) y
+`certified-nanny` ($20/hora) llevan en la base desde Fase 3, y el motor los
+cobra correctamente — temporada, unidades por hora, todo. Pero **el cotizador
+solo mandaba `pet`**. Eran cargos sin ninguna forma de incurrir en ellos.
+
+Se añade `StayExtras` en el checkout, antes del formulario de datos: primero se
+decide qué se compra, después se dan los datos. Al revés significa teclear un
+teléfono y encontrarse una línea nueva en el total.
+
+**La trampa que costó encontrarla.** El API devuelve cada extra con `id` (cuid)
+y `key`, y `pricingInputFor` renombra `key` a `id` al construir la entrada del
+motor. Un `extraIds: ['<cuid>']` no falla: cotiza el extra a cero y la línea
+simplemente no aparece. La primera versión del componente usaba el cuid y las
+tres pruebas de temporada daban `$0`, incluso en enero. Queda documentado en el
+tipo del componente.
+
+Verificado que la temporada hace lo suyo:
+
+```
+enero  (5 noches, en temporada) → 5 noches de piscina · $100
+julio  (5 noches, fuera)        → 0 noches            · $0
+28 abr – 4 may (6 noches)       → 4 noches            · $80
+```
+
+Ese último es el caso que importa: la temporada **cruza el fin de año** (oct →
+may), y una estadía a caballo del 1 de mayo se cobra solo por las noches que
+caen dentro. La interfaz lo dice — "4 de tus noches" — porque un total que el
+huésped no puede reconciliar es un total que no se cree.
+
+Dos extras no están ahí a propósito: la mascota vive en el selector de
+huéspedes, donde uno piensa en el perro, y el huésped adicional se cobra solo a
+partir del tamaño del grupo.
+
+### Mínimo y máximo de noches
+
+No existían en ningún sitio. `Property` gana `minNights` y `maxNights`, con los
+valores del listing real (`datos.json`): 1 y 365.
+
+**La cotización no falla, señala.** Una estadía demasiado corta se sigue
+cotizando y devuelve `stayLength: { kind: 'tooShort', minNights }`. Un 400
+dejaría la tarjeta de precio en blanco a cada cambio de fecha y el huésped
+nunca sabría cuál es el límite. Quien se niega es `POST /bookings/hold`, que es
+el que cobra.
+
+El calendario también lo aplica, con un detalle de una línea que era un error
+latente: `min` en react-day-picker cuenta **días seleccionados**, y la salida
+es una mañana, no una noche. Estaba en `min={1}`, que permitía elegir el mismo
+día dos veces — cero noches. Ahora es `minNights + 1`.
+
+### Reglas de la estadía, editables
+
+Cuatro números que solo vivían en la base: mínimo, máximo, porcentaje de
+descuento largo y desde cuántas noches aplica. Los dos últimos estaban
+documentados como "editable desde el admin" en `docs/domain-decisions.md` pero
+**no figuraban en `UpdatePropertyDto`**: guardarlos era imposible.
+
+El servidor rechaza un mínimo mayor que el máximo, comparando contra lo
+almacenado cuando el PATCH trae solo uno de los dos. Sin eso, la casa quedaría
+imposible de reservar sin que nada lo dijera.
+
+### Verificación
+
+Con el mínimo en 3 y el máximo en 30:
+
+```
+cotizar 2 noches   → $870 y stayLength=tooShort   hold → 400 "at least 3 nights"
+cotizar 4 noches   → $1620, reservable            hold → 201
+cotizar 44 noches  → $14970 y stayLength=tooLong  hold → 400 "at most 30 nights"
+```
+
+Y las reglas desde el panel:
+
+```
+PATCH min=2 max=90 descuento=15% desde 5 noches → 200, persiste
+PATCH minNights=100 (máximo 90)                 → 400
+4 noches → descuento $0    ·    5 noches → descuento $225
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (231 tests, 6 nuevos)
+```
+
+### Criterio de salida de Fase 6
+
+| Requisito                                         |         |
+| ------------------------------------------------- | ------- |
+| Dos peticiones simultáneas dejan una sola reserva | ✅ §29  |
+| Un hold vencido devuelve sus noches               | ✅ §29  |
+| `CONFIRMED` solo con webhook firmado              | ✅ §29  |
+| Reservas visibles y cancelables en el panel       | ✅ §29  |
+| Mínimo de noches                                  | ✅ aquí |
+| Temporada de piscina climatizada                  | ✅ aquí |
+| `build/lint/typecheck/test` en verde              | ✅      |
+
+**Pendiente del usuario, no del código:** `STRIPE_WEBHOOK_SECRET` con un valor
+real. Sin él cada pago se queda en `PENDING` y hay que confirmarlo a mano.
+
+### Diferido a Fase 7
+
+- Reembolso automático al cancelar, y panel de pagos.
+- Crear una reserva desde el panel (una tomada por teléfono).
+- Mínimos por temporada: hoy el mínimo es uno para todo el año, y lo habitual
+  es exigir más noches en las fechas altas. Se declara porque el modelo actual
+  no lo soporta sin una columna nueva en `PriceRule`.
+
+---
+
+## 37. Stripe se muda entero al backend
+
+Observación del usuario, y tenía razón: la clave secreta de Stripe estaba en
+`apps/web`.
+
+Nunca llegó a un navegador — la usaba un route handler de Next, que corre en el
+servidor — pero repartía la responsabilidad del pago entre dos aplicaciones
+cuando el precio, la reserva y el webhook viven todos en el API. Dos entornos
+con la misma clave es el doble de sitios donde puede filtrarse, para nada.
+
+Ahora `POST /bookings/:slug/hold` cotiza, reserva las fechas **y abre el pago**
+en una sola llamada, devolviendo `checkoutUrl`. El route handler
+`apps/web/app/api/checkout/route.ts` se borró, y `apps/web` **no tiene ninguna
+credencial de Stripe**.
+
+### La variable que no leía nadie
+
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` estaba documentada como requerida y no
+aparecía en una sola línea de código. Serviría para cargar Stripe.js con un
+formulario de tarjeta propio; el sitio redirige a la página alojada de Stripe,
+así que nunca hizo falta. Eliminada de `.env`, de los `.env.example` y de
+`docs/env.md`.
+
+### El origen de las URLs de vuelta
+
+Stripe rechaza una URL de retorno relativa, y el route handler la sacaba de
+`req.headers.origin`. Al mudarse al API había que decidir de dónde sale ahora.
+
+Se conserva la cabecera `Origin` **pero validada contra `CORS_ORIGINS`**, la
+misma lista que ya restringe quién puede llamar. Sin eso, cualquiera podría
+crear un hold cuya URL de éxito apunte a un sitio suyo. Un `Origin` ausente o
+ajeno responde 400.
+
+### Stripe fuera de la transacción
+
+La sesión se crea **después** de cerrar la transacción de base de datos. Es una
+llamada de red a un servicio de terceros, y mantener abierta la transacción que
+sostiene la restricción de exclusión mientras Stripe responde sería un candado
+sobre el calendario entero durante lo que tarde Stripe.
+
+### Verificación
+
+```
+hold con Origin válido      → 201, AB-2HARTB, $1245, URL de checkout.stripe.com
+hold con Origin ajeno       → 400 "Unknown origin"
+hold sin Origin             → 400 "Unknown origin"
+grep STRIPE en apps/web     → 0 resultados
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (231 tests)
+```
+
+### Seguridad — hallazgo aparte
+
+Auditando el historial de git para responder qué significa rotar una clave,
+apareció que `.env.backup`, `apps/web/.env.backup` y `apps/api/.env.backup`
+**están commiteados** y contienen `STRIPE_SECRET_KEY` real. El repositorio
+`T-SOLUCIONO/Areia-Bela` es **público**, y la clave del historial es la misma
+que estaba en uso.
+
+Atenúa mucho la gravedad que sea `sk_test_`: no mueve dinero real ni da acceso
+a datos de clientes. Pero hay bots que rastrean GitHub buscando este patrón
+exacto.
+
+Ya estaba anotado como pendiente en `docs/current-analysis.md` y en los quick
+wins del plan desde antes de esta fase. **Es una acción manual del usuario:**
+rotar en Stripe (modo test → API keys → Roll key) y, si se quiere, purgar el
+historial con `git filter-repo`. La purga limpia pero no rescata: con un repo
+público hay que asumir que la clave pudo ser leída.
+
+---
+
+## 38. El huésped entra a ver su reserva, sin contraseña
+
+Pedido: que el huésped pueda entrar a revisar sus reservas y sus datos, y
+descargar un PDF de la reserva.
+
+### Enlace por correo, no contraseña
+
+Una contraseña sería una credencial que el huésped tiene que inventar,
+recordar y probablemente reutilizar, para una o dos estadías al año — y una
+cosa más que esta casa guarda y de la que responde. El correo ya es el
+identificador bajo el que se hace una reserva, así que demostrar que se
+controla es prueba suficiente.
+
+`GuestLoginToken` es entidad nueva y se justifica: misma forma que
+`PasswordResetToken` — hasheado, de un solo uso, 15 minutos — porque es el
+mismo problema, un secreto viajando por correo. **Los huéspedes se autentican
+contra `Customer`, nunca contra `User`.** Son poblaciones distintas con poderes
+distintos, y una tabla compartida está a un bug de que un huésped tenga un rol
+de staff.
+
+`POST /guest/login` responde **204 siempre**, exista o no ese correo.
+Contestar distinto lo convertiría en una forma de preguntarle a la casa si
+alguien concreto se ha alojado aquí.
+
+### El agujero que abrí y cerré antes de seguir
+
+Las sesiones de huésped se firman con `JWT_ACCESS_SECRET`, el mismo del panel.
+El guard del staff verificaba **sin comprobar la audiencia** y aceptaba
+`Authorization: Bearer`, así que un huésped podía presentar su propio token y
+quedar autenticado — con `role: undefined`, bloqueado en las rutas con
+`@Roles`, pero **no en las que solo exigen sesión**.
+
+Se cierra rechazando cualquier token con `aud`, igual que ya se hacía con el
+claim `purpose` del reto de 2FA. Los tokens del staff no llevan audiencia, así
+que cualquier `aud` no es de los nuestros.
+
+Verificado que es ese arreglo el que actúa, no otra cosa:
+
+```
+token sin aud → 401 "Account is no longer active"   (pasó el guard, murió después)
+token aud=guest → 401 "Invalid or expired access token"  (lo corta el guard)
+```
+
+### Todo se filtra por la sesión
+
+Ninguna ruta del área acepta un identificador: el servidor consulta por quien
+diga la cookie. Una referencia en una URL no es una credencial.
+
+```
+AB-T45RMB (de otro huésped) con la sesión de Erick → 404
+/guest/me y /guest/bookings sin sesión             → 401
+```
+
+El correo **no es editable** desde dentro de la sesión: es el identificador del
+que cuelgan sus reservas y la dirección a la que va su enlace de acceso, así
+que cambiarlo desde dentro sería una forma de apropiarse de una cuenta con una
+cookie robada. Cambiarlo es una conversación con la anfitriona.
+
+### El PDF
+
+Se genera en el servidor con `pdfkit`, no en el navegador: así salen los mismos
+bytes le pida quien le pida y con lo que sea, y las cifras son las almacenadas,
+no algo que una página recalculó.
+
+Solo español e inglés. Un PDF es un artefacto casi legal que la gente reenvía a
+terceros, y uno traducido a máquina es peor que uno en un idioma que al menos
+se reconoce. Los cinco idiomas del sitio son otra promesa.
+
+Al revisarlo salió un fallo: el pie imprimía **la dirección dos veces**, porque
+`Property.address` ya es la línea completa y encima se le añadían `city`,
+`state` y `country`.
+
+### Rediseño: la estadía como una banda
+
+El componente `StayBand` dibuja una estadía como lo que es — dos extremos
+anclados y el tramo entre ellos — la misma forma que el calendario usa para un
+rango seleccionado. Un huésped que eligió sus fechas en la portada se
+reencuentra con esa figura en la confirmación y en su historial. Cuatro datos
+sueltos en una cuadrícula se leen como cuatro hechos; esto se lee como una
+estadía, que es lo que compró.
+
+### Lo que se quitó del checkout
+
+La sección "Pago" encabezaba con `Visa · Mastercard · Amex · Discover` y un
+icono de tarjeta. **Esta página nunca ve una tarjeta** — eso ocurre en la
+página de Stripe — así que esa fila anunciaba una capacidad que no tiene, y
+ponerla sobre el total daba a entender que la tarjeta se introducía ahí.
+
+### Verificación
+
+```
+pedir enlace: con reserva y desconocido → 204 los dos, indistinguibles
+correo real enviado por Brevo           → "Email sent to egiraldom@outlook.com"
+canjear el enlace                       → entra como Erick Giraldo
+reusarlo                                → 401 (un solo uso)
+editar teléfono                         → guarda; editar el correo → 400
+PDF                                     → 200, application/pdf, 1 página, con logo
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (231 tests)
+```
+
+### Checklist de seguridad, para esta pieza
+
+|                                                                 |            |
+| --------------------------------------------------------------- | ---------- |
+| Cookie `HttpOnly`, `Secure` en producción, `SameSite` explícito | ✅         |
+| Rate limiting en el envío de enlaces (5 cada 15 min)            | ✅         |
+| El endpoint no revela si un correo existe                       | ✅         |
+| Token hasheado, un solo uso, vida corta                         | ✅         |
+| Sin auth de demo ni formularios prellenados                     | ✅         |
+| Variables documentadas por nombre en `docs/env.md`              | ✅         |
+| **Sin rotación ni revocación de la sesión**                     | ⚠ diferido |
+
+Lo último, explícito: la sesión de huésped es un JWT de 7 días sin refresh
+rotado ni tabla de revocación. Es una decisión de proporción — un huésped ve
+sus propias reservas y edita su propio teléfono — pero significa que una cookie
+robada vale una semana y no hay forma de matarla desde el panel. El staff sí
+tiene rotación. Se declara aquí en vez de omitirlo.
+
+### Diferido
+
+- **La confirmación y el checkout siguen con ternarios de dos idiomas** en las
+  partes que no toqué. Las cadenas nuevas van en los cinco.
+- **El PDF no se puede descargar desde la confirmación**, solo desde el área
+  del huésped, porque ahí todavía no hay sesión.
+
+### Corrección posterior: el enlace dura una hora, no quince minutos
+
+Pregunta del usuario: si el correo llega hoy y el huésped quiere mirar mañana,
+no puede.
+
+Son dos cosas distintas, y la segunda ya cubría ese caso: **el enlace** es la
+llave (un solo uso) y **la sesión** es estar dentro (7 días). Quien entra hoy
+sigue dentro mañana sin pedir nada.
+
+Pero quince minutos era corto para el caso que sí rompe, que no es "mañana"
+sino "pedí el enlace y me interrumpieron". Sube a una hora, que es lo que usan
+Slack, Notion y Substack. Un enlace que no caducara nunca convertiría cualquier
+bandeja de entrada —una cuenta familiar compartida, un correo reenviado— en una
+llave permanente que el huésped ni sabe que existe.
+
+Actualizadas las cinco traducciones del correo y las de la web: una copia que
+dice "15 minutos" cuando el sistema da sesenta es peor que no decir nada.
+
+```
+enlace recién emitido → vence en 60 minutos
+cookie de sesión      → caduca en 7 días
+```
+
+---
+
+## 39. La política de cancelación estaba inventada
+
+Al preguntar el usuario por los términos que debe ver el huésped, salió esto:
+el sitio llevaba tiempo prometiendo una política de cancelación que **no
+existía en ningún dato suyo**.
+
+Tres archivos con `subDays(checkIn, 5)` a fuego, y el checkout llegando a
+decir:
+
+> _"Cancela antes del X para un reembolso parcial. Después, cancela antes del
+> check-in para obtener un reembolso del 50 %, menos la tarifa de servicio."_
+
+Ni `docs/domain-decisions.md` ni `datos.json` contienen una política de
+cancelación. Ese 5 y ese 50 % no salían de ninguna parte.
+
+Es peor que un precio inventado: un huésped puede apoyarse en eso en una
+disputa, y la anfitriona tendría que sostener una promesa que nadie escribió.
+
+### Lo que se hizo
+
+El usuario pidió "lo mismo que Airbnb". Airbnb no tiene una política, tiene un
+menú, así que se implementaron las cuatro como enum en `Property`, editable, y
+se eligió **MODERATE** por una razón concreta: el sitio ya venía diciendo
+"cancelación gratuita antes de [5 días antes]", y es la única opción que no
+contradice lo que ya se le mostró a la gente.
+
+`packages/shared/src/cancellation.ts` guarda **solo las reglas** — los días, no
+la prosa. La redacción vive en las traducciones, así que la misma política se
+lee natural en cinco idiomas en vez de en uno traducido mal. El PDF duplica el
+texto en dos idiomas porque no tiene capa de traducción a la que asomarse.
+
+Dos advertencias que van escritas en la propia pantalla: en una reserva directa
+**el reembolso lo procesa la anfitriona**, no hay plataforma que lo arbitre; y
+el reembolso automático sigue siendo Fase 7.
+
+### El desglose ahora se guarda
+
+`Booking` gana siete columnas: noches, descuento, extras, huésped adicional,
+limpieza, servicio e impuestos.
+
+**Un recibo tiene que decir lo que se cobró.** Recalcular el desglose al
+mostrarlo enseñaría los precios de hoy sobre una estadía comprada la temporada
+pasada — un recibo que cambia no es un recibo. Se congela al reservar.
+
+### "Esperando el pago" dejó de ser un callejón
+
+Un hold vivo mostraba "esperando el pago" sin forma de pagar. Ahora la reserva
+guarda su `checkoutUrl` mientras el hold dura, y el botón devuelve a la misma
+sesión de Stripe. Se limpia al confirmar: una sesión ya pagada no es un enlace
+que se le dé a nadie.
+
+Y cuando el pago no llega, `checkout.session.expired` ya no solo libera las
+fechas — **se lo dice al huésped**, con un enlace para reintentarlo. Callarse
+deja a alguien que llegó a la mitad del checkout creyendo que tiene una
+reserva.
+
+### Lo que ve el huésped ahora
+
+En la web y en el PDF, todo de fuentes reales: desglose línea a línea, política
+de cancelación, dirección, día de basura y las reglas de la casa que la
+anfitriona escribió en el CMS. **Los bloques sin nada detrás no se dibujan** —
+un encabezado "Reglas de la casa" sobre una caja vacía es peor que ningún
+encabezado.
+
+`Property.accessNotes` queda para lo que hace falta y nadie pregunta (dónde
+aparcar, cómo funciona la puerta). **Vacío hasta que la anfitriona lo escriba:**
+no se inventa un código de puerta.
+
+### Correos con plantilla
+
+`renderEmail` es el sobre de todos los envíos: logo, cabecera crema, botón de
+marca. Tablas y estilos en línea, no flexbox — Outlook sigue renderizando con
+el motor de Word y Gmail borra los bloques `<style>`. El logo es una URL
+absoluta: los adjuntos aparecen como clip en un mensaje que no lo tiene, y
+Gmail rechaza los `data:` en imágenes.
+
+### Detalles que se vieron al abrir el PDF
+
+- Las fechas salían en ISO. `31 de julio de 2026` en vez de `2026-07-31`; un
+  recibo lleno de números con guiones se lee como un volcado de base de datos.
+- Los días de basura salían como `wednesday, saturday`, las claves crudas.
+  Ahora se escriben en el idioma del documento.
+
+### Verificación
+
+```
+desglose en la reserva     → noches $900 · limpieza $120 · servicio $122 · impuestos $103 · total $1245
+política                   → MODERATE, "antes del 26 de julio de 2026"
+reglas de la casa          → 183 caracteres, del CMS
+día de basura              → miércoles, sábado
+terminar el pago           → ausente en una reserva ya pagada
+un pago no completado      → libera las fechas y avisa al huésped, con enlace
+un hold ya confirmado      → releaseHold no lo toca
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (235 tests, 2 nuevos)
+```
+
+### Pendiente del usuario
+
+- **Escribir `accessNotes`** desde el panel, o decirme que lo quite.
+- **Confirmar que MODERATE es la política que quiere.** Es un campo editable;
+  cambiarla es un `PATCH`, no un despliegue.
+
+---
+
+## 40. La confirmación enseña lo mismo que el área del huésped
+
+La página de confirmación describía la reserva con su propio tipo, más pobre
+que el del área del huésped: sin desglose, sin política, sin las condiciones.
+Dos descripciones de lo mismo se separan, y ya se estaban separando.
+
+`findBySession` devuelve ahora **la misma forma** que usa el área del huésped,
+más el nombre y el correo. Lo que ve alguien que acaba de pagar es exactamente
+lo que verá cuando entre el mes que viene.
+
+### El PDF, sin tener que entrar
+
+`GET /bookings/session/:sessionId/pdf`, público por el mismo motivo que la
+consulta: el id de sesión de Stripe no llega a nadie salvo a quien pagó, porque
+viaja en su URL de vuelta. Pedirle que solicite un enlace por correo para poder
+guardarse el recibo del pago que hizo hace treinta segundos sería absurdo.
+
+Un id inventado responde 404.
+
+### Los formularios del checkout
+
+Cuatro campos con `rounded-lg border-input` por defecto: más apretados que el
+resto del sitio y con un foco distinto al de las demás pantallas. Ahora
+comparten altura, radio y anillo de foco con el formulario de contacto y el
+del área del huésped.
+
+Tres cosas más que faltaban y se notan al rellenarlo en un móvil:
+
+- **`autoComplete` en nombre, apellido, correo y teléfono.** Sin ellos el
+  navegador no ofrece nada y hay que teclearlo todo.
+- **El teléfono no decía para qué se pide.** El correo sí lo decía. Un campo
+  que no explica por qué lo necesitas es un campo que se rellena mal o no se
+  rellena; ahora dice que es para localizarte el día que llegas.
+- **Un campo y una sección pesaban lo mismo** (`space-y-4` en ambos). Los
+  campos van ahora a 5 y las secciones respiran.
+
+### Verificación
+
+```
+GET /bookings/session/:id       → desglose, política, reglas y basura
+GET /bookings/session/:id/pdf   → 200, application/pdf, 27 KB
+con un id inventado             → 404
+dependencias circulares al arrancar → ninguna
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (235 tests)
+```
+
+### Pendientes del usuario, anotados para no perderlos
+
+1. **Rotar `STRIPE_SECRET_KEY`.** Sigue en el historial de un repositorio
+   público (§37). Es `sk_test_`, lo que limita mucho el daño, pero hay bots que
+   rastrean GitHub buscando exactamente ese patrón.
+2. **Escribir `Property.accessNotes`** desde el panel — dónde aparcar, cómo
+   funciona la puerta — o decidir que se quite el campo. Está vacío a
+   propósito: no se inventa un código de puerta.
+3. **Confirmar que MODERATE es la política de cancelación** que quiere. Es un
+   campo editable; cambiarla es un `PATCH`, no un despliegue.
+
+---
+
+## 41. Un pago no puede depender de que un webhook llegue
+
+Reserva `AB-C445Q9`: pagada en Stripe, `PENDING` en la base, y la confirmación
+diciendo "el pago se procesó, la reserva está tardando". El túnel de Cloudflare
+se había renombrado por **tercera vez** y Stripe llevaba reintentando contra un
+dominio muerto.
+
+Pedir la URL nueva otra vez habría arreglado el síntoma. En vez de eso se
+arregló la clase de problema.
+
+### Reconciliación
+
+`PaymentReconciliationService` pregunta al revés: **qué sesiones dice Stripe
+que se pagaron, y cuáles de esas no tienen reserva confirmada aquí**. Corre al
+arrancar —el hueco más probable es justo mientras el API no estaba— y cada diez
+minutos.
+
+Un webhook es la promesa de que la red de otro alcanzará la tuya, y es una
+promesa que se rompe: un túnel se renombra, un despliegue tumba el API cuarenta
+segundos, el DNS tiene un mal minuto. Stripe reintenta, pero sus reintentos
+también caen sobre lo que estuviera inalcanzable. _Pull_ gana para ponerse al
+día; _push_ gana para ser rápido. Los dos juntos son lo que hace que un pago se
+convierta en reserva de forma fiable.
+
+Todo lo que encuentra pasa por `confirmPayment`, el mismo camino idempotente
+del webhook. Una reserva ya confirmada se deja en paz.
+
+### El hueco que tenía la primera versión
+
+Escrita para mirar solo reservas `PENDING`. Los datos reales enseñaron por qué
+no basta: `AB-36PN9X` se pagó, su webhook se perdió, **el hold venció y el
+barrido la canceló**. Buscar solo `PENDING` habría dejado fuera exactamente el
+caso para el que existe este trabajo — dinero cobrado sin reserva.
+
+Ahora mira `PENDING` y `CANCELLED` con `paidAt` nulo.
+
+### Y funcionó de verdad, con el peor caso
+
+Al ampliarla, la reconciliación encontró `AB-36PN9X` y la cadena entera se
+disparó sobre datos reales:
+
+```
+Recovering AB-36PN9X: paid on Stripe but no webhook arrived
+PAID BUT DOUBLE-BOOKED: AB-36PN9X (cs_test_a13HUi…) — the dates were taken
+Email sent to host@areiabela.com: ACCIÓN REQUERIDA · pago sin fechas · AB-36PN9X
+Reconciled 1 payment(s) whose webhook never arrived
+```
+
+Lo que pasó: `AB-36PN9X` (15–18 ago) se pagó y se perdió; después
+`AB-C445Q9` reservó **esas mismas fechas** y sí se confirmó. La restricción de
+exclusión se negó a duplicar la reserva, y el aviso de §31 escaló a un humano
+con el id de Stripe para el reembolso. Es el peor estado que este sistema
+puede alcanzar, y se comportó como se diseñó.
+
+### La política, seleccionable desde el panel
+
+Precios → Reglas de la estadía: las cuatro de Airbnb en un desplegable, y el
+campo `accessNotes` junto a ella. Con un aviso que se dice en voz alta porque
+es lo que sorprende: **es una reserva directa, el reembolso lo hace la
+anfitriona a mano en Stripe.** Nada de esto lo hace solo.
+
+### Verificación
+
+```
+AB-C445Q9  → CONFIRMED, pagada 19:35, con sesión
+             (Stripe todavía marca su webhook como pendiente de entregar)
+AB-36PN9X  → alerta de pago sin fechas, correo enviado
+cambiar la política a FIRM     → 200, y la reserva del huésped lo refleja
+un valor inventado ("GRATIS")  → 400
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (235 tests)
+```
+
+### Consecuencia para el usuario
+
+**El túnel deja de ser crítico.** Un pago cuyo webhook se pierda se recupera
+solo en diez minutos como mucho. Sigue siendo mejor tenerlo funcionando —diez
+minutos de "confirmando" es una espera fea— pero ya no hay reservas que se
+queden colgadas para siempre.
+
+`AB-36PN9X` es un pago real de $1245 sobre fechas que ahora son de otra
+reserva. Son cuentas de prueba, pero **el reembolso hay que hacerlo en Stripe**
+si se quiere dejar la cuenta limpia.
+
+---
+
+## 42. El desglose no se estaba guardando
+
+Reportado: los impuestos no salen en el detalle de la reserva.
+
+Primer diagnóstico, equivocado: "son reservas anteriores a la migración, las
+columnas tienen `DEFAULT 0`". Cierto para las que ya existían, pero al crear
+una reserva nueva para comprobarlo, la cotización devolvía $195 de impuestos y
+**la fila guardaba 0**.
+
+La causa: el bloque que añade el desglose a `booking.create` nunca llegó al
+archivo. El script que lo escribía falló en una sustitución posterior y no
+guardó nada; se corrigió la parte que había fallado y se dio por hecho que el
+resto había entrado. No se comprobó contra el archivo.
+
+Ahora se escribe y **se verifica leyendo el archivo de vuelta**, no confiando
+en que el script no lanzara error.
+
+### El relleno que también estaba mal
+
+Para recuperar el desglose de las reservas anteriores se escribió un `UPDATE`
+que calculaba servicio e impuestos sobre `noches + limpieza`. Daba **$30 de más
+en todas**, independientemente de las noches.
+
+La razón está en `computeQuote`:
+
+```ts
+const accommodation = subtotal - weeklyDiscount + additionalGuestFee
+const serviceFee = Math.round(accommodation * (pricing.serviceFeePercent / 100))
+const taxes = Math.round(accommodation * (pricing.taxesPercent / 100))
+```
+
+**Los porcentajes se aplican solo al alojamiento, no a la limpieza.** 12 % + 13 %
+de $120 son exactamente esos $30.
+
+El relleno se rehízo con la base correcta y **cada fila se comprobó contra su
+total guardado**; cualquiera que no cuadrara volvía a cero. Todas cuadraron.
+Rellenar un recibo con cifras que no suman lo cobrado es peor que dejarlo sin
+desglose.
+
+### Una guarda, para que no vuelva a pasar en silencio
+
+La web y el PDF suman las líneas y las comparan con el total. Si no cuadran,
+**se muestra solo el total**. Un desglose de "$0 + $0 + $0 = $1.245" haría que
+un huésped dude del cargo en vez de entenderlo.
+
+### Y una prueba, que es lo que faltaba
+
+`compute-quote.spec.ts` fija ahora la base imponible: los porcentajes se
+calculan sobre el alojamiento, después del descuento, sin la limpieza. Nada en
+el código lo decía, y por eso se pudo escribir un relleno contra la suposición
+contraria.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (237 tests, 2 nuevos)
+```
+
+---
+
+## 43. Limpieza y servicio, opcionales
+
+Pedido a partir de una captura de Airbnb donde el detalle del precio son dos
+líneas: noches e impuestos. Nada más.
+
+`cleaningFee` y `serviceFeePercent` ya estaban en `UpdatePropertyDto` —
+guardables por API— pero **no había dónde editarlos**: la pantalla de precios
+los mostraba de solo lectura. Ahora están en Reglas de la estadía, junto al
+porcentaje de impuestos.
+
+Poner cualquiera en cero lo hace desaparecer de la cuenta del huésped. El
+desglose de la reserva ya omitía las líneas en cero; **el cotizador público no**,
+y mostraba "Tarifa de limpieza $0". Una línea que dice cero es un cargo que el
+huésped tiene que leer y descartar.
+
+Con las dos en cero, el desglose queda exactamente como la captura:
+
+```
+3 noches          $900
+Impuestos         $117
+TOTAL            $1017
+```
+
+El campo de impuestos lleva su explicación al lado: 6 % estatal, 1 % del
+condado y 6 % de turismo, y que los recauda aquí pero los declara ella.
+
+### Fase 7.5 en el plan — módulo de impuestos
+
+Añadida a `docs/migration-plan.md` con alcance y criterio de salida: desglose
+por jurisdicción con tasas vigentes por fecha, informe por periodo exportable,
+marcar un periodo como declarado, y excluir canceladas y reembolsos.
+
+Queda anotada una decisión que **no se toma sin un contador**: si la tarifa de
+limpieza entra en la base imponible. Hoy los porcentajes se aplican solo al
+alojamiento (§42). En Florida la limpieza de un alquiler de corta estancia
+suele contar como parte de la contraprestación; si entra, son $15,60 por
+reserva que ahora mismo no se están cobrando.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (237 tests)
+```
+
+---
+
+## 44. El descuento que se mostraba sin descontar
+
+Reportado: el descuento semanal aparece con dos o tres noches, y la cifra no se
+está descontando.
+
+Las dos mitades del problema son distintas, y la segunda explica la primera.
+
+### El motor estaba bien
+
+```
+2 noches → $0     6 noches → $0
+3 noches → $0     7 noches → $210
+```
+
+Aplica desde `weeklyDiscountNights`, que es 7. Nunca antes.
+
+### La pantalla mostraba otra cosa
+
+```ts
+const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
+const savings = (quote.originalPricePerNight - quote.pricePerNight) * quote.nights
+```
+
+`originalPricePerNight` **no viene del API**: `fetchQuote` lo inyectaba desde
+`datos.json`, un precio "antes" de marketing sin ninguna relación con el
+descuento por estadía larga. De ahí las dos cosas que se veían:
+
+- La línea aparecía **con cualquier número de noches**, porque ese precio de
+  marketing siempre es mayor que la tarifa actual.
+- El importe era `(antes − ahora) × noches`, **una cifra que nadie cobra**,
+  mientras `quote.weeklyDiscount` —el descuento real del servidor— estaba en el
+  mismo objeto sin usar.
+
+Ahora la tarjeta lee `quote.weeklyDiscount` y solo dibuja la línea si es mayor
+que cero. `originalPricePerNight` se elimina del tipo y de `fetchQuote`: era la
+única cosa en el flujo de precios que el navegador se inventaba.
+
+### El porcentaje, una lista
+
+Era un campo numérico libre. Pasa a 0 / 5 / 10 / 15 / 20 %, con "Sin descuento
+por estadía larga" como primera opción. Un descuento es una decisión comercial
+con un puñado de valores sensatos, y un campo de texto invita a un 7,5 % o a un
+dedazo que cambia todos los precios en silencio.
+
+El umbral de noches se queda editable y ahora explica qué hace: _"el descuento
+aparece solo a partir de estas noches"_.
+
+### Pruebas
+
+Seis nuevas fijan el contrato del motor: cero en 1, 2, 3 y 6 noches; $210
+exactos en la séptima; y cero cuando el porcentaje se pone a 0. El motor
+siempre estuvo bien — lo que faltaba era algo inequívoco que la pantalla
+pudiera dibujar.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests, 6 nuevos)
+```
+
+---
+
+## 45. El checkout, reordenado — y un extra que no hacía nada
+
+### "Huésped adicional" era un control muerto
+
+Aparecía en Precios → Extras con su interruptor de activo/inactivo, y **no
+cambiaba ni un centavo**: el cargo por huésped extra sale de
+`Property.additionalGuestFeePerNight`, no de ese `Extra`. La fila existía en el
+seed pero nadie la seleccionaba nunca.
+
+Eliminada del seed y de la base. El cargo sigue exactamente igual, verificado:
+
+```
+9 huéspedes → additionalGuestFee $90   (3 noches × $30)
+8 huéspedes → additionalGuestFee $0
+```
+
+Ninguna reserva la tenía contratada, así que no hubo nada que preservar. La
+cabecera del seed explica ahora por qué no debe volver: dos sitios donde parece
+configurarse lo mismo es de donde salen los errores.
+
+### El checkout
+
+La propiedad, las fechas, el grupo y el dinero estaban en **cuatro bloques
+separados por la columna izquierda**, por encima y por debajo de los
+formularios. Para cuando alguien llegaba al botón de pagar, lo que estaba
+pagando había desaparecido de la pantalla.
+
+`CheckoutSummary` los junta en una sola tarjeta fija a la derecha, siguiendo el
+orden de las capturas de Airbnb que envió el usuario: foto y valoración,
+cancelación con enlace a la política completa, fechas y huéspedes con
+**Modificar**, y el detalle del precio con el total.
+
+"Modificar" devuelve al cotizador **con esas fechas ya cargadas**, para que
+cambiar la reserva no signifique empezar de cero.
+
+La izquierda se queda con lo que es acción: mensaje a la anfitriona, extras,
+datos del huésped, condiciones y el botón.
+
+El detalle del precio dibuja solo lo que se cobra de verdad. Con la limpieza y
+el servicio en cero (§43), quedan dos líneas y el total, como en la captura.
+
+### Lo que no se copió de Airbnb, y por qué
+
+La sección **"Forma de pago" con tarjetas guardadas** no se replica. Airbnb
+tiene la tarjeta del huésped porque el huésped tiene cuenta con Airbnb; aquí el
+pago ocurre en la página alojada de Stripe y **este sitio nunca ve una
+tarjeta**. Dibujar una lista de tarjetas sería anunciar una capacidad que no
+existe — el mismo motivo por el que se quitaron los logos de Visa y Mastercard
+en §38.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests)
+```
+
+### Diferido
+
+- **El enlace "Política completa" apunta a `/#faqs`.** Hay una sección de
+  preguntas frecuentes, pero no una página de política de cancelación como tal.
+  Cuando exista, es cambiar el destino.
+
+---
+
+## 46. El modal de pago, y bloquear la página mientras Stripe responde
+
+Pedido a partir del modal "Forma de pago" de Airbnb.
+
+### Lo que se hizo igual
+
+Un diálogo antes de salir a Stripe: qué se va a cobrar, quién lo procesa, y un
+botón para continuar. El pago sigue ocurriendo en la página alojada de Stripe y
+la vuelta es a `/confirmation`, que ya sabía esperar al webhook.
+
+Verificado de punta a punta:
+
+```
+1. reserva las fechas      → AB-UCD3H4
+2. devuelve la URL         → checkout.stripe.com/c/pay/cs_test_…
+3. Stripe acepta la sesión → open · $1017.00
+4. al pagar vuelve a       → /confirmation?session_id={CHECKOUT_SESSION_ID}
+```
+
+### Lo que no se copió, y por qué
+
+**La lista de tarjetas guardadas.** Airbnb puede mostrarlas porque el huésped
+tiene cuenta con Airbnb; aquí la tarjeta se introduce en Stripe y este sitio
+nunca ve una. Dibujar "VISA 3043" sería inventar un dato.
+
+**Los trece métodos que la cuenta tiene habilitados.** Se consultaron:
+`bancontact` (Bélgica), `blik` (Polonia), `eps` (Austria), `kakao_pay`,
+`naver_pay`, `payco` (Corea), `pix` (Brasil)… Stripe solo ofrece los
+compatibles con la moneda y el país de quien paga, y para un cobro en USD la
+sesión real devuelve `card, link, amazon_pay`. Listar los trece habría sido
+prometer métodos que nunca aparecen.
+
+El modal nombra la tarjeta —cierta siempre— y dice de las carteras lo que se
+puede decir con verdad: _"Apple Pay, Google Pay y Link aparecen en la página de
+Stripe si tu dispositivo los admite."_ Es una promesa hecha en nombre de otro,
+así que va condicionada.
+
+### El bloqueo
+
+`PaymentOverlay` cubre la página entera mientras se reserva y se pide la
+sesión. No es decoración: son dos llamadas de red y el formulario de debajo
+sigue siendo editable — cambiar un nombre con las fechas ya reservadas dejaría
+la reserva y la pantalla contando cosas distintas.
+
+Si algo falla, el modal se cierra para que el aviso se vea en la página, en vez
+de quedar detrás de un diálogo.
+
+### De paso
+
+Las tarifas de limpieza y servicio se habían quedado en cero de una prueba
+anterior de esta misma sesión. Restauradas a $120 y 12 %, verificado que el
+total vuelve a ser $1245 para tres noches.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests)
+```
+
+---
+
+## 47. Los datos del huésped, dentro del modal
+
+Aclaración del usuario tras un malentendido: el formulario que quería en el
+modal no era el de la tarjeta, sino **el suyo** — nombre, apellido, correo,
+teléfono y país. Stripe sigue en su propia página, como estaba.
+
+### Lo que se intentó y se revirtió
+
+Se llegó a implementar Checkout embebido (`ui_mode: 'embedded'`) para dibujar
+el formulario de tarjeta dentro del sitio. Revertido entero: los cuatro
+archivos del backend y del cliente vuelven a la versión commiteada, y
+`@stripe/stripe-js` y `@stripe/react-stripe-js` se desinstalan.
+
+De paso salió que **`stripe` seguía instalado en `apps/web`** desde que el
+route handler vivía ahí. Nadie lo importaba desde §37. Fuera también.
+
+La clave publicable vuelve a no existir en el frontend.
+
+### Lo que sí se hizo
+
+`PaymentMethodDialog` recoge ahora los datos del huésped: los cinco campos con
+`autoComplete`, la explicación de para qué se pide cada uno, el método de pago,
+el total y el botón que lleva a Stripe.
+
+Los datos vivían a mitad de la página del checkout, entre los extras y las
+condiciones, así que el botón de pagar estaba lejos de aquello sobre lo que
+actuaba. Ahora cada decisión está en el mismo sitio.
+
+El botón del diálogo es el `submit` de su formulario, de modo que el navegador
+comprueba los campos obligatorios y enfoca el primero vacío antes de enviar
+nada — el mismo mecanismo de §30, que allí faltaba porque el botón estaba fuera
+del formulario.
+
+### Verificación
+
+```
+hold → AB-JTFWMW · $1245 · redirige a checkout.stripe.com ✓
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (243 tests)
+```
+
+---
+
+## 48. El webhook sale del camino crítico
+
+Cuarta vez que el túnel de Cloudflare se renombra y un pago vuelve con 404. La
+reconciliación de §41 lo recupera, pero tarda hasta diez minutos — y el huésped
+está mirando la pantalla **ahora**.
+
+### El arreglo
+
+`GET /bookings/session/:id` ya no se limita a buscar en la base. Si no
+encuentra nada con ese id de sesión, **le pregunta a Stripe**: si la sesión está
+pagada y lleva un `bookingId` en su metadata, confirma la reserva ahí mismo y
+devuelve el resultado.
+
+El id de sesión llega en la URL de vuelta del propio huésped, así que tenerlo es
+prueba suficiente para consultarlo. Y como pasa por `confirmPayment`, hereda su
+idempotencia y su manejo del caso "pagado pero las fechas ya son de otro".
+
+Los tres caminos quedan así, del más rápido al más lento:
+
+|                         | Cuándo actúa                             |
+| ----------------------- | ---------------------------------------- |
+| Webhook                 | segundos, si la red coopera              |
+| **Al volver de Stripe** | inmediato, mientras el huésped espera    |
+| Reconciliación          | cada 10 min, para quien cerró la pestaña |
+
+Ninguno depende de los otros. El túnel deja de importar para la experiencia del
+huésped: aunque no entregue nunca, la reserva se confirma en cuanto vuelve.
+
+### Verificación
+
+Con la reserva reseteada a `PENDING` a propósito y el endpoint del webhook
+muerto:
+
+```
+GET /bookings/session/cs_test_a1bqnp… → 200 · AB-D7AVTF · CONFIRMED · $1245
+log: "Confirming cs_test_a1bqnp… on return: no webhook had arrived"
+```
+
+Dos pruebas nuevas: confirma cuando Stripe dice que se pagó, y **no** confirma
+cuando dice que no.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests, 2 nuevos)
+```
+
+### Sigue pendiente del usuario
+
+El túnel se ha renombrado cuatro veces en esta sesión. Ya no rompe reservas,
+pero mientras el endpoint apunte a un dominio muerto, Stripe acumula reintentos
+fallidos. Instalar la CLI de Stripe (`stripe listen`) lo resuelve de raíz; un
+_quick tunnel_ sin cuenta no garantiza el nombre.
+
+---
+
+## 49. El cotizador mientras piensa, y el área del huésped que se fundía con el fondo
+
+### El cotizador
+
+Al elegir fechas, la cabecera seguía diciendo "Elige tus fechas" — a alguien que
+acaba de elegirlas — y el precio aparecía de golpe sin nada entre medias.
+
+Ahora hay un esqueleto: una barra en la cabecera y las filas del desglose
+insinuadas, **sin cifras**. Un esqueleto con números de relleno sería un precio
+equivocado en pantalla durante lo que tarde la petición.
+
+Un detalle que casi se cuela: la primera versión mostraba el error cuando
+`!isPricing`, y ese estado arranca en `false`, así que el mensaje de fallo
+habría parpadeado en el primer render antes de que el efecto llegara a
+ejecutarse. Se separa en `priceFailed`, que solo se enciende cuando un intento
+terminó sin nada.
+
+### El área del huésped
+
+Reportado: los colores se pierden con el fondo.
+
+La causa, concreta: la cabecera de cada reserva usaba `bg-[#f7f2ea]`, que es
+**exactamente `--background`** — el crema de la página. La tarjeta y el fondo
+eran el mismo color, y el borde que debía separarlos (`#e2ddd0`) apenas
+contrasta contra ese crema.
+
+- La banda de fechas pasa a un tinte azul de marca al 7 %, que separa tanto del
+  blanco de la tarjeta como del crema de la página.
+- Las tarjetas ganan sombra y un anillo azul tenue, en vez de fiarlo todo a un
+  borde de bajo contraste.
+- El estado deja de ser un icono de calendario y pasa a distintivo con color —
+  verde confirmada, ámbar esperando el pago, gris cancelada — con el color
+  repitiendo lo que dice la etiqueta, nunca sustituyéndolo.
+- Iconos en azul de marca en lugar de gris sobre gris.
+- La referencia gana tamaño: es lo que el huésped viene a buscar.
+- La pantalla de acceso y la de datos pasan a tarjeta blanca, en vez de quedar
+  sueltas sobre el crema.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```
+
+---
+
+## 50. Cambiar fechas y huéspedes sin salir del checkout
+
+Pedido: los "Modificar" del resumen deben abrir diálogos, como en Airbnb, en
+lugar de devolver al cotizador.
+
+### Extraído, no duplicado
+
+El calendario y el selector de huéspedes ya existían dentro de
+`availability-card.tsx`. Copiarlos al checkout habría copiado **las reglas**:
+qué noches se deshabilitan, que la salida no es una noche, que los bebés no
+cuentan para el aforo, que los adultos nunca bajan de uno. Dos copias de una
+regla divergen la primera vez que una cambia.
+
+Salen a tres componentes compartidos:
+
+|                       |                                                               |
+| --------------------- | ------------------------------------------------------------- |
+| `StayCalendar`        | disponibilidad, mínimo de noches, precios por noche, leyenda  |
+| `GuestPicker`         | los cuatro contadores y el aforo                              |
+| `ServiceAnimalDialog` | la explicación de que un animal de servicio no es una mascota |
+
+`availability-card.tsx` baja de 655 a 456 líneas y deja de contener lógica que
+el checkout también necesitaba.
+
+### Los diálogos
+
+`EditDatesDialog` **carga su propia disponibilidad** al abrirse. El huésped
+puede llevar veinte minutos en esta página y la semana a la que se está mudando
+puede haberse reservado mientras tanto; usar los datos con los que se pintó la
+página sería ofrecerle unas fechas que el servidor rechazaría.
+
+Los dos escriben en la URL, que es de donde se lee la reserva, así que el precio
+se recalcula solo. No hay una segunda copia de la estadía que pueda quedar
+desincronizada con la que se está cotizando.
+
+`EditGuestsDialog` edita sobre una copia: cerrar con la X deja la reserva como
+estaba.
+
+### Un corte que salió mal
+
+El primer intento de extraer el selector de huéspedes buscó el `})}` de cierre
+y enganchó el de la definición del array, 250 líneas antes de lo que debía. Se
+restauró el archivo desde git y se rehízo verificando el bloque extraído antes
+de escribir — el mismo error de §42, donde no comprobar lo que un script había
+hecho costó dos diagnósticos equivocados.
+
+```
+portada y checkout            → HTTP 200, sin errores de compilación
+pnpm build ✅   pnpm lint ✅ (16 avisos, los mismos de antes)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```
+
+---
+
+## 51. El calendario del huésped, con la paleta del panel
+
+Pedido: que los colores del calendario público coincidan con los del admin —
+reservado, día pasado, días futuros, día actual.
+
+### Lo que se alineó
+
+| Estado        | Panel                            | Sitio público                |
+| ------------- | -------------------------------- | ---------------------------- |
+| Libre         | tinte `secondary`                | el mismo                     |
+| Hoy           | `ring-2 ring-ring ring-offset-2` | el mismo                     |
+| Ya pasó       | borde punteado, hueco            | el mismo                     |
+| No disponible | pizarra                          | pizarra, más tachado y trama |
+
+El día pasado estaba dejado a la opacidad por defecto de react-day-picker y no
+aparecía en la leyenda; ahora tiene su entrada y su punteado, como en el panel.
+La leyenda pasa de tres estados a cuatro.
+
+### Lo que no se puede alinear, y por qué
+
+El panel pinta **verde** una noche reservada y **pizarra** una bloqueada por la
+anfitriona. En el sitio público las dos comparten un solo look, y no es una
+omisión: `GET /rates` devuelve un único `available` por noche.
+
+```ts
+available: !taken.has(date) // reservas y bloqueos, fundidos
+```
+
+Separarlos exigiría exponer **por qué** una noche no está libre, y eso le diría
+a cualquier visitante qué semanas están vendidas y cuáles cerró la anfitriona.
+Es dato de ocupación; un huésped solo necesita saber que esa noche no es suya.
+
+### Comprobado, no supuesto
+
+El día ocupado aplica `bg-transparent` después del tinte de libre. Se verificó
+ejecutando `twMerge` sobre las dos listas antes de darlo por bueno — el mismo
+tipo de comprobación que en §35, donde una suposición sobre cómo se fusionan
+las clases estuvo a punto de dejar el arreglo a medias.
+
+```
+clases de un día ocupado → bg-transparent hover:bg-transparent
+¿queda el tinte de libre? → no
+CSS compilado            → la trama, el punteado y el anillo, presentes
+portada y checkout       → HTTP 200
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```

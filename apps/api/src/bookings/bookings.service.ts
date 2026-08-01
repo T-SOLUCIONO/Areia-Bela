@@ -1,10 +1,24 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
 import type { Booking, BookingStatus, Customer, Prisma } from '@prisma/client'
-import { generateReference, HOLD_TTL_MINUTES, type QuoteBreakdown } from '@areia-bela/shared'
+import {
+  checkStayLength,
+  generateReference,
+  HOLD_TTL_MINUTES,
+  type QuoteBreakdown,
+} from '@areia-bela/shared'
+import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
+import { PaymentsService } from './payments.service'
+import { GuestService, type MyBooking } from '../guest/guest.service'
 
 /** Postgres' code for a violated exclusion constraint — two overlapping stays. */
 const EXCLUSION_VIOLATION = '23P01'
@@ -17,6 +31,8 @@ export interface HoldResult {
   reference: string
   expiresAt: string
   quote: QuoteBreakdown
+  /** Where to send the guest to pay. */
+  checkoutUrl: string
 }
 
 type BookingWithGuest = Booking & { customer: Customer; extras: Array<{ extra: { name: string } }> }
@@ -31,6 +47,9 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly properties: PropertiesService,
     private readonly notifications: NotificationsService,
+    private readonly payments: PaymentsService,
+    private readonly config: ConfigService,
+    private readonly guests: GuestService,
   ) {}
 
   /**
@@ -40,7 +59,7 @@ export class BookingsService {
    * Stripe says the money arrived — a browser cannot confirm its own booking,
    * which is why nothing here trusts a success redirect.
    */
-  async hold(slug: string, dto: CreateHoldDto): Promise<HoldResult> {
+  async hold(slug: string, dto: CreateHoldDto, origin: string): Promise<HoldResult> {
     // Prices the stay and rejects impossible ones (bad dates, over capacity).
     // The same call the quote endpoint makes, so the figure the guest saw and
     // the figure Stripe charges come from one place.
@@ -54,9 +73,20 @@ export class BookingsService {
 
     const property = await this.prisma.property.findUnique({
       where: { slug },
-      select: { id: true },
+      select: { id: true, minNights: true, maxNights: true },
     })
     if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    // The calendar already stops a guest picking two nights when four are
+    // required, but the calendar is a browser. This is the authority.
+    const lengthProblem = checkStayLength(quote.nights, property)
+    if (lengthProblem) {
+      throw new BadRequestException(
+        lengthProblem.kind === 'tooShort'
+          ? `This house takes bookings of at least ${lengthProblem.minNights} nights`
+          : `This house takes bookings of at most ${lengthProblem.maxNights} nights`,
+      )
+    }
 
     // A date the host blocked is not a booking, so the exclusion constraint
     // knows nothing about it. This check does.
@@ -75,7 +105,7 @@ export class BookingsService {
 
     for (let attempt = 0; attempt < REFERENCE_ATTEMPTS; attempt += 1) {
       try {
-        return await this.createHold(property.id, dto, quote, expiresAt)
+        return await this.createHold(property.id, dto, quote, expiresAt, origin)
       } catch (error) {
         if (this.isOverlap(error)) {
           // Someone else got these dates first. This is the only honest answer:
@@ -99,6 +129,7 @@ export class BookingsService {
     dto: CreateHoldDto,
     quote: QuoteBreakdown,
     expiresAt: Date,
+    origin: string,
   ): Promise<HoldResult> {
     const reference = generateReference()
 
@@ -148,6 +179,15 @@ export class BookingsService {
           pets: dto.guests.pets ?? 0,
           status: 'PENDING',
           totalPrice: quote.total,
+          // Frozen here, not recomputed later: this is the bill, and the bill
+          // does not change because the host raised the rate in March.
+          nightsSubtotal: quote.subtotal,
+          weeklyDiscount: quote.weeklyDiscount,
+          extrasTotal: quote.extrasTotal,
+          additionalGuestFee: quote.additionalGuestFee,
+          cleaningFee: quote.cleaningFee,
+          serviceFee: quote.serviceFee,
+          taxes: quote.taxes,
           expiresAt,
           specialRequests: dto.specialRequests,
           locale: dto.locale ?? 'es',
@@ -161,11 +201,27 @@ export class BookingsService {
       })
     })
 
+    // Stripe last, and outside the transaction: it is a network call to
+    // someone else's service, and holding a database transaction open across
+    // it would be a lock on the whole calendar for as long as Stripe takes.
+    const checkoutUrl = await this.payments.checkoutUrlFor({
+      bookingId: booking.id,
+      reference: booking.reference,
+      email: dto.guest.email,
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      nights: quote.nights,
+      total: quote.total,
+      guests: dto.guests.adults + dto.guests.children,
+      origin,
+    })
+
     return {
       bookingId: booking.id,
       reference: booking.reference,
       expiresAt: expiresAt.toISOString(),
       quote,
+      checkoutUrl,
     }
   }
 
@@ -225,6 +281,8 @@ export class BookingsService {
           // A confirmed stay does not expire. Leaving this set would make the
           // sweep in hold() cancel a booking somebody paid for.
           expiresAt: null,
+          // A session that already paid is not a link to hand anyone.
+          checkoutUrl: null,
           cancelledAt: null,
           cancellationReason: null,
         },
@@ -255,56 +313,96 @@ export class BookingsService {
     })
   }
 
-  /** The guest walked away from the payment page. The dates go back. */
+  /**
+   * The guest walked away from the payment page. The dates go back, and they
+   * get told — otherwise they are left assuming they have a booking.
+   */
   async releaseHold(bookingId: string, reason: string): Promise<void> {
-    const { count } = await this.prisma.booking.updateMany({
-      where: { id: bookingId, status: 'PENDING' },
-      data: { status: 'CANCELLED', cancelledAt: new Date(), cancellationReason: reason },
-    })
-    if (count) this.logger.log(`Released hold ${bookingId}: ${reason}`)
-  }
-
-  /** What the confirmation page shows. Keyed by the Stripe session id, which
-   * only the guest who paid ever sees. */
-  async findBySession(sessionId: string): Promise<{
-    reference: string
-    checkIn: string
-    checkOut: string
-    nights: number
-    guests: number
-    total: number
-    guestName: string
-    guestEmail: string
-    status: BookingStatus
-    checkInTime: string
-    checkOutTime: string
-  }> {
     const booking = await this.prisma.booking.findUnique({
-      where: { stripeSessionId: sessionId },
-      // The arrival times belong to the house and are editable in the panel.
-      // Sent with the booking so the confirmation page has no reason to
-      // hard-code them, which is how it ended up claiming 4:00 PM.
+      where: { id: bookingId },
       include: {
         customer: true,
         extras: { include: { extra: true } },
-        property: { select: { checkInTime: true, checkOutTime: true } },
+        property: { select: { slug: true, checkInTime: true, checkOutTime: true } },
       },
     })
+    if (!booking || booking.status !== 'PENDING') return
+
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancellationReason: reason,
+        checkoutUrl: null,
+      },
+    })
+    this.logger.log(`Released hold ${booking.reference}: ${reason}`)
+
+    const base = this.config.get<string>('PUBLIC_SITE_URL') ?? 'http://localhost:3000'
+    const retry =
+      `${base}/${booking.locale}/checkout?checkin=${iso(booking.checkIn)}` +
+      `&checkout=${iso(booking.checkOut)}&adults=${booking.adults + booking.children}`
+
+    await this.notifications.paymentNotCompleted(
+      {
+        ...this.noticeFor(booking),
+        locale: booking.locale,
+        checkInTime: booking.property.checkInTime,
+        checkOutTime: booking.property.checkOutTime,
+      },
+      retry,
+    )
+  }
+
+  /**
+   * What the confirmation page shows, keyed by the Stripe session id — which
+   * reaches nobody but the guest who paid, since it arrives in their return
+   * URL.
+   *
+   * Returns the same shape the guest area uses, plus the name and email. One
+   * description of a booking rather than two that drift apart: the guest who
+   * just paid should see exactly what they will see when they sign in later.
+   */
+  async findBySession(
+    sessionId: string,
+  ): Promise<MyBooking & { guestName: string; guestEmail: string }> {
+    let booking = await this.prisma.booking.findUnique({
+      where: { stripeSessionId: sessionId },
+      select: { id: true, customerId: true, reference: true },
+    })
+
+    if (!booking) {
+      // The guest is standing in front of this page having just paid, and no
+      // webhook has arrived. Rather than tell them their booking does not
+      // exist, ask Stripe directly — the session id in their return URL is
+      // proof enough to look it up.
+      //
+      // The background reconciliation still exists for everyone who closed the
+      // tab; this is the same recovery, done while someone is waiting.
+      const status = await this.payments.sessionStatus(sessionId)
+      if (status?.paid && status.bookingId) {
+        this.logger.warn(`Confirming ${sessionId} on return: no webhook had arrived`)
+        await this.confirmPayment(status.bookingId, sessionId, status.amountTotal)
+
+        booking = await this.prisma.booking.findUnique({
+          where: { stripeSessionId: sessionId },
+          select: { id: true, customerId: true, reference: true },
+        })
+      }
+    }
+
     if (!booking) throw new NotFoundException('Booking not found')
 
-    const notice = this.noticeFor(booking)
+    const [detail, customer] = await Promise.all([
+      this.guests.myBooking(booking.customerId, booking.reference),
+      this.prisma.customer.findUnique({ where: { id: booking.customerId } }),
+    ])
+
     return {
-      reference: notice.reference,
-      checkIn: notice.checkIn,
-      checkOut: notice.checkOut,
-      nights: notice.nights,
-      guests: notice.guests,
-      total: notice.total,
-      guestName: notice.guestName,
-      guestEmail: notice.guestEmail,
-      status: booking.status,
-      checkInTime: booking.property.checkInTime,
-      checkOutTime: booking.property.checkOutTime,
+      ...detail,
+      guestName: customer ? `${customer.firstName} ${customer.lastName}` : '',
+      guestEmail: customer?.email ?? '',
     }
   }
 

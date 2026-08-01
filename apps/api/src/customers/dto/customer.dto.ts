@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator'
+import { SUPPORTED_LOCALES } from '@areia-bela/shared'
 
 export class CreateCustomerDto {
   @IsString()
@@ -62,4 +63,11 @@ export class UpdateCustomerDto {
   @IsString()
   @MaxLength(1000)
   notes?: string
+}
+
+export class ResendLinkDto {
+  /** The language the guest booked in, so the email matches it. */
+  @IsOptional()
+  @IsIn([...SUPPORTED_LOCALES])
+  locale?: string
 }

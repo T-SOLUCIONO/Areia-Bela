@@ -40,7 +40,36 @@ export interface PropertyPricingInput {
   /** Taken off the nights once the stay reaches `weeklyDiscountNights`. */
   weeklyDiscountPercent: number
   weeklyDiscountNights: number
+  /** How short and how long a stay may be. Both inclusive. */
+  minNights: number
+  maxNights: number
   extras: ExtraInput[]
+}
+
+/** Why a stay cannot be booked, when the reason is its length. */
+export type StayLengthProblem =
+  | { kind: 'tooShort'; minNights: number; nights: number }
+  | { kind: 'tooLong'; maxNights: number; nights: number }
+
+/**
+ * Checks the stay against the house's limits.
+ *
+ * Separate from `computeQuote` because a stay that is one night too short
+ * still has a price worth showing — the guest needs to see what a valid stay
+ * would cost, not an error where the total should be. The booking endpoint is
+ * what refuses; this is what lets the calendar explain itself.
+ */
+export function checkStayLength(
+  nights: number,
+  pricing: Pick<PropertyPricingInput, 'minNights' | 'maxNights'>,
+): StayLengthProblem | null {
+  if (nights > 0 && nights < pricing.minNights) {
+    return { kind: 'tooShort', minNights: pricing.minNights, nights }
+  }
+  if (nights > pricing.maxNights) {
+    return { kind: 'tooLong', maxNights: pricing.maxNights, nights }
+  }
+  return null
 }
 
 export interface ComputeQuoteInput {

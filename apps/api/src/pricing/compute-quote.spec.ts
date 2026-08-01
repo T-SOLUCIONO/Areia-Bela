@@ -22,6 +22,9 @@ const PRICING: PropertyPricingInput = {
   maxGuests: 8,
   weeklyDiscountPercent: 10,
   weeklyDiscountNights: 7,
+  // The real listing's limits: one night up to a year (datos.json).
+  minNights: 1,
+  maxNights: 365,
   extras: [
     { id: 'pet', label: 'Pet', price: 115, pricingType: 'PER_STAY' },
     { id: 'certified-nanny', label: 'Nanny', price: 20, pricingType: 'PER_HOUR' },
@@ -253,5 +256,97 @@ describe('computeQuote', () => {
     const result = quote({ checkIn: '2026-09-08', checkOut: '2026-09-01' })
     expect(result.nights).toBe(0)
     expect(result.subtotal).toBe(0)
+  })
+})
+
+/**
+ * The tax base, pinned down.
+ *
+ * Percentages apply to the accommodation only — not to the cleaning fee.
+ * Nothing else in the codebase states this, and a backfill written against the
+ * wrong assumption was off by exactly 25% of the cleaning fee on every
+ * booking. A test is cheaper than finding that out on a receipt.
+ */
+describe('what service fees and taxes are charged on', () => {
+  it('leaves the cleaning fee out of the base', () => {
+    const quote = computeQuote({
+      checkIn: '2026-07-31',
+      checkOut: '2026-08-03',
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    // 3 nights × $300, and the percentages ignore the $120 cleaning fee.
+    expect(quote.subtotal).toBe(900)
+    expect(quote.cleaningFee).toBe(120)
+    expect(quote.serviceFee).toBe(108) // 12% of 900, not of 1020
+    expect(quote.taxes).toBe(117) // 13% of 900, not of 1020
+    expect(quote.total).toBe(1245)
+  })
+
+  it('taxes what is actually paid, after the long-stay discount', () => {
+    // Charging tax on a sum nobody pays is the kind of thing guests notice.
+    const quote = computeQuote({
+      checkIn: '2026-07-01',
+      checkOut: '2026-07-08',
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    const accommodation = quote.subtotal - quote.weeklyDiscount
+    expect(quote.weeklyDiscount).toBeGreaterThan(0)
+    expect(quote.taxes).toBe(Math.round(accommodation * 0.13))
+  })
+})
+
+/**
+ * The threshold, pinned down.
+ *
+ * The price card used to draw a "weekly discount" on a two-night stay, for an
+ * amount nobody was charged: it compared a static marketing price against the
+ * nightly rate instead of reading the quote's own `weeklyDiscount`. The engine
+ * was always right; the screen was not. These fix the engine's contract so the
+ * screen has something unambiguous to render.
+ */
+describe('when the long-stay discount applies', () => {
+  const nightsFor = (count: number) => {
+    const end = new Date('2027-01-10T00:00:00Z')
+    end.setUTCDate(end.getUTCDate() + count)
+    return end.toISOString().slice(0, 10)
+  }
+
+  it.each([1, 2, 3, 6])('is zero at %i nights', (count) => {
+    const quote = computeQuote({
+      checkIn: '2027-01-10',
+      checkOut: nightsFor(count),
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    expect(quote.nights).toBe(count)
+    expect(quote.weeklyDiscount).toBe(0)
+  })
+
+  it('starts exactly at the configured threshold', () => {
+    const quote = computeQuote({
+      checkIn: '2027-01-10',
+      checkOut: nightsFor(7),
+      selectedExtraIds: [],
+      pricing: PRICING,
+    })
+
+    // 7 nights × $300 × 10%
+    expect(quote.weeklyDiscount).toBe(210)
+  })
+
+  it('disappears entirely when the host sets the percentage to zero', () => {
+    const quote = computeQuote({
+      checkIn: '2027-01-10',
+      checkOut: nightsFor(10),
+      selectedExtraIds: [],
+      pricing: { ...PRICING, weeklyDiscountPercent: 0 },
+    })
+
+    expect(quote.weeklyDiscount).toBe(0)
   })
 })

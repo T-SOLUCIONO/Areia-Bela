@@ -1,5 +1,6 @@
 import Image from 'next/image'
-import { format, parseISO, subDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { fullRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
 import { Clock, Info, Star } from 'lucide-react'
 import { currency, type BookingQuote } from '@/lib/booking'
 import { propertyData } from '@/lib/property-data'
@@ -13,17 +14,41 @@ type Props = {
    * guest read the price breakdown in Spanish.
    */
   language: Language
+  /**
+   * The house's cancellation policy. Passed in rather than fetched here: this
+   * card renders inside pages that already know it, and a second request per
+   * render would be a request per keystroke on the quoter.
+   */
+  policy?: CancellationPolicy
   propertyPreview?: boolean
   className?: string
 }
 
-export function PriceBreakdownCard({ quote, language, propertyPreview = false, className }: Props) {
+export function PriceBreakdownCard({
+  quote,
+  language,
+  policy = 'MODERATE',
+  propertyPreview = false,
+  className,
+}: Props) {
   const copy = translations[language].quote
-  const cancellationDate = format(subDays(parseISO(quote.checkIn), 5), 'MMM d')
-  const hasDiscount = quote.originalPricePerNight > quote.pricePerNight
-  const savings = hasDiscount
-    ? (quote.originalPricePerNight - quote.pricePerNight) * quote.nights
-    : 0
+  // The house's policy decides this date, not a hard-coded five days. Passed
+  // in rather than fetched: this card renders inside pages that already know.
+  const cancellationDate = policy
+    ? (() => {
+        const deadline = fullRefundDeadline(quote.checkIn, policy)
+        return deadline ? format(parseISO(deadline), 'MMM d') : ''
+      })()
+    : ''
+  // The server's figure, not a "was" price from the listing.
+  //
+  // This used to be `(originalPricePerNight - pricePerNight) * nights`, where
+  // `originalPricePerNight` is a static marketing price unrelated to the
+  // long-stay discount. It showed a "weekly discount" on a two-night booking,
+  // for an amount nobody was being charged, while the real `weeklyDiscount`
+  // sat in the same object unused.
+  const savings = quote.weeklyDiscount
+  const hasDiscount = savings > 0
 
   return (
     <div
@@ -67,20 +92,29 @@ export function PriceBreakdownCard({ quote, language, propertyPreview = false, c
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">{copy.cleaningFee}</span>
-          <span className="text-slate-800">{currency(quote.cleaningFee)}</span>
-        </div>
+        {/* Only what is actually charged. A line reading "$0" is a charge the
+            guest has to read and dismiss; the host can set the cleaning or
+            service fee to zero from the panel and it simply stops appearing. */}
+        {quote.cleaningFee > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 underline">{copy.cleaningFee}</span>
+            <span className="text-slate-800">{currency(quote.cleaningFee)}</span>
+          </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">{copy.serviceFee}</span>
-          <span className="text-slate-800">{currency(quote.serviceFee)}</span>
-        </div>
+        {quote.serviceFee > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 underline">{copy.serviceFee}</span>
+            <span className="text-slate-800">{currency(quote.serviceFee)}</span>
+          </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">{copy.taxes}</span>
-          <span className="text-slate-800">{currency(quote.taxes)}</span>
-        </div>
+        {quote.taxes > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600 underline">{copy.taxes}</span>
+            <span className="text-slate-800">{currency(quote.taxes)}</span>
+          </div>
+        )}
       </div>
 
       <div className="pt-5">

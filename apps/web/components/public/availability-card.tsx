@@ -1,19 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { addDays, differenceInCalendarDays, format, parseISO, subDays } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
-import { ChevronDown, Minus, Plus, ShieldCheck, X } from 'lucide-react'
+import { ChevronDown, ShieldCheck, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { Button } from '@areia-bela/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@areia-bela/ui/dialog'
-import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
 import {
   currency,
   fetchNightRates,
   fetchQuote,
+  fetchStayLimits,
   getBlockedDateRanges,
   saveQuoteToStorage,
   serializeQuoteToSearchParams,
@@ -21,8 +19,11 @@ import {
   type NightRate,
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
+import { GuestPicker } from '@/components/public/guest-picker'
+import { ServiceAnimalDialog } from '@/components/public/service-animal-dialog'
+import { StayCalendar, type StayRange } from '@/components/public/stay-calendar'
 import { useLanguage } from '@/components/language-provider'
-import { fill } from '@areia-bela/shared'
+import { fill, fullRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
 import { translations } from '@/lib/i18n'
 import { propertyData } from '@/lib/property-data'
 import { cn } from '@/lib/utils'
@@ -73,9 +74,17 @@ export function AvailabilityCard({ className }: Props) {
   // a guest could pick a week that was sold and only find out at checkout.
   const [unavailable, setUnavailable] = useState<Set<string>>(new Set())
   const [hoverDate, setHoverDate] = useState<Date | undefined>()
+  // Mirrors the house's rule in the calendar itself. The server is still the
+  // authority — this only stops the guest picking something it would refuse.
+  const [minNights, setMinNights] = useState(1)
+  const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
 
   useEffect(() => {
     getBlockedDateRanges().then(setBlockedRanges)
+    fetchStayLimits().then((terms) => {
+      setMinNights(terms.minNights)
+      setPolicy(terms.cancellationPolicy)
+    })
 
     // A year ahead: enough for both calendar months and any paging, in one
     // request rather than one per month change.
@@ -105,6 +114,8 @@ export function AvailabilityCard({ className }: Props) {
 
   const [quote, setQuote] = useState<BookingQuote | null>(null)
   const [isPricing, setIsPricing] = useState(false)
+  /** True only after an attempt finished with nothing. */
+  const [priceFailed, setPriceFailed] = useState(false)
 
   const checkInIso = checkIn ? format(checkIn, 'yyyy-MM-dd') : ''
   const checkOutIso = checkOut ? format(checkOut, 'yyyy-MM-dd') : ''
@@ -120,6 +131,7 @@ export function AvailabilityCard({ className }: Props) {
 
     let cancelled = false
     setIsPricing(true)
+    setPriceFailed(false)
     void fetchQuote({
       checkIn: checkInIso,
       checkOut: checkOutIso,
@@ -130,6 +142,9 @@ export function AvailabilityCard({ className }: Props) {
     }).then((result) => {
       if (cancelled) return
       setQuote(result)
+      // Distinct from "not started": `isPricing` alone would flash the failure
+      // message on the first render, before the effect has had a chance to run.
+      setPriceFailed(result === null)
       setIsPricing(false)
     })
 
@@ -153,32 +168,14 @@ export function AvailabilityCard({ className }: Props) {
     router.push(`/checkout?${serializeQuoteToSearchParams(quote)}`)
   }
 
-  const updateGuest = (key: keyof typeof guests, delta: 1 | -1) => {
-    setGuests((prev) => {
-      const next = Math.max(0, prev[key] + delta)
-      if (key === 'adults' && next < 1) return prev
-      return { ...prev, [key]: next }
-    })
-  }
-
-  const guestRows: Array<{
-    key: keyof typeof guests
-    title: string
-    description: string
-    hint?: string
-  }> = [
-    ...copy.guestRows.map((item, index) => ({
-      key: ['adults', 'children', 'infants'][index] as keyof typeof guests,
-      title: item.title,
-      description: item.description,
-    })),
-    // Pets belong here rather than in a list of extras: a guest thinks of the
-    // dog as part of the party, and the fee follows from the count.
-    { key: 'pets', title: copy.petsTitle, description: '', hint: copy.serviceAnimal },
-  ]
-
-  const selectedRange = checkIn ? { from: checkIn, to: checkOut } : undefined
-  const cancellationDate = checkIn ? format(subDays(checkIn, 5), 'd MMM', { locale }) : ''
+  const stayLength = quote?.stayLength ?? null
+  // Derived from the house's policy, not a hard-coded five days: the two
+  // agreed by accident under MODERATE and would have diverged the moment the
+  // host changed it.
+  const refundDeadline = checkIn && fullRefundDeadline(format(checkIn, 'yyyy-MM-dd'), policy)
+  const cancellationDate = refundDeadline
+    ? format(parseISO(refundDeadline), 'd MMM', { locale })
+    : ''
   const nights = checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0
 
   return (
@@ -198,6 +195,11 @@ export function AvailabilityCard({ className }: Props) {
               ? copy.perNightOne
               : fill(copy.perNights, { count: String(quote.nights) })}
           </p>
+        ) : isPricing ? (
+          // The dates are chosen; only the figure is missing. Saying "pick
+          // your dates" here would be telling the guest to redo what they
+          // just did.
+          <span className="h-8 w-44 animate-pulse rounded-full bg-slate-100" aria-hidden />
         ) : (
           <p className="text-[15px] text-slate-600">{copy.pickDates}</p>
         )}
@@ -281,112 +283,20 @@ export function AvailabilityCard({ className }: Props) {
             </div>
           </div>
 
-          <Calendar
-            mode="range"
-            selected={selectedRange}
-            numberOfMonths={2}
-            min={1}
-            // Each month shows only its own days. With the default, September
-            // ends with October's first days and October starts with
-            // September's last — the same date twice, side by side.
-            showOutsideDays={false}
-            onSelect={(range) => {
-              setCheckIn(range?.from)
-              setCheckOut(range?.to)
+          <StayCalendar
+            value={{ from: checkIn, to: checkOut }}
+            onChange={(range: StayRange) => {
+              setCheckIn(range.from)
+              setCheckOut(range.to)
             }}
-            disabled={[
-              { before: today },
-              ...blockedRanges,
-              // Booked nights. Blocked ranges come from a different endpoint
-              // and cover only what the host closed by hand.
-              (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd')),
-            ]}
-            modifiers={{
-              blocked: [
-                ...blockedRanges,
-                (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd')),
-              ],
-              previewRange:
-                checkIn && !checkOut && hoverDate && hoverDate > checkIn
-                  ? { from: checkIn, to: hoverDate }
-                  : [],
-            }}
-            modifiersClassNames={{
-              // A struck-through, greyed day reads as "sold" without a legend.
-              // The diagonal fill is the second signal, so the state does not
-              // rest on colour alone.
-              blocked:
-                'line-through decoration-slate-400 decoration-[1.5px] text-slate-300 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(241_245_249)_3px,rgb(241_245_249)_6px)]',
-              previewRange: 'bg-[#174d7a]/10 rounded-none',
-            }}
-            classNames={{
-              // The shared calendar paints today with `bg-accent`, and on this
-              // site --accent is #173a57 — near enough to the selected blue
-              // that today looked like a day the guest had already picked.
-              // An outline says "you are here" without claiming to be chosen.
-              today:
-                'rounded-full ring-2 ring-inset ring-[#174d7a]/45 font-semibold data-[selected=true]:ring-0',
-              // The band between the two ends. Pale, so the ends stay the
-              // thing the eye lands on.
-              range_middle: 'rounded-none bg-[#174d7a]/10',
-              range_start: 'rounded-l-full bg-[#174d7a]/10',
-              range_end: 'rounded-r-full bg-[#174d7a]/10',
-            }}
-            onDayMouseEnter={setHoverDate}
-            onDayMouseLeave={() => setHoverDate(undefined)}
-            className="w-full [--cell-size:3rem]"
-            components={{
-              DayButton: (dayProps) => {
-                const iso = format(dayProps.day.date, 'yyyy-MM-dd')
-                const rate = rates.get(iso)
-                const taken = unavailable.has(iso)
-                return (
-                  <CalendarDayButton
-                    {...dayProps}
-                    className={cn(
-                      // Neutralises the shared button's dark `bg-accent` fill
-                      // on mid-range days: the tint now lives on the cell, so
-                      // check-in and check-out are the only solid blocks and
-                      // the stay reads as a band with two ends.
-                      'rounded-full data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#173a57]',
-                      'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
-                      'data-[selected-single=true]:bg-[#174d7a]',
-                      'hover:bg-[#f7f2ea]',
-                      taken && 'hover:bg-transparent',
-                    )}
-                  >
-                    {dayProps.day.date.getDate()}
-                    {/* Shown so a guest sees the weekend costs more before
-                        picking it, not after. A night that cannot be booked
-                        has no price worth quoting. */}
-                    {rate !== undefined && !taken && <span>${rate}</span>}
-                  </CalendarDayButton>
-                )
-              },
-            }}
-            initialFocus
+            unavailable={unavailable}
+            blockedRanges={blockedRanges}
+            rates={rates}
+            minNights={minNights}
+            language={language}
+            hoverDate={hoverDate}
+            onHoverDate={setHoverDate}
           />
-
-          {/* Named, not only coloured: three fills in one grid is exactly the
-              point where a legend stops being decoration. */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="h-3.5 w-3.5 rounded-full ring-2 ring-inset ring-[#174d7a]/45" />
-              {copy.legendToday}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="flex items-center">
-                <span className="h-3.5 w-3.5 rounded-l-full bg-[#174d7a]" />
-                <span className="h-3.5 w-2.5 bg-[#174d7a]/10" />
-                <span className="h-3.5 w-3.5 rounded-r-full bg-[#174d7a]" />
-              </span>
-              {copy.legendSelected}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-3.5 w-3.5 rounded-sm bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(226_232_240)_3px,rgb(226_232_240)_6px)] ring-1 ring-inset ring-slate-200" />
-              <span className="line-through decoration-slate-400">{copy.legendTaken}</span>
-            </span>
-          </div>
 
           <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
             <button
@@ -434,69 +344,13 @@ export function AvailabilityCard({ className }: Props) {
           sideOffset={10}
         >
           <div className="px-6 py-5">
-            {guestRows.map((item, index) => {
-              const value = guests[item.key]
-              const floor = item.key === 'adults' ? 1 : 0
-              // Infants and pets don't take a bed, so only adults and children
-              // count against the house's capacity.
-              const atCapacity =
-                (item.key === 'adults' || item.key === 'children') &&
-                adults + children >= propertyData.capacity
-
-              return (
-                <div
-                  key={item.key}
-                  className={cn(
-                    'flex items-center justify-between gap-4 py-5',
-                    index > 0 && 'border-t border-slate-200',
-                  )}
-                >
-                  <div className="min-w-0">
-                    <p className="text-[17px] font-medium leading-tight text-slate-900">
-                      {item.title}
-                    </p>
-                    {item.description && (
-                      <p className="mt-1 text-[15px] leading-tight text-slate-500">
-                        {item.description}
-                      </p>
-                    )}
-                    {item.hint && (
-                      <button
-                        type="button"
-                        onClick={() => setServiceAnimalOpen(true)}
-                        className="cursor-pointer mt-1 text-left text-[15px] leading-tight text-slate-700 underline underline-offset-2 hover:text-slate-900"
-                      >
-                        {item.hint}
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      type="button"
-                      aria-label={`${item.title} −`}
-                      disabled={value <= floor}
-                      onClick={() => updateGuest(item.key, -1)}
-                      className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition enabled:hover:border-slate-800 enabled:hover:text-slate-900 disabled:border-slate-200 disabled:text-slate-300"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span className="min-w-6 text-center text-[16px] tabular-nums text-slate-900">
-                      {value}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`${item.title} +`}
-                      disabled={atCapacity}
-                      onClick={() => updateGuest(item.key, 1)}
-                      className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition enabled:hover:border-slate-800 enabled:hover:text-slate-900 disabled:border-slate-200 disabled:text-slate-300"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
+            <GuestPicker
+              value={guests}
+              onChange={setGuests}
+              maxGuests={propertyData.capacity}
+              onServiceAnimal={() => setServiceAnimalOpen(true)}
+              language={language}
+            />
 
             <p className="border-t border-slate-200 pt-5 text-[13px] leading-6 text-slate-500">
               {fill(copy.capacityNote, { max: String(propertyData.capacity) })}
@@ -515,61 +369,64 @@ export function AvailabilityCard({ className }: Props) {
         </PopoverContent>
       </Popover>
 
-      {/* Says plainly that a service animal is not a pet and carries no fee —
-          the question a guest would otherwise have to email to ask. */}
-      <Dialog open={serviceAnimalOpen} onOpenChange={setServiceAnimalOpen}>
-        <DialogContent className="max-w-lg gap-0 overflow-hidden rounded-[22px] p-0">
-          <div className="relative aspect-[7/6] w-full bg-slate-100">
-            <Image
-              src="/images/service-animal.webp"
-              alt={copy.serviceAnimalAlt}
-              fill
-              sizes="(max-width: 640px) 100vw, 512px"
-              className="object-cover"
-            />
-          </div>
-
-          <div className="space-y-4 p-6">
-            <DialogHeader className="space-y-0">
-              <DialogTitle className="text-left font-serif text-2xl text-[#173a57]">
-                {copy.serviceAnimalTitle}
-              </DialogTitle>
-            </DialogHeader>
-
-            <p className="text-[15px] leading-7 text-slate-600">{copy.serviceAnimalBody}</p>
-            <p className="text-[15px] leading-7 text-slate-600">{copy.serviceAnimalNote}</p>
-
-            <div className="flex justify-end pt-1">
-              <Button type="button" onClick={() => setServiceAnimalOpen(false)}>
-                {copy.understood}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ServiceAnimalDialog
+        open={serviceAnimalOpen}
+        onOpenChange={setServiceAnimalOpen}
+        language={language}
+      />
 
       {checkIn && checkOut && quote && (
         <PriceBreakdownCard
           quote={quote}
+          policy={policy}
           language={language}
           className="mt-4 shadow-none ring-1 ring-slate-100"
         />
       )}
 
-      {/* No skeleton with numbers in it: a placeholder price is a wrong price. */}
-      {checkIn && checkOut && !quote && (
-        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          {isPricing
-            ? language === 'en'
-              ? 'Checking the price...'
-              : 'Consultando el precio...'
-            : language === 'en'
-              ? 'We could not get the price right now. Please try again.'
-              : 'No pudimos obtener el precio ahora mismo. Inténtalo de nuevo.'}
+      {/* Shape without figures. A skeleton that shows the rows coming is
+          honest; one with placeholder numbers in it would be a wrong price on
+          screen for as long as the request takes. */}
+      {checkIn && checkOut && !quote && !priceFailed && (
+        <div
+          role="status"
+          aria-label={copy.pricing}
+          className="mt-4 space-y-3 rounded-2xl p-4 ring-1 ring-slate-100"
+        >
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="flex items-center justify-between gap-6">
+              <span className="h-3 flex-1 animate-pulse rounded-full bg-slate-100" />
+              <span className="h-3 w-14 animate-pulse rounded-full bg-slate-100" />
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-6 border-t border-slate-100 pt-3">
+            <span className="h-4 w-20 animate-pulse rounded-full bg-slate-200" />
+            <span className="h-5 w-24 animate-pulse rounded-full bg-slate-200" />
+          </div>
+        </div>
+      )}
+
+      {/* Only once the attempt has actually finished and failed. */}
+      {checkIn && checkOut && !quote && priceFailed && (
+        <p role="alert" className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {copy.pricingFailed}
         </p>
       )}
 
-      {quote && (
+      {/* The stay is priced but too short or too long. Says the limit rather
+          than just refusing, so the guest knows what to change. */}
+      {stayLength && (
+        <p
+          role="alert"
+          className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-center text-[13px] text-amber-800"
+        >
+          {stayLength.kind === 'tooShort'
+            ? fill(copy.minNights, { count: String(stayLength.minNights) })
+            : fill(copy.maxNights, { count: String(stayLength.maxNights) })}
+        </p>
+      )}
+
+      {quote && !stayLength && (
         <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-600">
           {fill(copy.cancelBefore, { date: cancellationDate })}
         </p>
@@ -577,7 +434,7 @@ export function AvailabilityCard({ className }: Props) {
 
       <Button
         onClick={handleReserve}
-        disabled={!quote || isPricing}
+        disabled={!quote || isPricing || stayLength !== null}
         variant="brand"
         size="lg"
         className="mt-3 w-full text-sm font-semibold shadow-none"
