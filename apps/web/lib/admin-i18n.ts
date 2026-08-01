@@ -79,6 +79,10 @@ export const adminCopy = {
       otherFees: 'Other fees',
       net: 'Net',
       netLead: 'What is left after refunds and every fee.',
+      mixedCurrencies:
+        'This period spans a change of settlement currency, so the totals are shown separately. Adding them together would be adding {a} to {b}.',
+      settlesIn: 'Settles in {currency}',
+      historic: 'Historic',
       conversionWarning:
         'Guests are charged in {charged} and this account settles in {settled}, so every booking is converted. That conversion is the {amount} above, on top of Stripe\u2019s normal fee.',
       balance: 'Sitting in Stripe',
@@ -684,6 +688,10 @@ export const adminCopy = {
       otherFees: 'Otras comisiones',
       net: 'Neto',
       netLead: 'Lo que queda después de reembolsos y de todas las comisiones.',
+      mixedCurrencies:
+        'Este periodo cruza un cambio de moneda de liquidación, así que los totales van por separado. Sumarlos sería sumar {a} con {b}.',
+      settlesIn: 'Liquida en {currency}',
+      historic: 'Histórico',
       conversionWarning:
         'A los huéspedes se les cobra en {charged} y esta cuenta liquida en {settled}, así que cada reserva se convierte. Esa conversión son los {amount} de arriba, además de la comisión normal de Stripe.',
       balance: 'Retenido en Stripe',

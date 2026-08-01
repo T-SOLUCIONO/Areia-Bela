@@ -3690,3 +3690,77 @@ usuario lo decida: son 253,73 EUR en el periodo mirado.
   adelantó.
 - **Sin disputas ni contracargos.** Stripe los expone aparte y todavía no hay
   ninguno en la cuenta, así que no se construyó a ciegas.
+
+---
+
+## 57. La cuenta de Stripe pasó a EE. UU. y a dólares
+
+El usuario cambió la cuenta tras leer §56. Confirmado contra la API:
+
+```
+país: US    moneda por defecto: usd    (antes: ES / eur)
+```
+
+El cambio destapó **dos fallos propios** en el módulo recién escrito, ninguno
+visible mientras hubo una sola moneda.
+
+### 1. La moneda de liquidación salía del saldo
+
+```ts
+const settlementCurrency = balance?.available[0]?.currency ?? 'eur'
+```
+
+El saldo todavía tiene 9.394,22 EUR de antes del cambio, así que esa línea
+seguía diciendo **EUR** para una cuenta que ya liquida en **USD**. Ahora se lee
+de la cuenta, que es la única autoridad sobre lo que liquida:
+
+```ts
+const settlementCurrency = account?.defaultCurrency ?? 'usd'
+```
+
+### 2. Los totales sumaban monedas distintas
+
+Había un único bloque de totales. Con el histórico en EUR y todo lo nuevo
+llegando en USD, ese bloque habría sumado euros con dólares y devuelto un
+número sin significado.
+
+Ahora se agrupan **por moneda de liquidación**: un bloque por cada una, cada
+fila lleva la suya, y el panel avisa cuando el periodo cruza un cambio en vez de
+apilar dos columnas de cifras que parecen sumables.
+
+Se aprovechó para contar `payment` junto a `charge` — Stripe usa ese tipo para
+métodos que no son tarjeta, y es dinero igual. Había una fila así en el libro y
+no se estaba contando.
+
+### Comprobado tras el cambio
+
+```
+cuenta: país US   liquida AHORA en USD
+hubo conversión: true
+
+── bloque EUR  (HISTÓRICO)
+   cobrado      14592.00 USD
+   liquidado    12686.45
+   - conversión   253.73   (convierte: true)
+   = NETO        9870.62 EUR      comprobación 9870.62  CUADRA
+```
+
+El bloque histórico se marca como tal porque su moneda ya no es la de la
+cuenta. Cuando entre el primer cobro nuevo aparecerá un segundo bloque en USD,
+esta vez sin línea de conversión.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests)
+```
+
+### Lo que el usuario debería saber
+
+- **Los cobros nuevos ya no pagan conversión.** Se cobra en USD y la cuenta
+  liquida en USD. Era ~2 % por reserva.
+- **Los 9.394,22 EUR disponibles y 8.832,98 pendientes siguen en euros.** El
+  cambio no reconvierte lo que ya está dentro; ese saldo saldrá como euros.
+- **Las transferencias son diarias con 2 días de retraso**, según la cuenta.
+- No se pudo leer la cuenta bancaria de destino: la clave `sk_test_` no tiene
+  permiso sobre `external_accounts`. Conviene confirmar en el dashboard que hay
+  una cuenta en USD, o el saldo en dólares se quedará sin salida.

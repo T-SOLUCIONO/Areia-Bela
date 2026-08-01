@@ -13,6 +13,8 @@ export interface LedgerRow {
   chargedCurrency: string | null
   /** The same money in the currency the account settles in. */
   settledAmount: number
+  /** The currency that settled amount is in. Not always the account's current one. */
+  settledCurrency: string
   processingFee: number
   conversionFee: number
   otherFees: number
@@ -31,27 +33,40 @@ export interface PayoutRow {
   createdAt: string
 }
 
+/** One block of totals per settlement currency. Euros are never added to dollars. */
+export interface CurrencyTotals {
+  settlementCurrency: string
+  /** Gross taken from guests, in the currency they paid. */
+  charged: number
+  chargedCurrency: string
+  refunded: number
+  /** After conversion, before fees. */
+  settled: number
+  settledRefunded: number
+  processingFees: number
+  conversionFees: number
+  otherFees: number
+  /** What is actually left. */
+  net: number
+  /** True when guests paid in a currency this block did not settle in. */
+  converts: boolean
+}
+
 export interface PaymentsReport {
   from: string
   to: string
-  /** The currency the account settles in, which need not be the one guests pay in. */
+  /** What the account settles in **now**, read from the account itself. */
   settlementCurrency: string
-  /** True when guests are charged in a currency the account does not settle in. */
+  accountCountry: string | null
+  /** True when any block in the period went through a conversion. */
   convertsCurrency: boolean
-  totals: {
-    /** Gross taken from guests, in the currency they paid. */
-    charged: number
-    chargedCurrency: string
-    refunded: number
-    /** After conversion, before fees. */
-    settled: number
-    settledRefunded: number
-    processingFees: number
-    conversionFees: number
-    otherFees: number
-    /** What is actually left. */
-    net: number
-  }
+  /**
+   * More than one settlement currency in the window, which happens when the
+   * account changes country mid-period. The panel says so instead of showing
+   * one total that means nothing.
+   */
+  mixedCurrencies: boolean
+  totals: CurrencyTotals[]
   rows: LedgerRow[]
   payouts: PayoutRow[]
   /** What Stripe is holding right now, per currency. */
@@ -65,10 +80,14 @@ const money = (cents: number) => Math.round(cents) / 100
 /**
  * The money, as Stripe's ledger has it rather than as our bookings imply.
  *
- * The two disagree, and the difference is not rounding. This house prices in
- * USD and the Stripe account settles in EUR, so every booking goes through a
- * conversion and a fee before anything reaches the bank. A panel that added up
- * `Booking.totalPrice` would report a number the host never receives.
+ * The two disagree, and the difference is not rounding: Stripe's fee comes off
+ * every booking, and when the account settles in a currency guests do not pay
+ * in, a conversion comes off too. A panel that added up `Booking.totalPrice`
+ * would report a number the host never receives.
+ *
+ * Nothing here assumes which currency that is. The account settled in EUR for
+ * the first half of this ledger and in USD after, and both have to read
+ * correctly — which is why totals are grouped by currency rather than summed.
  */
 @Injectable()
 export class PaymentsReportService {
@@ -78,56 +97,25 @@ export class PaymentsReportService {
   ) {}
 
   async report(range: { from: Date; to: Date }): Promise<PaymentsReport> {
-    const [transactions, payouts, balance] = await Promise.all([
+    const [transactions, payouts, balance, account] = await Promise.all([
       this.payments.balanceTransactions(range),
       this.payments.payouts(range),
       this.payments.balance(),
+      this.payments.account(),
     ])
 
     const rows = await this.withBookings(transactions)
-
-    const totals = {
-      charged: 0,
-      chargedCurrency: '',
-      refunded: 0,
-      settled: 0,
-      settledRefunded: 0,
-      processingFees: 0,
-      conversionFees: 0,
-      otherFees: 0,
-      net: 0,
-    }
-
-    for (const row of rows) {
-      if (row.type === 'charge' && row.chargedAmount !== null) {
-        totals.charged += row.chargedAmount
-        totals.settled += row.settledAmount
-        totals.chargedCurrency ||= row.chargedCurrency ?? ''
-      }
-      if (row.type === 'refund' && row.chargedAmount !== null) {
-        // Stripe signs a refund negative. The host reads "refunded: 2490", not
-        // "refunded: -2490", so it is flipped here and never added blindly.
-        totals.refunded += Math.abs(row.chargedAmount)
-        totals.settledRefunded += Math.abs(row.settledAmount)
-        totals.chargedCurrency ||= row.chargedCurrency ?? ''
-      }
-      totals.processingFees += row.processingFee
-      totals.conversionFees += row.conversionFee
-      totals.otherFees += row.otherFees
-      // Payout rows are money moving to the bank, not income: counting them
-      // would subtract the same euros twice.
-      if (row.type !== 'payout') totals.net += row.net
-    }
-
-    const settlementCurrency = balance?.available[0]?.currency ?? 'eur'
+    const totals = this.totalsByCurrency(rows)
+    const settlementCurrency = account?.defaultCurrency ?? 'usd'
 
     return {
       from: range.from.toISOString(),
       to: range.to.toISOString(),
       settlementCurrency,
-      convertsCurrency:
-        totals.chargedCurrency !== '' && totals.chargedCurrency !== settlementCurrency,
-      totals: { ...totals, chargedCurrency: totals.chargedCurrency || settlementCurrency },
+      accountCountry: account?.country ?? null,
+      convertsCurrency: totals.some((block) => block.converts),
+      mixedCurrencies: totals.length > 1,
+      totals,
       rows,
       payouts: payouts.map((payout) => ({
         id: payout.id,
@@ -144,6 +132,76 @@ export class PaymentsReportService {
         })) ?? [],
       connected: balance !== null,
     }
+  }
+
+  /**
+   * Totals, one block per settlement currency.
+   *
+   * A single total was fine while the account settled in one currency. It stops
+   * being fine the moment it changes: the history stays in the old currency and
+   * everything after arrives in the new one, and one figure covering both would
+   * be euros added to dollars.
+   */
+  private totalsByCurrency(rows: LedgerRow[]): CurrencyTotals[] {
+    const blocks = new Map<string, CurrencyTotals>()
+
+    for (const row of rows) {
+      let block = blocks.get(row.settledCurrency)
+      if (!block) {
+        block = {
+          settlementCurrency: row.settledCurrency,
+          charged: 0,
+          chargedCurrency: '',
+          refunded: 0,
+          settled: 0,
+          settledRefunded: 0,
+          processingFees: 0,
+          conversionFees: 0,
+          otherFees: 0,
+          net: 0,
+          converts: false,
+        }
+        blocks.set(row.settledCurrency, block)
+      }
+
+      // `payment` alongside `charge`: Stripe uses it for methods that are not
+      // card charges, and it is money in exactly the same way.
+      if ((row.type === 'charge' || row.type === 'payment') && row.chargedAmount !== null) {
+        block.charged += row.chargedAmount
+        block.settled += row.settledAmount
+        block.chargedCurrency ||= row.chargedCurrency ?? ''
+      }
+      if (row.type === 'refund' && row.chargedAmount !== null) {
+        // Stripe signs a refund negative. The host reads "refunded: 2490", not
+        // "refunded: -2490", so it is flipped here and never added blindly.
+        block.refunded += Math.abs(row.chargedAmount)
+        block.settledRefunded += Math.abs(row.settledAmount)
+        block.chargedCurrency ||= row.chargedCurrency ?? ''
+      }
+      block.processingFees += row.processingFee
+      block.conversionFees += row.conversionFee
+      block.otherFees += row.otherFees
+      // Payout rows are money moving to the bank, not income: counting them
+      // would subtract the same money twice.
+      if (row.type !== 'payout') block.net += row.net
+    }
+
+    for (const block of blocks.values()) {
+      block.chargedCurrency ||= block.settlementCurrency
+      block.converts = block.chargedCurrency !== block.settlementCurrency
+      // Cents in, cents out: adding floats row by row drifts.
+      block.charged = Math.round(block.charged * 100) / 100
+      block.refunded = Math.round(block.refunded * 100) / 100
+      block.settled = Math.round(block.settled * 100) / 100
+      block.settledRefunded = Math.round(block.settledRefunded * 100) / 100
+      block.processingFees = Math.round(block.processingFees * 100) / 100
+      block.conversionFees = Math.round(block.conversionFees * 100) / 100
+      block.otherFees = Math.round(block.otherFees * 100) / 100
+      block.net = Math.round(block.net * 100) / 100
+    }
+
+    // Biggest first, so the currency that actually matters leads.
+    return [...blocks.values()].sort((a, b) => b.settled - a.settled)
   }
 
   /**
@@ -254,6 +312,7 @@ export class PaymentsReportService {
             ? object.currency
             : null,
         settledAmount: money(transaction.amount),
+        settledCurrency: transaction.currency,
         processingFee: money(processingFee),
         conversionFee: money(conversionFee),
         otherFees: money(otherFees),

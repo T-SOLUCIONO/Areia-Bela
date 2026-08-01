@@ -248,6 +248,30 @@ export class PaymentsService {
     return result.data
   }
 
+  /**
+   * The account itself, which is the only authority on what it settles in.
+   *
+   * Not the balance: a balance keeps old currencies around long after the
+   * account stopped using them. Reading the settlement currency off the first
+   * balance entry said EUR for an account that had already moved to USD.
+   */
+  async account(): Promise<{ country: string | null; defaultCurrency: string } | null> {
+    if (!this.configured) return null
+
+    try {
+      const account = await this.stripe.accounts.retrieve()
+      return {
+        country: account.country ?? null,
+        defaultCurrency: account.default_currency ?? 'usd',
+      }
+    } catch (error) {
+      this.logger.log(
+        `Could not read the account: ${error instanceof Error ? error.message : 'unknown'}`,
+      )
+      return null
+    }
+  }
+
   /** What is sitting in Stripe right now, waiting to be paid out. */
   async balance(): Promise<Stripe.Balance | null> {
     if (!this.configured) return null

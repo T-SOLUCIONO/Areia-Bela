@@ -19,6 +19,7 @@ interface LedgerRow {
   chargedAmount: number | null
   chargedCurrency: string | null
   settledAmount: number
+  settledCurrency: string
   processingFee: number
   conversionFee: number
   otherFees: number
@@ -28,22 +29,28 @@ interface LedgerRow {
   guestName: string | null
 }
 
+interface CurrencyTotals {
+  settlementCurrency: string
+  charged: number
+  chargedCurrency: string
+  refunded: number
+  settled: number
+  settledRefunded: number
+  processingFees: number
+  conversionFees: number
+  otherFees: number
+  net: number
+  converts: boolean
+}
+
 interface Report {
   from: string
   to: string
   settlementCurrency: string
+  accountCountry: string | null
   convertsCurrency: boolean
-  totals: {
-    charged: number
-    chargedCurrency: string
-    refunded: number
-    settled: number
-    settledRefunded: number
-    processingFees: number
-    conversionFees: number
-    otherFees: number
-    net: number
-  }
+  mixedCurrencies: boolean
+  totals: CurrencyTotals[]
   rows: LedgerRow[]
   payouts: Array<{
     id: string
@@ -71,11 +78,15 @@ const rangeFor = (period: Period) => {
 /**
  * The money, from Stripe rather than from our own bookings.
  *
- * Adding up `Booking.totalPrice` would be easy and wrong: this house prices in
- * USD while the Stripe account settles in EUR, so a booking passes through a
- * conversion and two fees before anything reaches the bank. The gap is over
- * five percent, and it is the host's money — so the panel shows both figures
- * and never implies the first one is what she gets.
+ * Adding up `Booking.totalPrice` would be easy and wrong: Stripe's fee comes
+ * off every booking, and while the account settled in EUR a currency
+ * conversion came off too — over five percent between them. So the panel shows
+ * what the guest paid and what actually arrived, and never implies the first is
+ * what the host gets.
+ *
+ * Totals arrive grouped by settlement currency and are rendered that way. The
+ * account moved from EUR to USD mid-ledger; one combined figure would be euros
+ * added to dollars.
  */
 export default function PaymentsPage() {
   const { language } = useAdminLanguage()
@@ -111,17 +122,11 @@ export default function PaymentsPage() {
     void load(period)
   }, [load, period])
 
-  const settled = (amount: number) =>
+  const amountIn = (amount: number, currency: string) =>
     `${amount.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    })} ${(report?.settlementCurrency ?? 'eur').toUpperCase()}`
-
-  const guestMoney = (amount: number) =>
-    `${amount.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} ${(report?.totals.chargedCurrency ?? 'usd').toUpperCase()}`
+    })} ${currency.toUpperCase()}`
 
   const typeLabel = (type: string) =>
     (copy as unknown as Record<string, string>)[`type${type}`] ?? type
@@ -179,52 +184,101 @@ export default function PaymentsPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label={copy.charged} value={guestMoney(report.totals.charged)} />
-            <Stat label={copy.refunded} value={guestMoney(report.totals.refunded)} muted />
-            <Stat label={copy.settled} value={settled(report.totals.settled)} muted />
-            <Stat label={copy.net} value={settled(report.totals.net)} hint={copy.netLead} strong />
-          </div>
-
-          {/* The conversion fee is the one nobody expects, so it is named rather
-              than folded into a single "fees" figure. */}
-          {report.convertsCurrency && report.totals.conversionFees > 0 && (
+          {/* Multiple currencies means the account changed country mid-period.
+              Said out loud rather than silently showing two stacks of numbers
+              that look like they should add up. */}
+          {report.mixedCurrencies && (
             <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                {fill(copy.conversionWarning, {
-                  charged: report.totals.chargedCurrency.toUpperCase(),
-                  settled: report.settlementCurrency.toUpperCase(),
-                  amount: settled(report.totals.conversionFees),
+                {fill(copy.mixedCurrencies, {
+                  a: report.totals[0]?.settlementCurrency.toUpperCase() ?? '',
+                  b: report.totals[1]?.settlementCurrency.toUpperCase() ?? '',
                 })}
               </p>
             </div>
           )}
 
-          <Card>
-            <CardContent className="space-y-3 py-5">
-              <FeeLine label={copy.settled} value={settled(report.totals.settled)} />
-              <FeeLine
-                label={copy.refunded}
-                value={`− ${settled(report.totals.settledRefunded)}`}
-              />
-              <FeeLine
-                label={copy.processingFees}
-                value={`− ${settled(report.totals.processingFees)}`}
-              />
-              <FeeLine
-                label={copy.conversionFees}
-                value={`− ${settled(report.totals.conversionFees)}`}
-              />
-              {report.totals.otherFees > 0 && (
-                <FeeLine label={copy.otherFees} value={`− ${settled(report.totals.otherFees)}`} />
+          {report.totals.map((block) => (
+            <section key={block.settlementCurrency} className="space-y-4">
+              {report.mixedCurrencies && (
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {fill(copy.settlesIn, { currency: block.settlementCurrency.toUpperCase() })}
+                  {block.settlementCurrency !== report.settlementCurrency && ` · ${copy.historic}`}
+                </h2>
               )}
-              <div className="flex justify-between border-t border-border pt-3 text-base font-semibold text-foreground">
-                <span>{copy.net}</span>
-                <span className="tabular-nums">{settled(report.totals.net)}</span>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Stat label={copy.charged} value={amountIn(block.charged, block.chargedCurrency)} />
+                <Stat
+                  label={copy.refunded}
+                  value={amountIn(block.refunded, block.chargedCurrency)}
+                  muted
+                />
+                <Stat
+                  label={copy.settled}
+                  value={amountIn(block.settled, block.settlementCurrency)}
+                  muted
+                />
+                <Stat
+                  label={copy.net}
+                  value={amountIn(block.net, block.settlementCurrency)}
+                  hint={copy.netLead}
+                  strong
+                />
               </div>
-            </CardContent>
-          </Card>
+
+              {/* The conversion fee is the one nobody expects, so it is named
+                  rather than folded into a single "fees" figure. */}
+              {block.converts && block.conversionFees > 0 && (
+                <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>
+                    {fill(copy.conversionWarning, {
+                      charged: block.chargedCurrency.toUpperCase(),
+                      settled: block.settlementCurrency.toUpperCase(),
+                      amount: amountIn(block.conversionFees, block.settlementCurrency),
+                    })}
+                  </p>
+                </div>
+              )}
+
+              <Card>
+                <CardContent className="space-y-3 py-5">
+                  <FeeLine
+                    label={copy.settled}
+                    value={amountIn(block.settled, block.settlementCurrency)}
+                  />
+                  <FeeLine
+                    label={copy.refunded}
+                    value={`\u2212 ${amountIn(block.settledRefunded, block.settlementCurrency)}`}
+                  />
+                  <FeeLine
+                    label={copy.processingFees}
+                    value={`\u2212 ${amountIn(block.processingFees, block.settlementCurrency)}`}
+                  />
+                  {block.conversionFees > 0 && (
+                    <FeeLine
+                      label={copy.conversionFees}
+                      value={`\u2212 ${amountIn(block.conversionFees, block.settlementCurrency)}`}
+                    />
+                  )}
+                  {block.otherFees > 0 && (
+                    <FeeLine
+                      label={copy.otherFees}
+                      value={`\u2212 ${amountIn(block.otherFees, block.settlementCurrency)}`}
+                    />
+                  )}
+                  <div className="flex justify-between border-t border-border pt-3 text-base font-semibold text-foreground">
+                    <span>{copy.net}</span>
+                    <span className="tabular-nums">
+                      {amountIn(block.net, block.settlementCurrency)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          ))}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -317,6 +371,7 @@ export default function PaymentsPage() {
                         <th className="px-4 py-3 font-semibold">{copy.colBooking}</th>
                         <th className="px-4 py-3 text-right font-semibold">{copy.colCharged}</th>
                         <th className="px-4 py-3 text-right font-semibold">{copy.colSettled}</th>
+                        <th className="px-4 py-3 text-left font-semibold" />
                         <th className="px-4 py-3 text-right font-semibold">{copy.colFees}</th>
                         <th className="px-4 py-3 text-right font-semibold">{copy.colNet}</th>
                       </tr>
@@ -361,6 +416,11 @@ export default function PaymentsPage() {
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-muted-foreground">
                               {row.settledAmount.toFixed(2)}
+                            </td>
+                            {/* The currency next to the figure, because two of
+                                them live in this table now. */}
+                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-muted-foreground">
+                              {row.settledCurrency.toUpperCase()}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-muted-foreground">
                               {fees === 0 ? '—' : fees.toFixed(2)}
