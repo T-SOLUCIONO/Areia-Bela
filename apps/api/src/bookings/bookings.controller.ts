@@ -17,10 +17,14 @@ import { UserRole } from '@prisma/client'
 import type { Request, Response } from 'express'
 import { Public } from '../auth/decorators/public.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
+import { CurrentUser } from '../auth/decorators/current-user.decorator'
+import type { AuthenticatedUser } from '../auth/auth.types'
 import { BookingsService } from './bookings.service'
 import { StripeWebhookService } from './stripe-webhook.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { CancelBookingDto } from './dto/cancel-booking.dto'
+import { IssueRefundDto } from './dto/issue-refund.dto'
+import { RefundsService } from './refunds.service'
 import { BookingPdfService } from '../guest/booking-pdf.service'
 
 @Controller('bookings')
@@ -35,6 +39,7 @@ export class BookingsController {
     private readonly bookings: BookingsService,
     private readonly webhook: StripeWebhookService,
     private readonly pdfs: BookingPdfService,
+    private readonly refunds: RefundsService,
   ) {}
 
   /**
@@ -140,5 +145,33 @@ export class BookingsController {
   @Patch(':id/cancel')
   async cancel(@Param('id') id: string, @Body() dto: CancelBookingDto) {
     await this.bookings.cancel(id, dto.reason)
+  }
+
+  /**
+   * What the policy says this cancellation is worth, and what has already been
+   * sent back. A VIEWER can see it; only the two roles above can act on it.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @Get(':id/refund')
+  refundSummary(@Param('id') id: string) {
+    return this.refunds.summaryFor(id)
+  }
+
+  /**
+   * Sends money back.
+   *
+   * Rate limited despite being behind auth: this is the one endpoint in the
+   * panel that moves money out, and a loop that hits it is worse than a loop
+   * that hits anything else here.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post(':id/refund')
+  issueRefund(
+    @Param('id') id: string,
+    @Body() dto: IssueRefundDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.refunds.issue(id, { amount: dto.amount, note: dto.note, userId: user?.id })
   }
 }

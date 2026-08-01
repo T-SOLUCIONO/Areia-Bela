@@ -41,6 +41,18 @@ export interface GuestConfirmation extends BookingNotice {
   checkOutTime: string
 }
 
+/** A refund that has actually left, for the guest's own record. */
+export interface RefundNotice {
+  reference: string
+  guestName: string
+  guestEmail: string
+  locale: string
+  amount: number
+  /** What they paid, so the two figures can be compared without doing sums. */
+  total: number
+  note?: string
+}
+
 export interface MessageNotice {
   name: string
   email: string
@@ -189,6 +201,65 @@ export class NotificationsService {
   }
 
   /**
+   * Tells the guest money is on its way back.
+   *
+   * Not switchable, for the same reason the booking confirmation is not: a
+   * refund is a movement on their card, and a card movement without an
+   * explanation is the kind of thing that becomes a dispute.
+   *
+   * Sent only once Stripe has accepted the refund. Announcing one that then
+   * failed would be worse than saying nothing.
+   */
+  async refundIssued(notice: RefundNotice): Promise<void> {
+    const copy = REFUND_COPY[notice.locale] ?? REFUND_COPY.en
+    const body = [
+      copy.greeting(notice.guestName.split(' ')[0]),
+      '',
+      copy.amount(notice.amount, notice.total),
+      copy.reference(notice.reference),
+      ...(notice.note ? ['', notice.note] : []),
+      '',
+      copy.timing,
+      '',
+      copy.closing,
+    ].join('\n')
+
+    try {
+      await this.mail.send({
+        to: notice.guestEmail,
+        toName: notice.guestName,
+        subject: copy.subject(notice.reference),
+        text: body,
+        html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
+      })
+      this.logger.log(`Told the guest about the refund on ${notice.reference}`)
+    } catch (error) {
+      // The money has already moved. A mail that did not send is not a reason
+      // to unwind it, and the panel shows the refund either way.
+      this.logger.error(
+        `Could not tell the guest about the refund on ${notice.reference}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+    }
+  }
+
+  /** The host's own copy: money left the account. */
+  async refundSent(notice: RefundNotice): Promise<void> {
+    await deliver(
+      await this.destinationsFor('cancellation'),
+      `Reembolso enviado · ${notice.reference}`,
+      [
+        `Se devolvieron $${notice.amount} a ${notice.guestName}.`,
+        `Referencia: ${notice.reference}`,
+        `Total de la reserva: $${notice.total}`,
+        ...(notice.note ? ['', `Nota: ${notice.note}`] : []),
+      ].join('\n'),
+      this.logger,
+    )
+  }
+
+  /**
    * A guest paid for dates that are no longer available.
    *
    * Only reachable when a webhook arrives so late that the hold expired and
@@ -287,6 +358,64 @@ export class NotificationsService {
  * Plain text on purpose: it has to survive every mail client, and a booking
  * reference is not improved by a template.
  */
+const REFUND_COPY: Record<
+  string,
+  {
+    subject: (reference: string) => string
+    greeting: (name: string) => string
+    amount: (amount: number, total: number) => string
+    reference: (reference: string) => string
+    timing: string
+    closing: string
+  }
+> = {
+  es: {
+    subject: (reference) => `Reembolso de tu reserva · ${reference}`,
+    greeting: (name) => `Hola ${name}, tu reembolso está en camino.`,
+    amount: (amount, total) => `Importe devuelto: $${amount} de los $${total} que pagaste.`,
+    reference: (reference) => `Referencia: ${reference}`,
+    timing:
+      'El dinero vuelve al mismo método de pago que usaste. Suele tardar entre 5 y 10 días hábiles, según tu banco.',
+    closing: 'Si algo no cuadra, responde a este correo.',
+  },
+  en: {
+    subject: (reference) => `Refund for your booking · ${reference}`,
+    greeting: (name) => `Hi ${name}, your refund is on its way.`,
+    amount: (amount, total) => `Amount returned: $${amount} of the $${total} you paid.`,
+    reference: (reference) => `Reference: ${reference}`,
+    timing:
+      'The money goes back to the payment method you used. It usually takes 5 to 10 business days, depending on your bank.',
+    closing: 'If anything looks wrong, just reply to this email.',
+  },
+  pt: {
+    subject: (reference) => `Reembolso da sua reserva · ${reference}`,
+    greeting: (name) => `Olá ${name}, seu reembolso está a caminho.`,
+    amount: (amount, total) => `Valor devolvido: $${amount} dos $${total} que você pagou.`,
+    reference: (reference) => `Referência: ${reference}`,
+    timing:
+      'O dinheiro volta para o mesmo meio de pagamento que você usou. Costuma levar de 5 a 10 dias úteis, conforme o seu banco.',
+    closing: 'Se algo não bater, responda a este e-mail.',
+  },
+  fr: {
+    subject: (reference) => `Remboursement de votre réservation · ${reference}`,
+    greeting: (name) => `Bonjour ${name}, votre remboursement est en route.`,
+    amount: (amount, total) => `Montant remboursé : ${amount} $ sur les ${total} $ payés.`,
+    reference: (reference) => `Référence : ${reference}`,
+    timing:
+      'L’argent revient sur le moyen de paiement utilisé. Cela prend en général 5 à 10 jours ouvrés, selon votre banque.',
+    closing: 'Si quelque chose ne va pas, répondez à ce message.',
+  },
+  de: {
+    subject: (reference) => `Rückerstattung Ihrer Buchung · ${reference}`,
+    greeting: (name) => `Hallo ${name}, Ihre Rückerstattung ist unterwegs.`,
+    amount: (amount, total) => `Erstatteter Betrag: $${amount} von den gezahlten $${total}.`,
+    reference: (reference) => `Referenz: ${reference}`,
+    timing:
+      'Das Geld geht auf dasselbe Zahlungsmittel zurück. Je nach Bank dauert es 5 bis 10 Werktage.',
+    closing: 'Falls etwas nicht stimmt, antworten Sie einfach auf diese E-Mail.',
+  },
+}
+
 const GUEST_COPY: Record<
   string,
   {

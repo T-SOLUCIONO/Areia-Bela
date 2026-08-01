@@ -88,9 +88,12 @@ export class PaymentsService {
    * moment the guest is actually waiting — the background reconciliation still
    * covers everyone who closed the tab.
    */
-  async sessionStatus(
-    sessionId: string,
-  ): Promise<{ paid: boolean; bookingId?: string; amountTotal: number } | null> {
+  async sessionStatus(sessionId: string): Promise<{
+    paid: boolean
+    bookingId?: string
+    amountTotal: number
+    paymentIntentId?: string
+  } | null> {
     if (!this.configured) return null
 
     try {
@@ -99,6 +102,10 @@ export class PaymentsService {
         paid: session.payment_status === 'paid',
         bookingId: session.metadata?.bookingId ?? undefined,
         amountTotal: session.amount_total ?? 0,
+        paymentIntentId:
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : (session.payment_intent?.id ?? undefined),
       }
     } catch (error) {
       // An unknown id is the ordinary case here — someone opening the
@@ -111,5 +118,45 @@ export class PaymentsService {
       )
       return null
     }
+  }
+
+  /**
+   * Sends money back for a charge that already went through.
+   *
+   * Deliberately not idempotent-by-guess: the caller writes a Refund row first
+   * and passes its id, so a retry that reaches Stripe twice is refused by
+   * Stripe rather than paying the guest twice. `amountCents` is always
+   * explicit — Stripe's default is the full charge, and defaulting to "all of
+   * it" is not a default worth having when the difference is real money.
+   */
+  async refund(request: {
+    paymentIntentId: string
+    amountCents: number
+    /** The Refund row's id, used as Stripe's idempotency key. */
+    idempotencyKey: string
+  }): Promise<{ id: string; status: string }> {
+    if (!this.configured) {
+      this.logger.error('STRIPE_SECRET_KEY is not set; cannot refund')
+      throw new ServiceUnavailableException('Payments are not configured')
+    }
+
+    const refund = await this.stripe.refunds.create(
+      {
+        payment_intent: request.paymentIntentId,
+        amount: request.amountCents,
+        // Not `duplicate` or `fraudulent`: those two feed Stripe's risk
+        // signals, and a guest who cancelled a holiday is neither.
+        reason: 'requested_by_customer',
+      },
+      { idempotencyKey: request.idempotencyKey },
+    )
+
+    return { id: refund.id, status: refund.status ?? 'unknown' }
+  }
+
+  /** The PaymentIntent behind a session, for bookings paid before we stored it. */
+  async paymentIntentFor(sessionId: string): Promise<string | null> {
+    const status = await this.sessionStatus(sessionId)
+    return status?.paymentIntentId ?? null
   }
 }

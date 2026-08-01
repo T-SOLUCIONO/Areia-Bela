@@ -231,7 +231,12 @@ export class BookingsService {
    * Idempotent, because Stripe retries a webhook it did not get a 2xx for and
    * will happily deliver the same event twice.
    */
-  async confirmPayment(bookingId: string, sessionId: string, amountPaid: number): Promise<void> {
+  async confirmPayment(
+    bookingId: string,
+    sessionId: string,
+    amountPaid: number,
+    paymentIntentId?: string,
+  ): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -277,6 +282,9 @@ export class BookingsService {
         data: {
           status: 'CONFIRMED',
           stripeSessionId: sessionId,
+          // What a refund will be issued against, months from now. Stored at
+          // the one moment Stripe is definitely telling us about this charge.
+          stripePaymentIntentId: paymentIntentId ?? undefined,
           paidAt: new Date(),
           // A confirmed stay does not expire. Leaving this set would make the
           // sweep in hold() cancel a booking somebody paid for.
@@ -383,7 +391,12 @@ export class BookingsService {
       const status = await this.payments.sessionStatus(sessionId)
       if (status?.paid && status.bookingId) {
         this.logger.warn(`Confirming ${sessionId} on return: no webhook had arrived`)
-        await this.confirmPayment(status.bookingId, sessionId, status.amountTotal)
+        await this.confirmPayment(
+          status.bookingId,
+          sessionId,
+          status.amountTotal,
+          status.paymentIntentId,
+        )
 
         booking = await this.prisma.booking.findUnique({
           where: { stripeSessionId: sessionId },
@@ -419,6 +432,10 @@ export class BookingsService {
       total: number
       status: BookingStatus
       expiresAt: string | null
+      /** Null means never paid, whatever the status says. */
+      paidAt: string | null
+      /** What has already gone back, so the row can say it without a second call. */
+      refunded: number
       guestName: string
       guestEmail: string
       guestPhone: string
@@ -432,7 +449,12 @@ export class BookingsService {
       where: {
         NOT: { status: 'PENDING', expiresAt: { lt: new Date() } },
       },
-      include: { customer: true, extras: { include: { extra: true } } },
+      include: {
+        customer: true,
+        extras: { include: { extra: true } },
+        // A failed refund returned nothing, so it is not money that left.
+        refunds: { where: { status: { not: 'FAILED' } }, select: { amount: true } },
+      },
       orderBy: { checkIn: 'asc' },
     })
 
@@ -447,6 +469,8 @@ export class BookingsService {
       total: Number(booking.totalPrice),
       status: booking.status,
       expiresAt: booking.expiresAt?.toISOString() ?? null,
+      paidAt: booking.paidAt?.toISOString() ?? null,
+      refunded: booking.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
       guestName: `${booking.customer.firstName} ${booking.customer.lastName}`,
       guestEmail: booking.customer.email,
       guestPhone: booking.customer.phone,

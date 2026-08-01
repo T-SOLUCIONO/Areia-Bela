@@ -1,6 +1,7 @@
 // Areia Bela — whole-home rental (1 Property). See docs/domain-decisions.md.
 // User/RefreshToken landed in Fase 4 (auth); CMSPage/SiteSettings/GalleryImage/
-// FAQ in Fase 5 (CMS).
+// FAQ in Fase 5 (CMS); Refund in Fase 7 (money leaving needs a ledger, not a
+// column — see docs/changelog.md).
 
 generator client {
   provider = "prisma-client-js"
@@ -12,21 +13,21 @@ datasource db {
 }
 
 model Property {
-  id                         String   @id @default(cuid())
-  slug                       String   @unique
-  name  String
-  description  String
+  id                         String             @id @default(cuid())
+  slug                       String             @unique
+  name                       String
+  description                String
   maxGuests                  Int
-  additionalGuestFeePerNight Decimal  @db.Decimal(10, 2)
-  cleaningFee                Decimal  @db.Decimal(10, 2)
+  additionalGuestFeePerNight Decimal            @db.Decimal(10, 2)
+  cleaningFee                Decimal            @db.Decimal(10, 2)
   // Taken off the nights once a stay is long enough. Editable, because it is
   // a commercial lever the host pulls, not a constant of the house.
-  weeklyDiscountPercent      Decimal  @default(10) @db.Decimal(5, 2)
-  weeklyDiscountNights       Int      @default(7)
+  weeklyDiscountPercent      Decimal            @default(10) @db.Decimal(5, 2)
+  weeklyDiscountNights       Int                @default(7)
   // Commercial levers, like the discount above: the real listing allows a
   // single night and up to a year, but the host changes these by season.
-  minNights                  Int      @default(1)
-  maxNights                  Int      @default(365)
+  minNights                  Int                @default(1)
+  maxNights                  Int                @default(365)
   // MODERATE matches what the site has been telling guests all along —
   // "free cancellation until 5 days before" — so it is the only default that
   // does not contradict a promise already made. Editable from the panel.
@@ -34,8 +35,8 @@ model Property {
   // Anything every guest needs and nobody thinks to ask: where to park, how
   // the door works. Empty until the host writes it; nothing here is invented.
   accessNotes                String?
-  serviceFeePercent          Decimal  @db.Decimal(5, 2)
-  taxesPercent               Decimal  @db.Decimal(5, 2)
+  serviceFeePercent          Decimal            @db.Decimal(5, 2)
+  taxesPercent               Decimal            @db.Decimal(5, 2)
   bedrooms                   Int
   bathrooms                  Int
   amenities                  String[]
@@ -46,8 +47,8 @@ model Property {
   checkInTime                String
   checkOutTime               String
   trashCollectionDays        String[]
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
 
   bookings     Booking[]
   extras       Extra[]
@@ -135,12 +136,16 @@ model Booking {
   // When a PENDING hold stops holding the dates. Null once paid: a confirmed
   // stay never expires. The date range is guarded by an exclusion constraint
   // (see the migration), so two guests cannot pay for the same week.
-  expiresAt  DateTime?
+  expiresAt   DateTime?
 
-  stripeSessionId    String?   @unique
-  paidAt             DateTime?
-  cancelledAt        DateTime?
-  cancellationReason String?
+  stripeSessionId       String?   @unique
+  // Stripe refunds a PaymentIntent, not a Checkout Session. Kept at
+  // confirmation so a refund does not depend on Stripe still answering about
+  // a session from last season.
+  stripePaymentIntentId String?   @unique
+  paidAt                DateTime?
+  cancelledAt           DateTime?
+  cancellationReason    String?
 
   specialRequests String?
   // The language the guest booked in, so their confirmation arrives in it.
@@ -149,7 +154,8 @@ model Booking {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  extras BookingExtra[]
+  extras  BookingExtra[]
+  refunds Refund[]
 
   @@index([propertyId, checkIn, checkOut])
   @@index([status, expiresAt])
@@ -166,7 +172,7 @@ model Extra {
   propertyId          String
   property            Property         @relation(fields: [propertyId], references: [id])
   key                 String
-  name  String
+  name                String
   pricingType         ExtraPricingType
   price               Decimal          @db.Decimal(10, 2)
   refundable          Boolean          @default(true)
@@ -204,6 +210,48 @@ enum SeasonType {
   LOW
   HIGH
   WEEKEND
+}
+
+/// One line per movement of money back out, never overwritten.
+///
+/// A `refundedTotal` column on Booking would answer "how much" and nothing
+/// else. Fase 7.5 has to exclude refunds from the taxable base and say when
+/// they happened, the panel has to show who authorised each one, and a stay
+/// can be refunded twice — a partial now and the rest after a conversation.
+/// None of that fits in a running total.
+model Refund {
+  id        String  @id @default(cuid())
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  amount         Decimal @db.Decimal(10, 2)
+  /// What the ladder proposed, kept even when the host overrode it: the gap
+  /// between the two is the only record that a judgement call was made.
+  proposedAmount Decimal @db.Decimal(10, 2)
+  /// Which rung decided the proposal (FULL, HALF, NONE, GRACE, STAY_STARTED).
+  reason         String
+  note           String?
+
+  /// Null while Stripe has not answered yet, and for money returned by other
+  /// means — a transfer the host made by hand still belongs in the ledger.
+  stripeRefundId String?      @unique
+  status         RefundStatus @default(PENDING)
+  failureReason  String?
+
+  /// Who authorised it. Not a relation with a cascade: deleting a user must
+  /// not erase the record of a refund they approved.
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([createdAt])
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
 }
 
 model PriceRule {
@@ -341,8 +389,8 @@ enum CMSPageSlug {
 model CMSPage {
   id        String      @id @default(cuid())
   slug      CMSPageSlug @unique
-  title  String
-  body  String
+  title     String
+  body      String
   published Boolean     @default(true)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -357,14 +405,14 @@ enum FAQCategory {
 }
 
 model FAQ {
-  id         String      @id @default(cuid())
+  id        String      @id @default(cuid())
   question  String
-  answer  String
-  category   FAQCategory @default(GENERAL)
-  sortOrder  Int         @default(0)
-  published  Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  answer    String
+  category  FAQCategory @default(GENERAL)
+  sortOrder Int         @default(0)
+  published Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@index([category, sortOrder])
 }
@@ -372,7 +420,7 @@ model FAQ {
 model GalleryImage {
   id        String   @id @default(cuid())
   url       String
-  alt  String
+  alt       String
   sortOrder Int      @default(0)
   published Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -384,29 +432,29 @@ model GalleryImage {
 // Single row, like Property. `id` is pinned to a constant so upserts can find
 // it without a lookup, and so a second row can't be created by accident.
 model SiteSettings {
-  id               String   @id @default("site")
+  id           String @id @default("site")
   // Shown to guests, in the footer and the contact card.
-  contactEmail     String
-  contactPhone     String
-  whatsapp         String
+  contactEmail String
+  contactPhone String
+  whatsapp     String
 
   // Where the host is told about a booking, a cancellation or a message.
   // Separate from the public ones on purpose: the address a guest writes to is
   // rarely the one the host wants woken up at.  Empty falls back to the public
   // field, so a host who only has one address does not have to type it twice.
-  notifyEmail      String  @default("")
-  notifyWhatsapp   String  @default("")
-  notifyOnBooking  Boolean @default(true)
-  notifyOnCancel   Boolean @default(true)
-  notifyOnMessage  Boolean @default(true)
-  seoTitle  String
+  notifyEmail     String   @default("")
+  notifyWhatsapp  String   @default("")
+  notifyOnBooking Boolean  @default(true)
+  notifyOnCancel  Boolean  @default(true)
+  notifyOnMessage Boolean  @default(true)
+  seoTitle        String
   seoDescription  String
-  instagramUrl     String?
-  facebookUrl      String?
-  airbnbUrl        String?
+  instagramUrl    String?
+  facebookUrl     String?
+  airbnbUrl       String?
   // Header and footer share one mark; null falls back to the bundled PNG.
-  logoUrl          String?
-  updatedAt        DateTime @updatedAt
+  logoUrl         String?
+  updatedAt       DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
@@ -442,16 +490,16 @@ model ContentSection {
   // Not every section uses every slot — an empty string means "don't render".
   // Nullable columns would say the same thing with more null checks.
   eyebrow  String @default("")
-  title  String @default("")
-  subtitle  String @default("")
-  body  String @default("")
-  ctaLabel  String @default("")
-  ctaHref    String @default("")
+  title    String @default("")
+  subtitle String @default("")
+  body     String @default("")
+  ctaLabel String @default("")
+  ctaHref  String @default("")
 
   // The one headline figure a section can carry: the review score, the host's
   // years hosting. Kept as text because "5.0" and "< 1 hour" are both valid.
-  statValue   String @default("")
-  statLabel  String @default("")
+  statValue String @default("")
+  statLabel String @default("")
 
   imageUrl String? // host portrait, section background
   linkUrl  String? // map embed for LOCATION
@@ -482,8 +530,8 @@ model ContentItem {
 
   icon     String  @default("") // lucide-react name, picked from a curated list
   imageUrl String?
-  label  String
-  body  String  @default("")
+  label    String
+  body     String  @default("")
   // Host stats ("10+", "100%") and review sub-scores ("4.9").
   value    String  @default("")
 
@@ -503,10 +551,10 @@ model Review {
   authorName     String
   authorPhotoUrl String?
   rating         Int     @default(5)
-  text  String
+  text           String
   // Free text ("noviembre de 2025"): the source listing gives no exact dates,
   // and inventing them would be inventing data.
-  stayedAt  String  @default("")
+  stayedAt       String  @default("")
   verified       Boolean @default(true)
   // The one pulled out into the large quote block at the top.
   featured       Boolean @default(false)
@@ -542,14 +590,15 @@ model Translation {
 
   /**
    * SHA-256 of the source text this was translated from.
-   *
    * Without it, editing the Spanish would silently leave four stale
    * translations that still look fine. The resolver compares this against the
    * current source and treats a mismatch as untranslated.
    */
   sourceHash String
 
-  /** False once a human has edited it, so re-translation stops overwriting. */
+  /**
+   * False once a human has edited it, so re-translation stops overwriting.
+   */
   isMachine Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

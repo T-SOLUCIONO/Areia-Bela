@@ -3329,3 +3329,112 @@ portada y checkout → HTTP 200
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (245 tests)
 ```
+
+---
+
+## 53. Fase 7.1 — Se podía cancelar una reserva pagada y el dinero se quedaba
+
+El agujero: `cancel()` ponía la reserva en `CANCELLED`, devolvía las noches al
+calendario y terminaba con este comentario.
+
+```ts
+// Refunds are not automated: money going back out is a decision, not a
+// side effect of a click.
+```
+
+La primera frase era cierta y la segunda también, pero juntas dejaban al
+huésped cobrado mientras el checkout y el PDF le prometían una devolución. El
+sistema anunciaba un reembolso que no podía ejecutar.
+
+### Lo que decide, y lo que no
+
+`proposeRefund` **propone**. No mueve dinero. El panel enseña la propuesta
+línea por línea y la deja en un campo editable, porque quien sabe si la semana
+se puede revender no es una función.
+
+Lo que se guarda es la propuesta **y** lo enviado. La diferencia entre las dos
+es el único registro de que alguien tomó una decisión.
+
+### A qué se le aplica la política
+
+| Concepto                              | Qué vuelve                                 |
+| ------------------------------------- | ------------------------------------------ |
+| Noches, tarifa de servicio, impuestos | Lo que diga la escalera: 100 %, 50 % o 0 % |
+| Limpieza                              | Entero, siempre que el huésped no llegue   |
+| Extras                                | Enteros, por lo mismo                      |
+
+El impuesto sigue al dinero que se queda la anfitriona: no se debe nada sobre
+un importe devuelto, y como `computeQuote` lo calcula sobre el alojamiento,
+aplicar la misma tasa a los tres los mantiene coherentes entre sí.
+
+La limpieza es el único punto donde una política del 0 % igual devuelve dinero.
+Es deliberado y es lo que hace Airbnb: nadie limpió la casa. Una vez que la
+estadía empezó no vuelve nada — la casa sí se preparó para alguien que vino.
+
+### Por qué una tabla y no una columna
+
+`Refund` es entidad nueva, y CLAUDE.md pide justificarla. Un `refundedTotal`
+en `Booking` respondería "cuánto" y nada más. Hace falta además: excluir
+reembolsos de la base imponible en Fase 7.5 y saber **cuándo** ocurrieron,
+mostrar **quién** autorizó cada uno, y permitir dos sobre la misma reserva —
+uno parcial ahora y el resto tras una conversación. Nada de eso cabe en un
+acumulado.
+
+### El orden importa
+
+La fila se escribe **antes** de llamar a Stripe, y su `id` es la clave de
+idempotencia. Un reintento que llegue dos veces a Stripe lo rechaza Stripe, no
+se paga dos veces. Si Stripe se niega, la fila queda en `FAILED` con el motivo:
+un reembolso rechazado es algo que la anfitriona tiene que ver, no que borrar.
+
+Al huésped se le avisa **solo** cuando el dinero ya salió. Anunciar uno que
+luego falló sería peor que callarse.
+
+### Lo demás
+
+- `Booking.stripePaymentIntentId`: Stripe reembolsa un PaymentIntent, no una
+  sesión. Se guarda al confirmar. Las reservas anteriores no lo tienen, así que
+  se busca una vez por su sesión y se guarda — ruta que las 8 reservas pagadas
+  de la base van a usar.
+- Reembolsar no exige cancelar, y cancelar ofrece reembolsar acto seguido: es
+  una decisión en dos pasos, no dos recados.
+- El botón aparece aunque la reserva ya esté cancelada. Es justamente el caso
+  que más lo necesita: una estadía anulada con el dinero todavía cobrado.
+
+### Comprobado sobre las 8 reservas pagadas reales
+
+```
+Política vigente: MODERATE
+AB-JJYK9R  llegada 2026-07-31  pagó $1245  -> STAY_STARTED (-1d)  propone $0
+AB-T45RMB  llegada 2026-08-06  pagó $1245  -> FULL (5d)   propone $1245
+AB-E37EEZ  llegada 2026-08-09  pagó $2370  -> FULL (8d)   propone $2370
+AB-UJHWKH  llegada 2026-08-27  pagó $1017  -> FULL (26d)  propone $1017
+```
+
+Ninguna propuesta excede lo pagado. `AB-UJHWKH` es la comprobación que más
+dice: se reservó con limpieza y servicio apagados desde el panel, y la
+propuesta suma 900 + 117 = 1017, exactamente lo cobrado. El desglose cuadra con
+el total guardado, no con uno recalculado hoy.
+
+```
+GET  /bookings/:id/refund sin sesión → 401
+POST /bookings/:id/refund sin sesión → 401
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (269 tests, 24 nuevos)
+```
+
+### Pendiente del usuario
+
+Falta **un reembolso real en modo test** desde el panel, de punta a punta. No
+lo hice yo: mueve dinero en la cuenta de Stripe del usuario y no tengo su
+contraseña de admin para hacerlo por la vía que lo haría ella.
+
+### Diferido
+
+- **Sin `charge.refunded` en el webhook.** Un reembolso hecho desde el panel de
+  Stripe no aparece en este libro mayor. El panel propio sí queda al día.
+- **Sin reembolso parcial por noche.** Se devuelve un importe, no "las tres
+  últimas noches".

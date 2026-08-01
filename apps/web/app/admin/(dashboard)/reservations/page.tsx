@@ -21,6 +21,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@a
 import { apiFetch } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
+import { RefundDialog } from '@/components/admin/refund-dialog'
 import { cn } from '@/lib/utils'
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
@@ -36,6 +37,8 @@ interface Reservation {
   total: number
   status: BookingStatus
   expiresAt: string | null
+  paidAt: string | null
+  refunded: number
   guestName: string
   guestEmail: string
   guestPhone: string
@@ -61,6 +64,7 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [cancelling, setCancelling] = useState<Reservation | null>(null)
+  const [refunding, setRefunding] = useState<Reservation | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -97,9 +101,14 @@ export default function ReservationsPage() {
         body: JSON.stringify({ reason: reason.trim() || undefined }),
       })
       toast.success(copy.cancelled_ok)
+      // Straight into the refund, while the host is still thinking about this
+      // booking. Cancelling a paid stay and settling the money are one decision
+      // made in two steps, not two errands.
+      const paid = cancelling.paidAt !== null && cancelling.refunded < cancelling.total
       setCancelling(null)
       setReason('')
       await load()
+      if (paid) setRefunding(cancelling)
     } catch {
       toast.error(copy.cancelFailed)
     } finally {
@@ -232,18 +241,32 @@ export default function ReservationsPage() {
 
         <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
           <p className="text-xl font-semibold text-foreground">${row.total.toLocaleString()}</p>
-          {row.status !== 'CANCELLED' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCancelling(row)
-                setReason('')
-              }}
-            >
-              {copy.cancel}
-            </Button>
+          {row.refunded > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {copy.refundAlready}: ${row.refunded.toLocaleString()}
+            </p>
           )}
+          <div className="flex gap-2">
+            {/* Refundable whatever the status: the case that most needs this is
+                a stay already cancelled with the money still taken. */}
+            {row.paidAt !== null && row.refunded < row.total && (
+              <Button variant="outline" size="sm" onClick={() => setRefunding(row)}>
+                {copy.refund}
+              </Button>
+            )}
+            {row.status !== 'CANCELLED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCancelling(row)
+                  setReason('')
+                }}
+              >
+                {copy.cancel}
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -303,6 +326,14 @@ export default function ReservationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RefundDialog
+        bookingId={refunding?.id ?? null}
+        reference={refunding?.reference ?? ''}
+        open={refunding !== null}
+        onOpenChange={(open) => !open && setRefunding(null)}
+        onRefunded={() => void load()}
+      />
     </div>
   )
 }

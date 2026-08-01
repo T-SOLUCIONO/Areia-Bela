@@ -91,7 +91,14 @@ export class PaymentReconciliationService implements OnApplicationBootstrap {
         this.logger.warn(
           `Recovering ${waiting.get(bookingId)}: paid on Stripe but no webhook arrived`,
         )
-        await this.bookings.confirmPayment(bookingId, session.id, session.amount_total ?? 0)
+        await this.bookings.confirmPayment(
+          bookingId,
+          session.id,
+          session.amount_total ?? 0,
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : (session.payment_intent?.id ?? undefined),
+        )
         recovered += 1
       }
     } catch (error) {
