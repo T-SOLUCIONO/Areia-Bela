@@ -171,6 +171,38 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * What Stripe says about a refund now.
+   *
+   * The acquirer reference number is rarely ready when the refund is created —
+   * Stripe fills it in minutes later. Asking on demand is the same choice made
+   * for payments in §41: a webhook that never arrives must not be the only way
+   * to learn something.
+   */
+  async refundStatus(refundId: string): Promise<{
+    status: string
+    settlesAs?: string
+    cardReference?: string
+  } | null> {
+    if (!this.configured) return null
+
+    try {
+      const refund = await this.stripe.refunds.retrieve(refundId)
+      const card = refund.destination_details?.card
+
+      return {
+        status: refund.status ?? 'unknown',
+        settlesAs: card?.type,
+        cardReference: card?.reference_status === 'available' ? card.reference : undefined,
+      }
+    } catch (error) {
+      this.logger.log(
+        `Could not read refund ${refundId}: ${error instanceof Error ? error.message : 'unknown'}`,
+      )
+      return null
+    }
+  }
+
   /** The PaymentIntent behind a session, for bookings paid before we stored it. */
   async paymentIntentFor(sessionId: string): Promise<string | null> {
     const status = await this.sessionStatus(sessionId)

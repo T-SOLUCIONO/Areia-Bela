@@ -3530,3 +3530,65 @@ pnpm typecheck ✅   pnpm test ✅ (272 tests, 3 nuevos)
 - **Sin `charge.refund.updated` en el webhook.** El ARN llega a veces minutos
   después del reembolso; si en ese momento era `pending`, no se rellena solo.
   Hace falta escuchar ese evento para mantenerlo al día.
+
+---
+
+## 55. Los dos reembolsos reales, y el número de rastreo que faltaba
+
+El usuario hizo dos reembolsos desde el panel y preguntó cómo saber si llegaron
+a Stripe. Se comprobó preguntándole a Stripe, no a nuestra base.
+
+```
+re_3TzHKKFIUDUBDoC21lntboXT   succeeded   $1245.00   tipo refund
+  ARN 3977554206558176 (available)
+re_3Tz0qOFIUDUBDoC20KYB5rvi   succeeded   $1245.00   tipo refund
+  ARN 7091837703965765 (available)
+```
+
+`succeeded` es la palabra: Stripe ya lo mandó al banco del huésped.
+
+### Lo que la comprobación destapó
+
+Los dos ARN estaban **disponibles en Stripe y ausentes en nuestra base**. Al
+crear el reembolso Stripe todavía los daba como `pending`, así que la fila
+guardó null — y los dos correos al huésped salieron sin número de rastreo.
+Estaba declarado como diferido en §54; los datos reales lo convirtieron en algo
+que arreglar hoy.
+
+### Se resuelve preguntando, no esperando
+
+La opción obvia era escuchar `charge.refund.updated` en el webhook. Se
+descartó por lo aprendido en §41: en este proyecto el webhook **es** el
+problema — el túnel se renombró cuatro veces y Stripe reintentaba contra un
+dominio muerto. Un dato que solo llega por webhook es un dato que a veces no
+llega.
+
+`summaryFor` pregunta por las filas a las que les falta el ARN, y solo por
+esas. Silencioso si falla: una referencia desactualizada no vale una pantalla
+rota.
+
+### Comprobado sobre los dos reembolsos reales
+
+```
+ANTES:     re_3Tz0qO...  ARN: —     re_3TzHKK...  ARN: —
+DESPUÉS:   re_3Tz0qO...  ARN: 7091837703965765
+           re_3TzHKK...  ARN: 3977554206558176
+```
+
+Coinciden exactamente con lo que devolvió la API de Stripe. Y `summaryFor` los
+devuelve ya en **esa misma llamada**, no en la siguiente: las filas se mutan en
+memoria además de guardarse, para que la anfitriona no tenga que cerrar y
+reabrir el diálogo.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests, 3 nuevos)
+```
+
+### Para que el usuario lo mire
+
+`AB-JJYK9R`: la política proponía **$0** (`STAY_STARTED`, la llegada era el 31
+de julio) y se devolvieron $1245. La reserva además sigue en `CONFIRMED`, sin
+cancelar. Puede ser intencionado —el importe se puede sobrescribir y por eso se
+guardan las dos cifras— o puede ser una prueba. El registro conserva la
+diferencia; la decisión es del usuario.

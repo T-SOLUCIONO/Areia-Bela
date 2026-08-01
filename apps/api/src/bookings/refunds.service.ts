@@ -62,6 +62,8 @@ export class RefundsService {
     })
     if (!booking) throw new NotFoundException('Booking not found')
 
+    await this.catchUpOnStripe(booking.refunds)
+
     // A refund that failed freed its money again; one still pending has not
     // left yet but must not be promised twice.
     const committed = booking.refunds.filter((refund) => refund.status !== 'FAILED')
@@ -97,6 +99,50 @@ export class RefundsService {
       history: booking.refunds.map(view),
       blockedReason: !booking.paidAt ? 'NOT_PAID' : refundable <= 0 ? 'NOTHING_LEFT' : null,
     }
+  }
+
+  /**
+   * Fills in what Stripe did not know yet when the refund was created.
+   *
+   * The reference number is the case this exists for: Stripe hands it over
+   * minutes after the refund, so at creation it is almost always `pending`.
+   * Without this the panel would show a dash for ever and the host would have
+   * nothing to give a guest whose bank says it cannot see the money.
+   *
+   * Cheap because it only asks about rows that are still missing something,
+   * and silent on failure: a stale reference is not worth a broken screen.
+   */
+  private async catchUpOnStripe(
+    refunds: Array<{
+      id: string
+      stripeRefundId: string | null
+      cardReference: string | null
+      settlesAs: string | null
+    }>,
+  ): Promise<void> {
+    const stale = refunds.filter((refund) => refund.stripeRefundId && !refund.cardReference)
+    if (stale.length === 0) return
+
+    await Promise.all(
+      stale.map(async (refund) => {
+        const fresh = await this.payments.refundStatus(refund.stripeRefundId!)
+        if (!fresh?.cardReference) return
+
+        await this.prisma.refund.update({
+          where: { id: refund.id },
+          data: {
+            cardReference: fresh.cardReference,
+            settlesAs: fresh.settlesAs,
+            status: fresh.status === 'succeeded' ? 'SUCCEEDED' : undefined,
+          },
+        })
+        // Mutated in place so this same call returns the fresh values rather
+        // than the host having to reopen the dialog to see them.
+        refund.cardReference = fresh.cardReference
+        refund.settlesAs = fresh.settlesAs ?? refund.settlesAs
+        this.logger.log(`Filled in the reference for refund ${refund.stripeRefundId}`)
+      }),
+    )
   }
 
   /**

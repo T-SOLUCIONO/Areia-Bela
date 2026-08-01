@@ -45,11 +45,22 @@ function pastRefund(amount: number, status: 'SUCCEEDED' | 'PENDING' | 'FAILED') 
     note: null,
     status,
     failureReason: status === 'FAILED' ? 'card_declined' : null,
+    stripeRefundId: status === 'FAILED' ? null : `re_${amount}`,
+    // What Stripe had not handed over yet when the refund was created.
+    settlesAs: null,
+    cardReference: null,
     createdAt: new Date('2026-08-10T12:00:00Z'),
   }
 }
 
-function build(overrides: { booking?: Partial<typeof PAID_BOOKING>; refundFails?: boolean } = {}) {
+function build(
+  overrides: {
+    booking?: Partial<typeof PAID_BOOKING>
+    refundFails?: boolean
+    /** Whether Stripe already has an acquirer reference to hand over. */
+    referenceReady?: boolean
+  } = {},
+) {
   const booking = { ...PAID_BOOKING, ...overrides.booking }
 
   const refundRows: Array<Record<string, unknown>> = []
@@ -76,7 +87,11 @@ function build(overrides: { booking?: Partial<typeof PAID_BOOKING>; refundFails?
         .fn()
         .mockImplementation(
           ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
-            const row = refundRows.find((candidate) => candidate.id === where.id)
+            // Rows written by this test, plus the ones already on the booking:
+            // catching up on Stripe updates the latter.
+            const row = [...refundRows, ...booking.refunds].find(
+              (candidate) => candidate.id === where.id,
+            )
             Object.assign(row!, data)
             return Promise.resolve(row)
           },
@@ -89,6 +104,13 @@ function build(overrides: { booking?: Partial<typeof PAID_BOOKING>; refundFails?
       ? jest.fn().mockRejectedValue(new Error('charge already refunded'))
       : jest.fn().mockResolvedValue({ id: 're_test_1', status: 'succeeded' }),
     paymentIntentFor: jest.fn().mockResolvedValue('pi_from_session'),
+    refundStatus: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.referenceReady === false
+          ? { status: 'succeeded' }
+          : { status: 'succeeded', settlesAs: 'refund', cardReference: '3977554206558176' },
+      ),
   } as unknown as PaymentsService
 
   const notifications = {
@@ -145,6 +167,47 @@ describe('RefundsService.summaryFor', () => {
     expect(summary.refundable).toBe(1245)
     // But it is still on the record.
     expect(summary.history).toHaveLength(1)
+  })
+
+  it('fills in the reference Stripe did not have when the refund was created', async () => {
+    // Exactly what happened to the two real refunds: created with the ARN
+    // still `pending`, so the row kept a null and the guest's email went out
+    // without a trace number.
+    const { service, payments, prisma } = build({
+      booking: { refunds: [pastRefund(1245, 'SUCCEEDED')] },
+    })
+
+    const summary = await service.summaryFor('booking-1')
+
+    expect(payments.refundStatus).toHaveBeenCalledWith('re_1245')
+    expect(prisma.refund.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ cardReference: '3977554206558176' }),
+      }),
+    )
+    // Visible on this very call, not only the next one.
+    expect(summary.history[0].cardReference).toBe('3977554206558176')
+  })
+
+  it('leaves the row alone while Stripe still calls the reference pending', async () => {
+    const { service, prisma } = build({
+      booking: { refunds: [pastRefund(1245, 'SUCCEEDED')] },
+      referenceReady: false,
+    })
+
+    await service.summaryFor('booking-1')
+
+    expect(prisma.refund.update).not.toHaveBeenCalled()
+  })
+
+  it('does not ask Stripe about a refund that never reached it', async () => {
+    const { service, payments } = build({
+      booking: { refunds: [pastRefund(1245, 'FAILED')] },
+    })
+
+    await service.summaryFor('booking-1')
+
+    expect(payments.refundStatus).not.toHaveBeenCalled()
   })
 
   it('says so when the booking was never paid', async () => {
