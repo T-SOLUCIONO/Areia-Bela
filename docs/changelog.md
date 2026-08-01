@@ -3269,3 +3269,63 @@ portada y checkout       → HTTP 200
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (245 tests)
 ```
+
+---
+
+## 52. Calendario: fuera el mes muerto y fuera la leyenda
+
+Tres correcciones sobre §51, vistas en uso.
+
+### El mes anterior ya no se puede mostrar ni alcanzar
+
+El diálogo abría en el mes de **hoy** y dejaba la estadía para el segundo
+panel. Con una reserva en agosto eso significaba una rejilla entera de julio
+apagada: un mes que nadie puede reservar ocupando la mitad del calendario.
+
+Ahora abre donde está la estadía, y la flecha `‹` no puede retroceder más allá
+del mes en curso:
+
+```tsx
+startMonth={startOfMonth(today)}
+defaultMonth={value.from && value.from > today ? startOfMonth(value.from) : undefined}
+```
+
+`startMonth` hacía falta además de `defaultMonth`: sin él la flecha seguía
+llevando a julio aunque el calendario abriera en agosto.
+
+### La leyenda se va
+
+Con un estado menos que explicar y un diálogo que ya venía justo de alto, la
+fila de muestras salió. Las cinco claves (`legendFree`, `legendToday`,
+`legendSelected`, `legendTaken`, `legendPast`) se eliminaron de los cinco
+idiomas en vez de dejarlas huérfanas en `i18n.ts`.
+
+Los estados no quedan sin explicar: el día no disponible conserva el tachado
+y la trama, que ya decían "esto no se vende" sin depender del color.
+
+### El día pasado, gris plano
+
+Estaba con borde punteado y `bg-transparent`, y el `bg-transparent` no se veía:
+va en la celda, y el botón encima la tapaba con el tinte de noche libre. Ahora
+el gris se pinta en el botón, donde vive el relleno visible.
+
+Un día **pasado y ocupado** sigue tramado. La distinción importa: la trama
+dice "alguien lo tiene", y a ayer no lo tiene nadie.
+
+```tsx
+past: (date) => date < todayStart && !taken(date) && !blocked(date)
+```
+
+### Comprobado
+
+```
+twMerge del día pasado → bg-slate-100 gana sobre bg-secondary/30
+grep de las claves de leyenda en apps/ y packages/ → 0
+portada: sin rastro de "Tu estadía" / "No disponible" / "Ya pasó"
+portada y checkout → HTTP 200
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```

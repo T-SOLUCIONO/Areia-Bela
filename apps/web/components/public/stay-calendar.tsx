@@ -1,9 +1,9 @@
 'use client'
 
-import { format } from 'date-fns'
+import { format, isWithinInterval, startOfDay, startOfMonth } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
-import { translations, type Language } from '@/lib/i18n'
+import { type Language } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
@@ -48,11 +48,13 @@ export function StayCalendar({
   onHoverDate,
   className,
 }: Props) {
-  const copy = translations[language].availability
   const locale = DATE_LOCALES[language]
   const today = new Date()
+  const todayStart = startOfDay(today)
 
   const taken = (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd'))
+  const blocked = (date: Date) =>
+    blockedRanges.some((range) => isWithinInterval(date, { start: range.from, end: range.to }))
 
   return (
     <div className={className}>
@@ -60,6 +62,13 @@ export function StayCalendar({
         mode="range"
         selected={value.from ? { from: value.from, to: value.to } : undefined}
         numberOfMonths={2}
+        // A month that is entirely behind us is a month nobody can book. The
+        // dialog used to open on the current month and show the stay in the
+        // second pane; when the stay was in August that meant a full grid of
+        // dead July days. It opens where the stay is, and the arrow cannot go
+        // back past the month we are in.
+        startMonth={startOfMonth(today)}
+        defaultMonth={value.from && value.from > today ? startOfMonth(value.from) : undefined}
         // react-day-picker's `min` counts selected days, and check-out is a
         // departure morning rather than a night — so one night is a two-day
         // range.
@@ -81,7 +90,10 @@ export function StayCalendar({
           blocked: [...blockedRanges, taken],
           // Split out from `disabled`, which also covers the past: the two
           // are unbookable for different reasons and should not look alike.
-          past: { before: today },
+          // A night that is both past and taken stays hatched — the guest is
+          // being told it is not for sale, which outranks the fact that it is
+          // also behind us.
+          past: (date) => date < todayStart && !taken(date) && !blocked(date),
           previewRange:
             value.from && !value.to && hoverDate && hoverDate > value.from
               ? { from: value.from, to: hoverDate }
@@ -98,9 +110,9 @@ export function StayCalendar({
           // closed is occupancy data a stranger has no business reading.
           blocked:
             'line-through decoration-slate-400 decoration-[1.5px] text-slate-400 bg-slate-200/70 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(203_213_225)_3px,rgb(203_213_225)_6px)]',
-          // Dashed and hollow, as in the panel: a day that is gone rather than
-          // one that was taken.
-          past: 'border border-dashed border-slate-200 bg-transparent text-slate-300',
+          // Flat grey: a day that is simply gone. No hatch, no strike-through —
+          // those say "someone has this", and nobody has yesterday.
+          past: 'text-slate-400',
           previewRange: 'bg-[#174d7a]/10 rounded-none',
         }}
         classNames={{
@@ -122,6 +134,8 @@ export function StayCalendar({
           DayButton: (dayProps) => {
             const iso = format(dayProps.day.date, 'yyyy-MM-dd')
             const rate = rates.get(iso)
+            const isPastFree =
+              dayProps.day.date < todayStart && !unavailable.has(iso) && !blocked(dayProps.day.date)
             return (
               <CalendarDayButton
                 {...dayProps}
@@ -138,6 +152,9 @@ export function StayCalendar({
                   'bg-secondary/30 hover:bg-[#f7f2ea]',
                   'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
                   unavailable.has(iso) && 'bg-transparent hover:bg-transparent',
+                  // Painted on the button, not the cell: the cell's fill sits
+                  // underneath and the free-night tint above would swallow it.
+                  isPastFree && 'bg-slate-100 text-slate-400 hover:bg-slate-100',
                 )}
               >
                 {dayProps.day.date.getDate()}
@@ -150,36 +167,6 @@ export function StayCalendar({
           },
         }}
       />
-
-      {/* Named, not only coloured: four fills in one grid is well past the
-          point where a legend stops being decoration. Same palette as the
-          panel's calendar, so the two halves of the product agree. */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded-sm bg-secondary/60 ring-1 ring-inset ring-slate-200" />
-          {copy.legendFree}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded-full ring-2 ring-ring" />
-          {copy.legendToday}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="flex items-center">
-            <span className="h-3.5 w-3.5 rounded-l-full bg-[#174d7a]" />
-            <span className="h-3.5 w-2.5 bg-[#174d7a]/10" />
-            <span className="h-3.5 w-3.5 rounded-r-full bg-[#174d7a]" />
-          </span>
-          {copy.legendSelected}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded-sm bg-slate-200/70 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(203_213_225)_3px,rgb(203_213_225)_6px)] ring-1 ring-inset ring-slate-300" />
-          <span className="line-through decoration-slate-400">{copy.legendTaken}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded-sm border border-dashed border-slate-300" />
-          {copy.legendPast}
-        </span>
-      </div>
     </div>
   )
 }
