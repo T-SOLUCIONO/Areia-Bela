@@ -63,6 +63,11 @@ export class PaymentsService {
       ],
       mode: 'payment',
       customer_email: request.email,
+      // Without this Stripe takes the email and creates nothing, so every
+      // charge sits unattached and the customer list in the panel stays empty
+      // however many people pay. These are one-off payments; the record exists
+      // purely so someone's history groups together in Stripe.
+      customer_creation: 'always',
       // The session dies with the hold, or Stripe would keep taking payments
       // for a week the calendar had already released.
       expires_at: Math.floor(Date.now() / 1000) + HOLD_TTL_MINUTES * 60,
@@ -276,6 +281,53 @@ export class PaymentsService {
   async balance(): Promise<Stripe.Balance | null> {
     if (!this.configured) return null
     return this.stripe.balance.retrieve()
+  }
+
+  /**
+   * The customer records Stripe holds.
+   *
+   * Account-wide rather than for a window: a customer is not an event, and
+   * filtering people by a date range would answer a question nobody asked.
+   */
+  async customers(limit = 100): Promise<Stripe.Customer[]> {
+    if (!this.configured) return []
+
+    try {
+      const result = await this.stripe.customers.list({ limit })
+      return result.data
+    } catch (error) {
+      this.logger.log(
+        `Could not list customers: ${error instanceof Error ? error.message : 'unknown'}`,
+      )
+      return []
+    }
+  }
+
+  /**
+   * Chargebacks.
+   *
+   * The one event that takes money back without asking: the guest's bank pulls
+   * the charge and Stripe adds a fee on top. There is a deadline to respond, so
+   * this belongs on a screen rather than in an email nobody opened.
+   */
+  async disputes(range: { from: Date; to: Date }): Promise<Stripe.Dispute[]> {
+    if (!this.configured) return []
+
+    try {
+      const result = await this.stripe.disputes.list({
+        created: {
+          gte: Math.floor(range.from.getTime() / 1000),
+          lte: Math.floor(range.to.getTime() / 1000),
+        },
+        limit: 50,
+      })
+      return result.data
+    } catch (error) {
+      this.logger.log(
+        `Could not list disputes: ${error instanceof Error ? error.message : 'unknown'}`,
+      )
+      return []
+    }
   }
 
   /** The PaymentIntent behind a session, for bookings paid before we stored it. */

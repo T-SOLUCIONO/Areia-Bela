@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { format, startOfMonth, startOfYear, subMonths, endOfMonth } from 'date-fns'
 import { enUS, es as esLocale } from 'date-fns/locale'
-import { AlertTriangle, CreditCard, Info, Loader2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  CreditCard,
+  ExternalLink,
+  Info,
+  Loader2,
+  ShieldAlert,
+  Users,
+} from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent } from '@areia-bela/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@areia-bela/ui/empty'
@@ -14,6 +22,7 @@ import { cn } from '@/lib/utils'
 
 interface LedgerRow {
   id: string
+  chargeId: string | null
   type: string
   createdAt: string
   chargedAmount: number | null
@@ -25,6 +34,38 @@ interface LedgerRow {
   otherFees: number
   net: number
   status: string
+  reference: string | null
+  guestName: string | null
+  payerEmail: string | null
+  cardBrand: string | null
+  cardLast4: string | null
+  receiptUrl: string | null
+  riskLevel: string | null
+  disputed: boolean
+}
+
+interface PayerRow {
+  email: string
+  name: string | null
+  payments: number
+  paid: number
+  refunded: number
+  currency: string
+  lastPaymentAt: string
+  cardBrand: string | null
+  cardLast4: string | null
+  stripeCustomerId: string | null
+  references: string[]
+}
+
+interface DisputeRow {
+  id: string
+  amount: number
+  currency: string
+  reason: string
+  status: string
+  respondBy: string | null
+  createdAt: string
   reference: string | null
   guestName: string | null
 }
@@ -60,6 +101,9 @@ interface Report {
     createdAt: string
   }>
   balance: Array<{ currency: string; available: number; pending: number }>
+  disputes: DisputeRow[]
+  payers: PayerRow[]
+  unattachedCustomers: number
   connected: boolean
 }
 
@@ -286,22 +330,23 @@ export default function PaymentsPage() {
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {copy.balance}
                 </h2>
-                <dl className="mt-3 space-y-2">
+                <dl className="mt-3 space-y-3">
                   {report.balance.map((entry) => (
-                    <div key={entry.currency} className="flex justify-between text-sm">
-                      <dt className="text-muted-foreground">
-                        {copy.available} · {entry.currency.toUpperCase()}
+                    <div key={entry.currency}>
+                      <dt className="text-xs font-medium uppercase tracking-wider text-foreground">
+                        {entry.currency.toUpperCase()}
                       </dt>
-                      <dd className="tabular-nums text-foreground">{entry.available.toFixed(2)}</dd>
-                    </div>
-                  ))}
-                  {report.balance.map((entry) => (
-                    <div key={`${entry.currency}-p`} className="flex justify-between text-sm">
-                      <dt className="text-muted-foreground">
-                        {copy.pendingBalance} · {entry.currency.toUpperCase()}
-                      </dt>
-                      <dd className="tabular-nums text-muted-foreground">
-                        {entry.pending.toFixed(2)}
+                      <dd className="mt-1 flex justify-between text-sm">
+                        <span className="text-muted-foreground">{copy.available}</span>
+                        <span className="tabular-nums text-foreground">
+                          {entry.available.toFixed(2)}
+                        </span>
+                      </dd>
+                      <dd className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{copy.pendingBalance}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {entry.pending.toFixed(2)}
+                        </span>
                       </dd>
                     </div>
                   ))}
@@ -338,6 +383,132 @@ export default function PaymentsPage() {
             </Card>
           </div>
 
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {copy.payers} · {report.payers.length}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">{copy.payersLead}</p>
+            </div>
+
+            {/* Stripe customer records with nothing attached: worth explaining
+                once rather than leaving two lists that mysteriously disagree. */}
+            {report.unattachedCustomers > 0 && (
+              <div className="flex items-start gap-3 rounded-[12px] bg-muted/60 p-4 text-sm text-muted-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  {fill(copy.unattachedCustomersNote, {
+                    count: String(report.unattachedCustomers),
+                  })}
+                </p>
+              </div>
+            )}
+
+            {report.payers.length === 0 ? (
+              <Card>
+                <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                  {copy.payersEmpty}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {report.payers.map((payer) => (
+                  <Card key={payer.email}>
+                    <CardContent className="flex items-start justify-between gap-4 py-4">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">
+                          {payer.name ?? payer.email}
+                        </p>
+                        {payer.name && (
+                          <p className="truncate text-sm text-muted-foreground">{payer.email}</p>
+                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {payer.payments === 1
+                            ? copy.payerOnePayment
+                            : fill(copy.payerPayments, { count: String(payer.payments) })}
+                          {' · '}
+                          {fill(copy.payerLast, {
+                            date: format(new Date(payer.lastPaymentAt), 'd MMM', {
+                              locale: dateLocale,
+                            }),
+                          })}
+                        </p>
+                        {payer.cardBrand && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            <span className="capitalize">{payer.cardBrand}</span> ••
+                            {payer.cardLast4}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {payer.references.length > 0
+                            ? payer.references.join(' · ')
+                            : copy.payerNoBooking}
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Users className="h-3 w-3" />
+                          {payer.stripeCustomerId ? copy.stripeCustomer : copy.noStripeCustomer}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p className="font-semibold tabular-nums text-foreground">
+                          {amountIn(payer.paid, payer.currency)}
+                        </p>
+                        {payer.refunded > 0 && (
+                          <p className="text-xs tabular-nums text-muted-foreground">
+                            − {amountIn(payer.refunded, payer.currency)}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Above the ledger on purpose. A chargeback has a deadline and loses
+              the money by default; it is not a row to scroll past. */}
+          {report.disputes.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-start gap-3 rounded-[12px] border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-medium">{copy.disputes}</p>
+                  <p className="mt-0.5">{copy.disputesLead}</p>
+                </div>
+              </div>
+              {report.disputes.map((dispute) => (
+                <Card key={dispute.id}>
+                  <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {dispute.reference ?? copy.unmatched}
+                        {dispute.guestName && (
+                          <span className="ml-2 text-sm font-normal text-muted-foreground">
+                            {dispute.guestName}
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {dispute.reason} · {dispute.status}
+                        {dispute.respondBy &&
+                          ` · ${fill(copy.disputeRespondBy, {
+                            date: format(new Date(dispute.respondBy), 'd MMM', {
+                              locale: dateLocale,
+                            }),
+                          })}`}
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold tabular-nums text-foreground">
+                      {amountIn(dispute.amount, dispute.currency)}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </section>
+          )}
+
           {/* Money with no booking behind it is worth naming, not hiding: it is
               either taken outside the site or a booking that never got made. */}
           {unmatched.length > 0 && (
@@ -363,12 +534,13 @@ export default function PaymentsPage() {
                 {/* Its own scroller: seven money columns will not fit a phone,
                     and the page body must never scroll sideways. */}
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[46rem] text-sm">
+                  <table className="w-full min-w-[60rem] text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="px-4 py-3 font-semibold">{copy.colDate}</th>
                         <th className="px-4 py-3 font-semibold">{copy.colType}</th>
                         <th className="px-4 py-3 font-semibold">{copy.colBooking}</th>
+                        <th className="px-4 py-3 font-semibold">{copy.colPayer}</th>
                         <th className="px-4 py-3 text-right font-semibold">{copy.colCharged}</th>
                         <th className="px-4 py-3 text-right font-semibold">{copy.colSettled}</th>
                         <th className="px-4 py-3 text-left font-semibold" />
@@ -397,6 +569,43 @@ export default function PaymentsPage() {
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">{copy.unmatched}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {row.cardBrand ? (
+                                <span className="text-foreground">
+                                  <span className="capitalize">{row.cardBrand}</span> ••
+                                  {row.cardLast4}
+                                  {row.payerEmail && (
+                                    <span className="block text-xs text-muted-foreground">
+                                      {row.payerEmail}
+                                    </span>
+                                  )}
+                                  {/* Stripe's own receipt, so the host can forward
+                                      one without digging through the dashboard. */}
+                                  {row.receiptUrl && (
+                                    <a
+                                      href={row.receiptUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                    >
+                                      {copy.receipt}
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                  {/* Only when Stripe flags it. A "normal" badge on
+                                      every row would train the eye to skip it. */}
+                                  {row.riskLevel && row.riskLevel !== 'normal' && (
+                                    <span className="mt-1 block text-xs font-medium text-amber-700">
+                                      {(copy as unknown as Record<string, string>)[
+                                        `risk${row.riskLevel}`
+                                      ] ?? row.riskLevel}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </td>
                             <td

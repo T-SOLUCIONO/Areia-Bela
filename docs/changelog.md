@@ -3764,3 +3764,92 @@ pnpm typecheck ✅   pnpm test ✅ (275 tests)
 - No se pudo leer la cuenta bancaria de destino: la clave `sk_test_` no tiene
   permiso sobre `external_accounts`. Conviene confirmar en el dashboard que hay
   una cuenta en USD, o el saldo en dólares se quedará sin salida.
+
+---
+
+## 58. Pagos: quién pagó, con qué tarjeta, y qué se puede perder
+
+Dos peticiones del usuario, y un fallo propio encontrado por el camino.
+
+### El fallo: 39 procesos y una base sin conexiones
+
+La pantalla reventaba en `report.totals.map is not a function`. La causa no
+estaba en el código: quien respondía en `:3001` era un API **de ayer** con el
+código anterior, donde `totals` todavía era un objeto. El proceso nuevo había
+muerto al arrancar con `P2037 — Too many database connections opened`.
+
+Se habían acumulado **39 procesos** `main.ts` a lo largo de dos días, cada uno
+con su conexión a Postgres abierta. Todos parados, uno levantado. Es el mismo
+descuido de §55 con `.next`: dejar corriendo lo que ya no sirve.
+
+### Saldos
+
+Se emparejaban por posición:
+
+```ts
+pending: money(balance.pending[index]?.amount ?? 0)
+```
+
+Stripe no promete que `available` y `pending` vengan en el mismo orden. Con dos
+monedas en la cuenta, un disponible en EUR podía quedar junto a un pendiente en
+USD: un saldo que se lee perfectamente y es falso. Ahora se emparejan por
+moneda, y cada una es un bloque en vez de dos listas.
+
+### Clientes
+
+Petición del usuario: que los clientes vivan dentro de Pagos, por ser dato solo
+de Stripe.
+
+Al mirarlo apareció el motivo por el que una lista de clientes habría salido
+vacía: **ningún cobro estaba asociado a un cliente de Stripe**. Había 2 fichas,
+creadas a mano en marzo, sin un solo pago detrás. El checkout mandaba
+`customer_email`, que le da a Stripe el correo y no crea nada.
+
+Dos arreglos:
+
+1. `customer_creation: 'always'` en la sesión de checkout, para que los pagos
+   nuevos sí queden asociados.
+2. La lista se construye **agrupando los cobros por el correo de la tarjeta**,
+   que es la única forma honesta de responder "quién nos ha pagado" cuando el
+   histórico quedó suelto.
+
+```
+quien pagó: 5   fichas de cliente sin cobros: 1
+
+test1@yopmail.com       4 pagos  6105.00 USD   AB-C445Q9, AB-E37EEZ, AB-T45RMB
+egiraldom@outlook.com   4 pagos  4752.00 USD   AB-UJHWKH, AB-D7AVTF, AB-JJYK9R
+egiraldom7@gmail.com    1 pago   1245.00 USD   sin reserva en este sistema
+```
+
+Cinco personas con cifras reales, en vez de dos fichas vacías.
+
+### Lo que Stripe sabe y nosotros no
+
+Cada fila del libro gana lo que solo trae un cargo: la **tarjeta** (`visa
+••4242`), el **recibo oficial** de Stripe como enlace que la anfitriona puede
+reenviar, el **correo de quien pagó** —a veces el único nombre en una fila sin
+reserva— y el **nivel de riesgo**. El riesgo solo se pinta cuando Stripe lo
+marca: una etiqueta "normal" en las trece filas enseña al ojo a ignorarla.
+
+11 de 13 filas traen tarjeta y recibo.
+
+### Contracargos
+
+Sección nueva, encima del libro. Hoy no hay ninguno, pero es el único evento
+que se lleva el dinero sin preguntar y tiene **fecha límite**: no responder lo
+pierde por defecto. No es una fila para pasar de largo.
+
+Se emparejaban mal en la primera versión: comparaba `row.id` (un `txn_…`) con
+el id del cargo (`ch_…`), que nunca coinciden, y el respaldo habría colgado la
+disputa de una reserva cualquiera. Ahora la fila lleva su `chargeId`.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests)
+```
+
+### Diferido
+
+- **Las fichas de cliente de Stripe no se listan por sí solas.** Se cuentan las
+  que no tienen pago y se explica por qué. Cuando los pagos nuevos empiecen a
+  asociarse, esa cuenta debería dejar de crecer.
