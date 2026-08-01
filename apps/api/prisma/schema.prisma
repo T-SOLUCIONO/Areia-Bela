@@ -57,15 +57,24 @@ model Property {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String   @unique
-  phone     String
-  country   String
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String   @unique
+  phone            String
+  country          String
+  notes            String?
+  /// The one Stripe customer this guest owns, created the first time they pay
+  /// and reused for ever after.
+  ///
+  /// Without it Stripe fragments a person across records: `customer_email`
+  /// attaches a payment to nobody, and `customer_creation: 'always'` mints a
+  /// fresh customer per checkout, since Stripe never deduplicates by email.
+  /// One guest with three stays became three entities plus a Dashboard-only
+  /// "guest" grouping. Owning the key here is what keeps them one person.
+  stripeCustomerId String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   bookings    Booking[]
   loginTokens GuestLoginToken[]

@@ -56,6 +56,9 @@ interface PayerRow {
   cardLast4: string | null
   stripeCustomerId: string | null
   references: string[]
+  guestId: string | null
+  guestNameInDatabase: string | null
+  guestBookings: number
 }
 
 interface DisputeRow {
@@ -389,6 +392,7 @@ export default function PaymentsPage() {
                 {copy.payers} · {report.payers.length}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">{copy.payersLead}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{copy.matchNote}</p>
             </div>
 
             {/* Stripe customer records with nothing attached: worth explaining
@@ -439,13 +443,40 @@ export default function PaymentsPage() {
                             {payer.cardLast4}
                           </p>
                         )}
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {payer.references.length > 0
-                            ? payer.references.join(' · ')
-                            : copy.payerNoBooking}
+                        {/* The certain link first, and named as such. */}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {payer.references.length > 0 ? (
+                            <>
+                              <span className="font-medium text-foreground">
+                                {copy.matchedByPayment}:{' '}
+                              </span>
+                              {payer.references.join(' · ')}
+                            </>
+                          ) : (
+                            copy.payerNoBooking
+                          )}
                         </p>
+
+                        {/* Then the weaker one, which is still worth knowing: a
+                            payment with no booking made by someone who has
+                            stayed three times is not the same as one from a
+                            stranger. */}
                         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Users className="h-3 w-3" />
+                          <Users className="h-3 w-3 shrink-0" />
+                          {payer.guestNameInDatabase ? (
+                            <span>
+                              {fill(copy.matchedByEmail, { name: payer.guestNameInDatabase })}
+                              {' · '}
+                              {fill(copy.matchedByEmailStays, {
+                                count: String(payer.guestBookings),
+                              })}
+                            </span>
+                          ) : (
+                            copy.notInDatabase
+                          )}
+                        </p>
+
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {payer.stripeCustomerId ? copy.stripeCustomer : copy.noStripeCustomer}
                         </p>
                       </div>

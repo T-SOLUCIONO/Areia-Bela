@@ -73,8 +73,20 @@ export interface PayerRow {
   cardLast4: string | null
   /** Stripe's own customer record, when one exists for this email. */
   stripeCustomerId: string | null
-  /** Bookings in this system under the same email. */
+  /** Bookings reached through the payment itself. Certain. */
   references: string[]
+  /**
+   * The guest in our own database with this email, if any.
+   *
+   * A weaker link than `references`: that one follows the money, this one
+   * follows a string someone typed. Kept separate for exactly that reason —
+   * a charge from a known guest and a charge from a stranger are different
+   * things, and neither should be dressed up as the other.
+   */
+  guestId: string | null
+  guestNameInDatabase: string | null
+  /** How many stays that guest has here, whether or not these payments are among them. */
+  guestBookings: number
 }
 
 export interface PayoutRow {
@@ -195,7 +207,7 @@ export class PaymentsReportService {
           }))
         : [],
       disputes: this.disputeRows(disputes, rows),
-      payers: this.payers(rows, customers),
+      payers: await this.payers(rows, customers),
       unattachedCustomers: customers.filter(
         (customer) =>
           customer.email !== null &&
@@ -206,7 +218,7 @@ export class PaymentsReportService {
   }
 
   /** Who has paid, grouped from the charges themselves. */
-  private payers(rows: LedgerRow[], customers: Stripe.Customer[]): PayerRow[] {
+  private async payers(rows: LedgerRow[], customers: Stripe.Customer[]): Promise<PayerRow[]> {
     const byEmail = new Map<string, PayerRow>()
     const customerByEmail = new Map(
       customers.filter((c) => c.email).map((c) => [c.email!.toLowerCase(), c]),
@@ -231,6 +243,9 @@ export class PaymentsReportService {
           cardLast4: row.cardLast4,
           stripeCustomerId: customer?.id ?? null,
           references: [],
+          guestId: null,
+          guestNameInDatabase: null,
+          guestBookings: 0,
         }
         byEmail.set(email, payer)
       }
@@ -252,7 +267,34 @@ export class PaymentsReportService {
       payer.cardLast4 ??= row.cardLast4
     }
 
-    for (const payer of byEmail.values()) {
+    // Now the other direction: does this email belong to a guest we know?
+    // Answers the case the panel could not before — a payment with no booking
+    // behind it, made by someone who has stayed here three times.
+    const guests = byEmail.size
+      ? await this.prisma.customer.findMany({
+          where: { email: { in: [...byEmail.keys()], mode: 'insensitive' } },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            stripeCustomerId: true,
+            _count: { select: { bookings: true } },
+          },
+        })
+      : []
+    const guestByEmail = new Map(guests.map((guest) => [guest.email.toLowerCase(), guest]))
+
+    for (const [email, payer] of byEmail) {
+      const guest = guestByEmail.get(email)
+      payer.guestId = guest?.id ?? null
+      payer.guestNameInDatabase = guest ? `${guest.firstName} ${guest.lastName}` : null
+      payer.guestBookings = guest?._count.bookings ?? 0
+      payer.name ??= payer.guestNameInDatabase
+      // Our own record wins over matching Stripe's customer list by email:
+      // this id is the one we handed Stripe, not one inferred from a string.
+      payer.stripeCustomerId = guest?.stripeCustomerId ?? payer.stripeCustomerId
+
       payer.paid = Math.round(payer.paid * 100) / 100
       payer.refunded = Math.round(payer.refunded * 100) / 100
     }

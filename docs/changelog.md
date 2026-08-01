@@ -3853,3 +3853,91 @@ pnpm typecheck ✅   pnpm test ✅ (275 tests)
 - **Las fichas de cliente de Stripe no se listan por sí solas.** Se cuentan las
   que no tienen pago y se explica por qué. Cuando los pagos nuevos empiecen a
   asociarse, esa cuenta debería dejar de crecer.
+
+---
+
+## 59. Un huésped, tres identidades en Stripe
+
+Observación del usuario, y es la buena: en Stripe el mismo correo aparecía
+repartido en varias entidades. Para `egiraldom@outlook.com` había **tres**:
+
+```
+Invitado "erick"   3 pagos   (mar–abr)
+Invitado "eeeee"  15 pagos   (jul)
+cus_U91C6nsJ39hp3o          gasto 0,00 US$
+```
+
+Y Stripe explica por qué, en su propio panel:
+
+> Se ha creado un usuario invitado para mostrar los pagos que no estaban
+> asociados con ninguna cuenta.
+
+### Los "Invitados" no existen
+
+No son objetos de la API. Son una agrupación que el Dashboard inventa para
+enseñar pagos huérfanos. No se pueden enlazar con nada porque no hay nada que
+enlazar.
+
+### Y el arreglo de §58 habría empeorado esto
+
+`customer_creation: 'always'` crea un cliente **por cada checkout**. Stripe no
+deduplica por correo, así que un huésped con tres estadías habría terminado con
+tres fichas. Se cambió antes de que llegara a producir ninguna.
+
+### La llave la llevamos nosotros
+
+`Customer.stripeCustomerId`, único, creado en el primer pago del huésped y
+reutilizado siempre después. La sesión de checkout recibe `customer: <id>` en
+vez de `customer_email`.
+
+```ts
+...(request.stripeCustomerId
+  ? { customer: request.stripeCustomerId }
+  : { customer_email: request.email }),
+```
+
+Si Stripe se niega a crear la ficha, la reserva **sigue adelante** sin ella: un
+pago no puede fallar porque un registro de agrupación no se pudo crear.
+
+### Emparejar por correo, dicho como lo que es
+
+El panel ahora enseña dos enlaces por pagador, y no los mezcla:
+
+| Enlace                | Cómo                        | Fiabilidad              |
+| --------------------- | --------------------------- | ----------------------- |
+| Reservas pagadas aquí | por el `PaymentIntent`      | sigue al dinero: seguro |
+| Mismo correo que…     | por el correo de la tarjeta | sigue a un texto: no    |
+
+La diferencia importa. Sobre los datos reales, mirando el año entero:
+
+```
+egiraldom@outlook.com        7 pagos  8487.00 USD
+   por el pago:   AB-UJHWKH, AB-D7AVTF, AB-JJYK9R
+   por el correo: pepe grillo · 4 reservas
+
+erick.giraldo@banexcoin.com  1 pago   3120.00 USD
+   por el pago:   ninguna reserva
+   por el correo: no está en la base          ← un desconocido
+```
+
+Un pago sin reserva hecho por alguien que se ha alojado tres veces no es lo
+mismo que uno hecho por alguien a quien no conocemos, y hasta ahora los dos se
+veían igual.
+
+### Lo que no se puede arreglar
+
+Los 3 pagos de marzo y abril **no tienen reserva en este sistema**, y no es un
+fallo de emparejamiento: no hay ninguna reserva pagada antes de julio. Son
+anteriores al sistema de reservas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (278 tests, 3 nuevos)
+```
+
+### Pendiente de decidir
+
+Si además se quieren **atar los pagos históricos** a la ficha del huésped, hay
+que comprobar primero si Stripe deja cambiarle el `customer` a un PaymentIntent
+ya cobrado. No se probó porque hacerlo es modificar datos reales de la cuenta
+del usuario. Los pagos nuevos sí quedan atados desde ahora.

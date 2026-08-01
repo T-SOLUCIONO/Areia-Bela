@@ -198,16 +198,22 @@ export class BookingsService {
             })),
           },
         },
+        // The guest comes back with it: the next step needs their Stripe
+        // customer, and a second query for a row we just wrote is waste.
+        include: { customer: true },
       })
     })
 
     // Stripe last, and outside the transaction: it is a network call to
     // someone else's service, and holding a database transaction open across
     // it would be a lock on the whole calendar for as long as Stripe takes.
+    const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
+
     const checkoutUrl = await this.payments.checkoutUrlFor({
       bookingId: booking.id,
       reference: booking.reference,
       email: dto.guest.email,
+      stripeCustomerId: stripeCustomerId ?? undefined,
       checkIn: dto.checkIn,
       checkOut: dto.checkOut,
       nights: quote.nights,
@@ -223,6 +229,33 @@ export class BookingsService {
       quote,
       checkoutUrl,
     }
+  }
+
+  /**
+   * The one Stripe customer this guest owns, made on their first payment.
+   *
+   * Kept on our side of the line because Stripe will not do it: it never
+   * deduplicates by email, so left to itself a guest with three stays becomes
+   * three customer records and a Dashboard-only "guest" grouping on top. The
+   * id lives on our Customer row, so the second booking finds the first one's
+   * customer instead of minting another.
+   */
+  private async stripeCustomerFor(customer: Customer): Promise<string | null> {
+    if (customer.stripeCustomerId) return customer.stripeCustomerId
+
+    const created = await this.payments.ensureCustomer({
+      email: customer.email,
+      name: `${customer.firstName} ${customer.lastName}`,
+      phone: customer.phone,
+    })
+    if (!created) return null
+
+    await this.prisma.customer.update({
+      where: { id: customer.id },
+      data: { stripeCustomerId: created },
+    })
+    this.logger.log(`Created the Stripe customer for ${customer.email}`)
+    return created
   }
 
   /**

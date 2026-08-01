@@ -118,6 +118,12 @@ export const adminCopy = {
       payerOnePayment: '1 payment',
       payerLast: 'Last paid {date}',
       payerNoBooking: 'No booking in this system',
+      matchedByPayment: 'Bookings paid for here',
+      matchedByEmail: 'Same email as {name}',
+      matchedByEmailStays: '{count} stays in Guests',
+      notInDatabase: 'Not a guest in this system',
+      matchNote:
+        'Two different links. Bookings follow the payment and are certain; the guest match follows the email and is not \u2014 someone can pay with an address they typed differently.',
       stripeCustomer: 'Stripe customer record',
       noStripeCustomer: 'No Stripe customer record',
       unattachedCustomersNote:
@@ -751,6 +757,12 @@ export const adminCopy = {
       payerOnePayment: '1 pago',
       payerLast: 'Último pago el {date}',
       payerNoBooking: 'Sin reserva en este sistema',
+      matchedByPayment: 'Reservas pagadas aquí',
+      matchedByEmail: 'Mismo correo que {name}',
+      matchedByEmailStays: '{count} estadías en Huéspedes',
+      notInDatabase: 'No es un huésped de este sistema',
+      matchNote:
+        'Son dos enlaces distintos. Las reservas siguen al pago y son seguras; el huésped se empareja por el correo y no lo es: alguien puede pagar con una dirección escrita de otra forma.',
       stripeCustomer: 'Ficha de cliente en Stripe',
       noStripeCustomer: 'Sin ficha de cliente en Stripe',
       unattachedCustomersNote:

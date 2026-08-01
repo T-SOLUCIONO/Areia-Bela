@@ -67,10 +67,13 @@ const BOOKING_ROW = {
   createdAt: new Date('2026-07-30'),
   expiresAt: new Date('2026-07-30T12:30:00Z'),
   customer: {
+    id: 'cust-1',
     firstName: 'Jane',
     lastName: 'Doe',
     email: 'jane@example.com',
     phone: '+13055550100',
+    // Null on a first-time guest; a returning one already has theirs.
+    stripeCustomerId: null as string | null,
   },
   extras: [{ extra: { name: 'Mascota' } }],
   property: { slug: 'areia-bela', checkInTime: '16:00', checkOutTime: '10:00' },
@@ -94,12 +97,12 @@ describe('BookingsService', () => {
       update: jest.Mock
       updateMany: jest.Mock
     }
-    customer: { upsert: jest.Mock; findUnique?: jest.Mock }
+    customer: { upsert: jest.Mock; update: jest.Mock; findUnique?: jest.Mock }
     $transaction: jest.Mock
   }
   let properties: { getQuote: jest.Mock }
   let guests: { myBooking: jest.Mock }
-  let payments: { checkoutUrlFor: jest.Mock; sessionStatus?: jest.Mock }
+  let payments: { checkoutUrlFor: jest.Mock; ensureCustomer: jest.Mock; sessionStatus?: jest.Mock }
   let notifications: {
     bookingCreated: jest.Mock
     bookingCancelled: jest.Mock
@@ -121,7 +124,11 @@ describe('BookingsService', () => {
         update: jest.fn().mockResolvedValue(BOOKING_ROW),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      customer: { upsert: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
+      customer: {
+        upsert: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+      },
       // Runs the callback against the same mocks, which is enough to assert
       // what happens inside the transaction and in what order.
       $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
@@ -130,6 +137,7 @@ describe('BookingsService', () => {
     guests = { myBooking: jest.fn() }
     payments = {
       checkoutUrlFor: jest.fn().mockResolvedValue('https://checkout.stripe.com/c/pay/cs_test_1'),
+      ensureCustomer: jest.fn().mockResolvedValue('cus_new_1'),
     }
     notifications = {
       bookingCreated: jest.fn().mockResolvedValue(undefined),
@@ -396,6 +404,49 @@ describe('BookingsService', () => {
         NotFoundException,
       )
       expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('the guest\u2019s Stripe customer', () => {
+    it('creates one on a first payment and remembers it', async () => {
+      await service.hold('areia-bela', DTO, ORIGIN)
+
+      expect(payments.ensureCustomer).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'jane@example.com', name: 'Jane Doe' }),
+      )
+      expect(prisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 'cust-1' },
+        data: { stripeCustomerId: 'cus_new_1' },
+      })
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeCustomerId: 'cus_new_1' }),
+      )
+    })
+
+    it('reuses the one a returning guest already has', async () => {
+      // The whole point: Stripe never deduplicates by email, so a second
+      // booking that asked it for a customer would get a second person.
+      prisma.booking.create.mockResolvedValue({
+        ...BOOKING_ROW,
+        customer: { ...BOOKING_ROW.customer, stripeCustomerId: 'cus_existing' },
+      })
+
+      await service.hold('areia-bela', DTO, ORIGIN)
+
+      expect(payments.ensureCustomer).not.toHaveBeenCalled()
+      expect(prisma.customer.update).not.toHaveBeenCalled()
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeCustomerId: 'cus_existing' }),
+      )
+    })
+
+    it('still opens checkout when Stripe refuses to make a customer', async () => {
+      payments.ensureCustomer.mockResolvedValue(null)
+
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).resolves.toBeDefined()
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeCustomerId: undefined }),
+      )
     })
   })
 

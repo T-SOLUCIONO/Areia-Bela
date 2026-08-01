@@ -7,6 +7,8 @@ export interface CheckoutRequest {
   bookingId: string
   reference: string
   email: string
+  /** The guest's own Stripe customer, so their payments group under one person. */
+  stripeCustomerId?: string
   checkIn: string
   checkOut: string
   nights: number
@@ -62,12 +64,17 @@ export class PaymentsService {
         },
       ],
       mode: 'payment',
-      customer_email: request.email,
-      // Without this Stripe takes the email and creates nothing, so every
-      // charge sits unattached and the customer list in the panel stays empty
-      // however many people pay. These are one-off payments; the record exists
-      // purely so someone's history groups together in Stripe.
-      customer_creation: 'always',
+      // The guest's own customer when we have one, and only the email as a
+      // fallback.
+      //
+      // `customer_email` alone attaches the payment to nobody — Stripe invents
+      // a Dashboard-only "guest" grouping to display it. `customer_creation:
+      // 'always'` is worse: it mints a brand new customer per checkout, because
+      // Stripe never deduplicates by email, so three stays become three
+      // customers. Passing the id keeps one guest as one person.
+      ...(request.stripeCustomerId
+        ? { customer: request.stripeCustomerId }
+        : { customer_email: request.email }),
       // The session dies with the hold, or Stripe would keep taking payments
       // for a week the calendar had already released.
       expires_at: Math.floor(Date.now() / 1000) + HOLD_TTL_MINUTES * 60,
@@ -281,6 +288,37 @@ export class PaymentsService {
   async balance(): Promise<Stripe.Balance | null> {
     if (!this.configured) return null
     return this.stripe.balance.retrieve()
+  }
+
+  /**
+   * The Stripe customer for a guest, created once and reused.
+   *
+   * Returns null rather than throwing: a booking must not fail because Stripe
+   * would not make a customer record. The payment still goes through, it just
+   * lands unattached — which is where everything already was.
+   */
+  async ensureCustomer(guest: {
+    email: string
+    name: string
+    phone?: string
+  }): Promise<string | null> {
+    if (!this.configured) return null
+
+    try {
+      const customer = await this.stripe.customers.create({
+        email: guest.email,
+        name: guest.name,
+        ...(guest.phone ? { phone: guest.phone } : {}),
+      })
+      return customer.id
+    } catch (error) {
+      this.logger.warn(
+        `Could not create a Stripe customer for ${guest.email}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+      return null
+    }
   }
 
   /**
