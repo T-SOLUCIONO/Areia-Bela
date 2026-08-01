@@ -247,6 +247,8 @@ export const translations = {
       'Fast Wi-Fi',
     ],
     availability: {
+      legendFree: 'Free',
+      legendPast: 'Past',
       pricing: 'Working out the price',
       pricingFailed: 'We could not work out the price right now. Try other dates, or try again.',
       minNights: 'This house takes stays of {count} nights or more.',
@@ -537,6 +539,8 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      legendFree: 'Libre',
+      legendPast: 'Ya pasó',
       pricing: 'Calculando el precio',
       pricingFailed:
         'No pudimos calcular el precio ahora mismo. Prueba otras fechas o inténtalo de nuevo.',
@@ -827,6 +831,8 @@ export const translations = {
       'Wi-Fi rápido',
     ],
     availability: {
+      legendFree: 'Livre',
+      legendPast: 'Já passou',
       pricing: 'Calculando o preço',
       pricingFailed: 'Não conseguimos calcular o preço agora. Tente outras datas ou tente de novo.',
       minNights: 'Esta casa aceita estadias de {count} noites ou mais.',
@@ -1119,6 +1125,8 @@ export const translations = {
       'Wi-Fi rapide',
     ],
     availability: {
+      legendFree: 'Libre',
+      legendPast: 'Passé',
       pricing: 'Calcul du prix',
       pricingFailed: 'Nous n’avons pas pu calculer le prix. Essayez d’autres dates ou réessayez.',
       minNights: 'Cette maison accepte les séjours de {count} nuits ou plus.',
@@ -1411,6 +1419,8 @@ export const translations = {
       'Schnelles WLAN',
     ],
     availability: {
+      legendFree: 'Frei',
+      legendPast: 'Vergangen',
       pricing: 'Preis wird berechnet',
       pricingFailed:
         'Der Preis konnte gerade nicht berechnet werden. Versuchen Sie andere Daten oder erneut.',

@@ -3216,3 +3216,56 @@ portada y checkout            → HTTP 200, sin errores de compilación
 pnpm build ✅   pnpm lint ✅ (16 avisos, los mismos de antes)
 pnpm typecheck ✅   pnpm test ✅ (245 tests)
 ```
+
+---
+
+## 51. El calendario del huésped, con la paleta del panel
+
+Pedido: que los colores del calendario público coincidan con los del admin —
+reservado, día pasado, días futuros, día actual.
+
+### Lo que se alineó
+
+| Estado        | Panel                            | Sitio público                |
+| ------------- | -------------------------------- | ---------------------------- |
+| Libre         | tinte `secondary`                | el mismo                     |
+| Hoy           | `ring-2 ring-ring ring-offset-2` | el mismo                     |
+| Ya pasó       | borde punteado, hueco            | el mismo                     |
+| No disponible | pizarra                          | pizarra, más tachado y trama |
+
+El día pasado estaba dejado a la opacidad por defecto de react-day-picker y no
+aparecía en la leyenda; ahora tiene su entrada y su punteado, como en el panel.
+La leyenda pasa de tres estados a cuatro.
+
+### Lo que no se puede alinear, y por qué
+
+El panel pinta **verde** una noche reservada y **pizarra** una bloqueada por la
+anfitriona. En el sitio público las dos comparten un solo look, y no es una
+omisión: `GET /rates` devuelve un único `available` por noche.
+
+```ts
+available: !taken.has(date) // reservas y bloqueos, fundidos
+```
+
+Separarlos exigiría exponer **por qué** una noche no está libre, y eso le diría
+a cualquier visitante qué semanas están vendidas y cuáles cerró la anfitriona.
+Es dato de ocupación; un huésped solo necesita saber que esa noche no es suya.
+
+### Comprobado, no supuesto
+
+El día ocupado aplica `bg-transparent` después del tinte de libre. Se verificó
+ejecutando `twMerge` sobre las dos listas antes de darlo por bueno — el mismo
+tipo de comprobación que en §35, donde una suposición sobre cómo se fusionan
+las clases estuvo a punto de dejar el arreglo a medias.
+
+```
+clases de un día ocupado → bg-transparent hover:bg-transparent
+¿queda el tinte de libre? → no
+CSS compilado            → la trama, el punteado y el anillo, presentes
+portada y checkout       → HTTP 200
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```

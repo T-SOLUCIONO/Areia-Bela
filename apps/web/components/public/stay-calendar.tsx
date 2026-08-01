@@ -79,25 +79,38 @@ export function StayCalendar({
         ]}
         modifiers={{
           blocked: [...blockedRanges, taken],
+          // Split out from `disabled`, which also covers the past: the two
+          // are unbookable for different reasons and should not look alike.
+          past: { before: today },
           previewRange:
             value.from && !value.to && hoverDate && hoverDate > value.from
               ? { from: value.from, to: hoverDate }
               : [],
         }}
         modifiersClassNames={{
-          // A struck-through, greyed day reads as "sold" without a legend. The
-          // diagonal fill is the second signal, so the state does not rest on
-          // colour alone.
+          // Slate, the same fill the panel uses for a night that is not for
+          // sale. The strike-through and the diagonal hatch are the second and
+          // third signals, so the state never rests on colour alone.
+          //
+          // The panel paints a booked night green and a blocked one slate. Here
+          // they share one look on purpose: `/rates` returns a single
+          // `available` flag, because which nights are sold and which the host
+          // closed is occupancy data a stranger has no business reading.
           blocked:
-            'line-through decoration-slate-400 decoration-[1.5px] text-slate-300 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(241_245_249)_3px,rgb(241_245_249)_6px)]',
+            'line-through decoration-slate-400 decoration-[1.5px] text-slate-400 bg-slate-200/70 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(203_213_225)_3px,rgb(203_213_225)_6px)]',
+          // Dashed and hollow, as in the panel: a day that is gone rather than
+          // one that was taken.
+          past: 'border border-dashed border-slate-200 bg-transparent text-slate-300',
           previewRange: 'bg-[#174d7a]/10 rounded-none',
         }}
         classNames={{
           // The shared calendar paints today with `bg-accent`, and on this site
           // --accent is #173a57 — near enough to the selected blue that today
           // looked like a day the guest had already picked.
+          // The same ring the panel puts on today, so "you are here" reads the
+          // same on both sides of the product.
           today:
-            'rounded-full ring-2 ring-inset ring-[#174d7a]/45 font-semibold data-[selected=true]:ring-0',
+            'rounded-full ring-2 ring-ring ring-offset-2 ring-offset-white font-semibold data-[selected=true]:ring-0 data-[selected=true]:ring-offset-0',
           range_middle: 'rounded-none bg-[#174d7a]/10',
           range_start: 'rounded-l-full bg-[#174d7a]/10',
           range_end: 'rounded-r-full bg-[#174d7a]/10',
@@ -120,8 +133,11 @@ export function StayCalendar({
                   'rounded-full data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#173a57]',
                   'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
                   'data-[selected-single=true]:bg-[#174d7a]',
-                  'hover:bg-[#f7f2ea]',
-                  unavailable.has(iso) && 'hover:bg-transparent',
+                  // A free night to come: the panel's own "free" tint, so an
+                  // available day looks available rather than merely blank.
+                  'bg-secondary/30 hover:bg-[#f7f2ea]',
+                  'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
+                  unavailable.has(iso) && 'bg-transparent hover:bg-transparent',
                 )}
               >
                 {dayProps.day.date.getDate()}
@@ -135,11 +151,16 @@ export function StayCalendar({
         }}
       />
 
-      {/* Named, not only coloured: three fills in one grid is exactly the point
-          where a legend stops being decoration. */}
+      {/* Named, not only coloured: four fills in one grid is well past the
+          point where a legend stops being decoration. Same palette as the
+          panel's calendar, so the two halves of the product agree. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded-full ring-2 ring-inset ring-[#174d7a]/45" />
+          <span className="h-3.5 w-3.5 rounded-sm bg-secondary/60 ring-1 ring-inset ring-slate-200" />
+          {copy.legendFree}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3.5 w-3.5 rounded-full ring-2 ring-ring" />
           {copy.legendToday}
         </span>
         <span className="flex items-center gap-1.5">
@@ -151,8 +172,12 @@ export function StayCalendar({
           {copy.legendSelected}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-3.5 w-3.5 rounded-sm bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(226_232_240)_3px,rgb(226_232_240)_6px)] ring-1 ring-inset ring-slate-200" />
+          <span className="h-3.5 w-3.5 rounded-sm bg-slate-200/70 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(203_213_225)_3px,rgb(203_213_225)_6px)] ring-1 ring-inset ring-slate-300" />
           <span className="line-through decoration-slate-400">{copy.legendTaken}</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3.5 w-3.5 rounded-sm border border-dashed border-slate-300" />
+          {copy.legendPast}
         </span>
       </div>
     </div>
