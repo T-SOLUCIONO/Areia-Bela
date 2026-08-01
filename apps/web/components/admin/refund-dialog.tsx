@@ -46,6 +46,8 @@ interface RefundSummary {
     status: RefundStatus
     note: string | null
     failureReason: string | null
+    settlesAs: string | null
+    cardReference: string | null
     createdAt: string
   }>
   blockedReason: 'NOT_PAID' | 'NOTHING_LEFT' | null
@@ -235,15 +237,34 @@ export function RefundDialog({
                   {copy.refundHistory}
                 </p>
                 {summary.history.map((refund) => (
-                  <div key={refund.id} className="flex justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">
-                      {new Date(refund.createdAt).toLocaleDateString()} ·{' '}
-                      {statusLabel[refund.status]}
-                      {refund.failureReason && ` · ${refund.failureReason}`}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-foreground">
-                      {money(refund.amount)}
-                    </span>
+                  <div key={refund.id} className="space-y-1">
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">
+                        {new Date(refund.createdAt).toLocaleDateString()} ·{' '}
+                        {statusLabel[refund.status]}
+                        {refund.failureReason && ` · ${refund.failureReason}`}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-foreground">
+                        {money(refund.amount)}
+                      </span>
+                    </div>
+                    {/* Which of the two waits applies. Stripe knows; without
+                        this the host is guessing when a guest asks. */}
+                    {refund.settlesAs && refund.status !== 'FAILED' && (
+                      <p className="text-xs text-muted-foreground">
+                        {refund.settlesAs === 'reversal'
+                          ? copy.refundSettlesReversal
+                          : copy.refundSettlesRefund}
+                      </p>
+                    )}
+                    {/* The only thing a guest whose bank says "we see nothing"
+                        can actually hand over. */}
+                    {refund.cardReference && (
+                      <p className="text-xs text-muted-foreground">
+                        {copy.refundTrace}:{' '}
+                        <span className="font-mono text-foreground">{refund.cardReference}</span>
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

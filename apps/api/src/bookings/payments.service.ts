@@ -134,7 +134,14 @@ export class PaymentsService {
     amountCents: number
     /** The Refund row's id, used as Stripe's idempotency key. */
     idempotencyKey: string
-  }): Promise<{ id: string; status: string }> {
+  }): Promise<{
+    id: string
+    status: string
+    /** `reversal`, `refund` or `pending` — see `settlesAs` on the Refund row. */
+    settlesAs?: string
+    /** The acquirer reference number, when Stripe already has one. */
+    cardReference?: string
+  }> {
     if (!this.configured) {
       this.logger.error('STRIPE_SECRET_KEY is not set; cannot refund')
       throw new ServiceUnavailableException('Payments are not configured')
@@ -151,7 +158,17 @@ export class PaymentsService {
       { idempotencyKey: request.idempotencyKey },
     )
 
-    return { id: refund.id, status: refund.status ?? 'unknown' }
+    const card = refund.destination_details?.card
+
+    return {
+      id: refund.id,
+      status: refund.status ?? 'unknown',
+      settlesAs: card?.type,
+      // Only when Stripe says it is usable. A reference it calls `pending` is
+      // one the guest's bank cannot look up yet, so handing it over would send
+      // them to a dead end.
+      cardReference: card?.reference_status === 'available' ? card.reference : undefined,
+    }
   }
 
   /** The PaymentIntent behind a session, for bookings paid before we stored it. */

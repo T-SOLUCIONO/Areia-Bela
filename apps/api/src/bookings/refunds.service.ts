@@ -13,6 +13,9 @@ export interface RefundView {
   note: string | null
   status: string
   failureReason: string | null
+  /** How it settles, which is what decides the wait the guest is quoted. */
+  settlesAs: string | null
+  cardReference: string | null
   createdAt: string
 }
 
@@ -168,6 +171,8 @@ export class RefundsService {
         data: {
           status: result.status === 'succeeded' ? 'SUCCEEDED' : 'PENDING',
           stripeRefundId: result.id,
+          settlesAs: result.settlesAs,
+          cardReference: result.cardReference,
         },
       })
 
@@ -181,6 +186,8 @@ export class RefundsService {
         amount: input.amount,
         total: Number(booking.totalPrice),
         note: input.note?.trim() || undefined,
+        settlesAs: result.settlesAs,
+        cardReference: result.cardReference,
       }
       await this.notifications.refundIssued(notice)
       await this.notifications.refundSent(notice)
@@ -208,6 +215,8 @@ function view(refund: {
   note: string | null
   status: string
   failureReason: string | null
+  settlesAs: string | null
+  cardReference: string | null
   createdAt: Date
 }): RefundView {
   return {
@@ -218,6 +227,8 @@ function view(refund: {
     note: refund.note,
     status: refund.status,
     failureReason: refund.failureReason,
+    settlesAs: refund.settlesAs,
+    cardReference: refund.cardReference,
     createdAt: refund.createdAt.toISOString(),
   }
 }

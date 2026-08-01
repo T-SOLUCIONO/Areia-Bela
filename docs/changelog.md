@@ -3438,3 +3438,95 @@ contraseña de admin para hacerlo por la vía que lo haría ella.
   Stripe no aparece en este libro mayor. El panel propio sí queda al día.
 - **Sin reembolso parcial por noche.** Se devuelve un importe, no "las tres
   últimas noches".
+
+---
+
+## 54. Al huésped no le llegaba nada cuando le cancelaban la reserva
+
+Pregunta del usuario, y al ir a mirarlo apareció un hueco más grande que la
+pregunta.
+
+### Lo que estaba roto
+
+`cancel()` liberaba las noches, avisaba a la anfitriona y **al huésped no le
+decía nada**. Se enteraba al llegar a la casa.
+
+Y el aviso que sí salía estaba mal escrito:
+
+```ts
+;`${booking.guestName} canceló su reserva.`
+```
+
+Ese método solo se llama desde el panel, así que quien cancela es la
+anfitriona. El correo le decía que había cancelado el huésped.
+
+### Lo que se hizo
+
+Un correo al huésped, en sus cinco idiomas, con el motivo si se escribió uno.
+No es opcional: los interruptores del panel son sobre cuánto ruido quiere la
+anfitriona, no sobre si a alguien se le avisa de que se le canceló el viaje.
+
+Promete el reembolso **solo si hay algo que devolver**. A quien nunca pagó no
+se le anuncia dinero de vuelta.
+
+### El plazo: lo que Stripe sabe y lo que no
+
+Pregunta del usuario: cómo saber cuánto tarda en llegarle. Se revisó el SDK
+instalado (`stripe@20.4.1`, `types/Refunds.d.ts`) antes de responder.
+
+**No existe ningún campo con fecha estimada de llegada.** Lo que sí hay en
+`destination_details.card`:
+
+| Campo              | Qué es                                             |
+| ------------------ | -------------------------------------------------- |
+| `type`             | `refund`, `reversal` o `pending`                   |
+| `reference`        | el ARN, con el que el banco del huésped lo rastrea |
+| `reference_status` | `pending`, `available` o `unavailable`             |
+
+`type` es el dato útil y casi nadie lo mira: si el cargo original **todavía no
+se liquidó**, Stripe hace un `reversal` y vuelve en 1–3 días hábiles. Si ya se
+liquidó, es un `refund` de verdad y son los 5–10 días de siempre. Dos esperas
+muy distintas, y Stripe sabe cuál aplica.
+
+Ahora el correo dice cuál de las dos es, en vez de recitar "5 a 10 días" a todo
+el mundo. Y añade el ARN **solo cuando `reference_status` es `available`**: un
+número de rastreo que el banco todavía no puede buscar manda al huésped a un
+callejón sin salida.
+
+El panel muestra lo mismo en el historial, para que la anfitriona pueda
+responder "¿dónde está mi dinero?" sin entrar a Stripe.
+
+### Un `!== null` que era un `Boolean()`
+
+El test nuevo falló, y no por el test: `paid: booking.paidAt !== null` da
+`true` cuando el campo viene ausente, porque `undefined !== null`. En una fila
+de Prisma real siempre viene, así que en producción no se notaba — pero la
+comprobación decía otra cosa de la que quería decir. Se corrigió el código.
+
+### Comprobado renderizando los correos de verdad
+
+```
+Hola Jane, tu reserva quedó cancelada.
+Motivo: Fuga de agua
+Si pagaste, el reembolso se gestiona ahora y te llega un correo aparte...
+
+Hi Jane, your booking has been cancelled.
+You were not charged for this booking.          ← sin promesa de reembolso
+
+Como el cargo todavía no se había liquidado, se anula directamente:
+suele desaparecer de tu extracto en 1 a 3 días hábiles.        ← reversal
+
+El dinero vuelve al mismo método de pago que usaste... 5 y 10 días hábiles.
+Si tu banco no lo encuentra, dale este número de rastreo: 751077...  ← refund
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (272 tests, 3 nuevos)
+```
+
+### Diferido
+
+- **Sin `charge.refund.updated` en el webhook.** El ARN llega a veces minutos
+  después del reembolso; si en ese momento era `pending`, no se rellena solo.
+  Hace falta escuchar ese evento para mantenerlo al día.

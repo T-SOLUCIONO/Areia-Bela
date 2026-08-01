@@ -238,6 +238,16 @@ model Refund {
   status         RefundStatus @default(PENDING)
   failureReason  String?
 
+  /// How the money actually goes back, which decides how long it takes.
+  /// `reversal` means the original charge had not settled yet and it unwinds
+  /// in days; `refund` means it had, and the guest's bank takes its usual
+  /// 5-10 business days. Stripe knows which; nobody else does.
+  settlesAs     String?
+  /// The acquirer reference number. The only thing a guest whose bank says
+  /// "we see nothing" can actually hand over. Often null at first: Stripe
+  /// fills it in later, which is what charge.refund.updated is for.
+  cardReference String?
+
   /// Who authorised it. Not a relation with a cascade: deleting a user must
   /// not erase the record of a refund they approved.
   createdById String?

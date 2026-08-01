@@ -499,9 +499,20 @@ export class BookingsService {
       },
     })
 
-    await this.notifications.bookingCancelled(this.noticeFor(booking), reason)
-    // Refunds are not automated: money going back out is a decision, not a
-    // side effect of a click. Declared in docs/changelog.md.
+    const notice = this.noticeFor(booking)
+    await this.notifications.bookingCancelled(notice, reason)
+    // The guest first heard about this by turning up. Now they are told, in
+    // their own language, and told whether money is coming back.
+    await this.notifications.guestCancellation({
+      ...notice,
+      locale: booking.locale,
+      reason,
+      // Truthiness, not `!== null`: an absent field is not the same as a null
+      // one, and only one of the two means "they paid".
+      paid: Boolean(booking.paidAt),
+    })
+    // The refund itself is still a decision, not a side effect of this click:
+    // the panel offers it next, with the policy's figure already worked out.
   }
 
   private nightsOf(booking: { checkIn: Date; checkOut: Date }): number {

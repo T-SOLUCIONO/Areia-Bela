@@ -120,6 +120,11 @@ export const adminCopy = {
       refundStatusFAILED: 'Failed',
       refundOverride: 'You are sending {amount} instead of the {proposed} the policy proposes.',
       refundTakesDays: 'The guest gets it back on their card in 5 to 10 business days.',
+      refundSettlesReversal:
+        'The charge has not settled yet, so this is reversed outright — the guest sees it back in 1 to 3 business days.',
+      refundSettlesRefund:
+        'The charge had already settled, so the guest\u2019s bank takes its usual 5 to 10 business days.',
+      refundTrace: 'Trace number for the guest\u2019s bank',
       notes: 'Guest note',
       upcoming: 'Upcoming',
       past: 'Past',
@@ -674,6 +679,11 @@ export const adminCopy = {
       refundStatusFAILED: 'Falló',
       refundOverride: 'Vas a enviar {amount} en vez de los {proposed} que propone la política.',
       refundTakesDays: 'Al huésped le vuelve a su tarjeta en 5 a 10 días hábiles.',
+      refundSettlesReversal:
+        'El cargo todavía no se liquidó, así que se anula directo: al huésped le vuelve en 1 a 3 días hábiles.',
+      refundSettlesRefund:
+        'El cargo ya se había liquidado, así que el banco del huésped se toma sus 5 a 10 días hábiles de siempre.',
+      refundTrace: 'Número de rastreo para el banco del huésped',
       notes: 'Nota del huésped',
       upcoming: 'Próximas',
       past: 'Pasadas',

@@ -106,6 +106,7 @@ describe('BookingsService', () => {
     bookingConflict: jest.Mock
     paymentNotCompleted: jest.Mock
     guestConfirmation: jest.Mock
+    guestCancellation: jest.Mock
   }
   let service: BookingsService
 
@@ -136,6 +137,7 @@ describe('BookingsService', () => {
       bookingConflict: jest.fn().mockResolvedValue(undefined),
       paymentNotCompleted: jest.fn().mockResolvedValue(undefined),
       guestConfirmation: jest.fn().mockResolvedValue(undefined),
+      guestCancellation: jest.fn().mockResolvedValue(undefined),
     }
 
     service = new BookingsService(
@@ -398,6 +400,36 @@ describe('BookingsService', () => {
   })
 
   describe('cancelling', () => {
+    it('tells the guest, in their language, that their stay is off', async () => {
+      await service.cancel('booking-1', 'Fuga de agua')
+
+      expect(notifications.guestCancellation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reference: 'AB-XYZ123',
+          reason: 'Fuga de agua',
+          locale: 'en',
+        }),
+      )
+    })
+
+    it('does not promise a refund on a booking nobody paid for', async () => {
+      await service.cancel('booking-1')
+
+      expect(notifications.guestCancellation).toHaveBeenCalledWith(
+        expect.objectContaining({ paid: false }),
+      )
+    })
+
+    it('says money is coming back when the stay was paid', async () => {
+      prisma.booking.findUnique.mockResolvedValue({ ...BOOKING_ROW, paidAt: new Date() })
+
+      await service.cancel('booking-1')
+
+      expect(notifications.guestCancellation).toHaveBeenCalledWith(
+        expect.objectContaining({ paid: true }),
+      )
+    })
+
     it('frees the nights and tells the host why', async () => {
       await service.cancel('booking-1', 'Fuga de agua')
 
@@ -422,6 +454,7 @@ describe('BookingsService', () => {
 
       expect(prisma.booking.update).not.toHaveBeenCalled()
       expect(notifications.bookingCancelled).not.toHaveBeenCalled()
+      expect(notifications.guestCancellation).not.toHaveBeenCalled()
     })
   })
 
