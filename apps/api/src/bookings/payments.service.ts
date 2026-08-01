@@ -203,6 +203,57 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Every movement of money in a window, as Stripe's ledger has it.
+   *
+   * Balance transactions rather than charges: only these carry the fee and the
+   * net, and only these show the charge in the currency the account actually
+   * settles in. A panel built on charge amounts would report money the host
+   * never receives.
+   */
+  async balanceTransactions(range: { from: Date; to: Date }): Promise<Stripe.BalanceTransaction[]> {
+    if (!this.configured) return []
+
+    const collected: Stripe.BalanceTransaction[] = []
+    // `autoPagingToArray` needs a ceiling; a year of one house is nowhere near
+    // it, and stopping is better than looping for ever on a bad range.
+    const page = this.stripe.balanceTransactions.list({
+      created: {
+        gte: Math.floor(range.from.getTime() / 1000),
+        lte: Math.floor(range.to.getTime() / 1000),
+      },
+      limit: 100,
+      // The original charge or refund, which is what ties a row to a booking.
+      expand: ['data.source'],
+    })
+
+    for await (const transaction of page) {
+      collected.push(transaction)
+      if (collected.length >= 1000) break
+    }
+    return collected
+  }
+
+  /** When money actually left Stripe for the bank. */
+  async payouts(range: { from: Date; to: Date }): Promise<Stripe.Payout[]> {
+    if (!this.configured) return []
+
+    const result = await this.stripe.payouts.list({
+      created: {
+        gte: Math.floor(range.from.getTime() / 1000),
+        lte: Math.floor(range.to.getTime() / 1000),
+      },
+      limit: 100,
+    })
+    return result.data
+  }
+
+  /** What is sitting in Stripe right now, waiting to be paid out. */
+  async balance(): Promise<Stripe.Balance | null> {
+    if (!this.configured) return null
+    return this.stripe.balance.retrieve()
+  }
+
   /** The PaymentIntent behind a session, for bookings paid before we stored it. */
   async paymentIntentFor(sessionId: string): Promise<string | null> {
     const status = await this.sessionStatus(sessionId)

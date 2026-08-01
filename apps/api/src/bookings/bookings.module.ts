@@ -20,6 +20,6 @@ import { RefundsService } from './refunds.service'
     PaymentReconciliationService,
     RefundsService,
   ],
-  exports: [RefundsService],
+  exports: [RefundsService, PaymentsService],
 })
 export class BookingsModule {}

@@ -3592,3 +3592,101 @@ de julio) y se devolvieron $1245. La reserva además sigue en `CONFIRMED`, sin
 cancelar. Puede ser intencionado —el importe se puede sobrescribir y por eso se
 guardan las dos cifras— o puede ser una prueba. El registro conserva la
 diferencia; la decisión es del usuario.
+
+---
+
+## 56. Fase 7.2 — Pagos: lo que se cobra no es lo que llega
+
+Pregunta del usuario: si podía tener un módulo de Stripe en el panel con pagos,
+reembolsos y transacciones. Antes de diseñarlo se miró qué tiene de verdad la
+cuenta, y lo que apareció cambió el diseño entero.
+
+### El hallazgo
+
+La cuenta de Stripe es **española y liquida en EUR**. La casa está en Florida y
+cobra en **USD**. Cada reserva pasa por una conversión antes de llegar al banco.
+
+```
+cobrado (USD)  liquidado (EUR)  proceso  conversión  neto (EUR)      %
+      1245.00          1079.30    34.25       21.59     1023.46   5.17%
+      2370.00          2066.53    65.35       41.33     1959.85   5.16%
+      1017.00           881.65    28.02       17.63      836.00   5.18%
+```
+
+Son **dos** comisiones, no una: la de proceso de Stripe y una de **cambio de
+moneda** que suma otro ~2 %. Un panel que sumara `Booking.totalPrice` habría
+enseñado 14.592 USD de un periodo en el que el neto real fueron 9.870,62 EUR.
+
+Por eso el módulo lee el **libro de Stripe** (`balance_transactions`), no
+nuestras reservas: solo esas filas traen la comisión, el neto y el importe en la
+moneda en la que la cuenta liquida de verdad.
+
+### Lo que enseña
+
+- Cobrado y reembolsado en la moneda del huésped (USD).
+- Liquidado, comisión de proceso, comisión de cambio y **neto** en EUR.
+- Un aviso que nombra la conversión en vez de esconderla dentro de un total de
+  "comisiones". Es la que nadie espera.
+- Saldo retenido en Stripe y transferencias al banco, con su fecha de llegada.
+- Cada movimiento, con la reserva y el huésped cuando se puede emparejar.
+
+### Lo que no se empareja se dice
+
+3 de 13 filas no tienen reserva en este sistema. No se ocultan ni se inventa un
+nombre: se cuentan y se nombran. Dinero cobrado sin reserva detrás es
+exactamente lo que hay que ver, no lo que hay que maquillar.
+
+### Un relleno que hacía falta
+
+Al principio solo emparejaban 4 de 13: las reservas anteriores a Fase 7 no
+guardaban `stripePaymentIntentId`, que es la única llave entre el libro de
+Stripe y nuestras reservas. Se rellenan solas al arrancar el API, una vez y sin
+repetir trabajo — la consulta solo encuentra las que aún lo tienen vacío.
+
+```
+antes:   reservas pagadas 8   con PaymentIntent 2
+después: reservas pagadas 8   con PaymentIntent 8
+filas emparejadas: 4 → 10 de 13
+```
+
+### Comprobado contra la cuenta real
+
+```
+cobrado a huéspedes  14592.00 USD
+reembolsado           2490.00 USD
+liquidado            12686.45 EUR
+reembolsos           -2158.62
+comisión de proceso   -403.48
+comisión de cambio    -253.73
+= NETO                9870.62 EUR
+
+comprobación (liquidado − reembolsos − comisiones): 9870.62  CUADRA
+```
+
+```
+/admin/payments sin sesión → 307 a /admin/login
+GET /payments sin sesión   → 401
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests)
+```
+
+Los avisos de lint pasan de 16 a 17: es el mismo `set-state-in-effect` que
+tienen todas las pantallas del panel que cargan datos (`reservations/page.tsx:83`
+es idéntico). Una página más, no un problema nuevo.
+
+### Para que el usuario lo decida
+
+Ese ~2 % de conversión es evitable: se paga por cobrar en USD y liquidar en EUR.
+Las salidas son cobrar en euros —que cambia el precio que ve el huésped— o
+pedirle a Stripe una cuenta bancaria en dólares. Ninguna se toca sin que el
+usuario lo decida: son 253,73 EUR en el periodo mirado.
+
+### Diferido
+
+- **Sin exportar a CSV.** Fase 7.5 lo necesita para el contador; aquí no se
+  adelantó.
+- **Sin disputas ni contracargos.** Stripe los expone aparte y todavía no hay
+  ninguno en la cuenta, así que no se construyó a ciegas.
