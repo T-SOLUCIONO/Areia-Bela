@@ -35,6 +35,8 @@ import { translations } from '@/lib/i18n'
 const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
 import { CheckoutSummary } from '@/components/public/checkout-summary'
 import { PaymentMethodDialog, PaymentOverlay } from '@/components/public/payment-method-dialog'
+import { EditDatesDialog, EditGuestsDialog } from '@/components/public/edit-stay-dialogs'
+import { ServiceAnimalDialog } from '@/components/public/service-animal-dialog'
 import { StayExtras } from '@/components/public/stay-extras'
 import { HostResponseBadges } from '@/components/public/host-response-badges'
 
@@ -59,6 +61,9 @@ function CheckoutForm() {
   const [datesGone, setDatesGone] = useState(false)
   const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
   const [payOpen, setPayOpen] = useState(false)
+  const [datesOpen, setDatesOpen] = useState(false)
+  const [guestsOpen, setGuestsOpen] = useState(false)
+  const [serviceAnimalOpen, setServiceAnimalOpen] = useState(false)
   const warned = useRef(false)
   const copy = translations[language].checkout
   // Extras the guest adds here, keyed by extra id. Seeded from the URL so the
@@ -220,6 +225,19 @@ function CheckoutForm() {
       }
       setIsLoading(false)
     }
+  }
+
+  /**
+   * Rewrites the stay in the URL.
+   *
+   * The quote is read from the search params, so changing them is what makes
+   * the price re-fetch — there is no second copy of the stay that could fall
+   * out of step with the one being priced.
+   */
+  const updateStay = (changes: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    Object.entries(changes).forEach(([key, value]) => params.set(key, value))
+    router.replace(`?${params.toString()}`, { scroll: false })
   }
 
   const handleInputChange = (
@@ -459,9 +477,8 @@ function CheckoutForm() {
                   quote={quote}
                   language={language}
                   policyText={policyText}
-                  // Back to the quoter with these dates already loaded, so
-                  // "change" edits the booking instead of starting over.
-                  changeHref={`/#reservar?checkin=${quote.checkIn}&checkout=${quote.checkOut}`}
+                  onChangeDates={() => setDatesOpen(true)}
+                  onChangeGuests={() => setGuestsOpen(true)}
                 />
               </div>
             </div>
@@ -488,6 +505,40 @@ function CheckoutForm() {
 
       {/* Covers the whole page, including the form underneath, until Stripe
           answers or the attempt fails. */}
+      {/* Editing the stay in place. Both write to the URL, which is where the
+          quote is read from, so the price re-fetches on its own. */}
+      <EditDatesDialog
+        open={datesOpen}
+        onOpenChange={setDatesOpen}
+        checkIn={quote.checkIn}
+        checkOut={quote.checkOut}
+        onSave={(checkIn, checkOut) => updateStay({ checkin: checkIn, checkout: checkOut })}
+        language={language}
+      />
+
+      <EditGuestsDialog
+        open={guestsOpen}
+        onOpenChange={setGuestsOpen}
+        guests={quote.guests}
+        maxGuests={propertyData.capacity}
+        onSave={(guests) =>
+          updateStay({
+            adults: String(guests.adults),
+            children: String(guests.children),
+            infants: String(guests.infants),
+            pets: String(guests.pets),
+          })
+        }
+        onServiceAnimal={() => setServiceAnimalOpen(true)}
+        language={language}
+      />
+
+      <ServiceAnimalDialog
+        open={serviceAnimalOpen}
+        onOpenChange={setServiceAnimalOpen}
+        language={language}
+      />
+
       {isLoading && <PaymentOverlay language={language} />}
     </div>
   )

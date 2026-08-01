@@ -151,6 +151,11 @@ export const translations = {
       statusCheckedOut: 'Completed',
     },
     checkout: {
+      editDatesTitle: 'Change the dates',
+      editGuestsTitle: 'Change the number of guests',
+      editGuestsLead:
+        'This house sleeps {count} guests, not counting infants. If you are bringing more than two pets, let the host know.',
+      saveChange: 'Save',
       guestDetails: 'Who the booking is for',
       firstName: 'First name',
       lastName: 'Last name',
@@ -437,6 +442,11 @@ export const translations = {
       statusCheckedOut: 'Completada',
     },
     checkout: {
+      editDatesTitle: 'Cambia las fechas',
+      editGuestsTitle: 'Modifica el número de huéspedes',
+      editGuestsLead:
+        'En esta casa se pueden quedar {count} huéspedes como máximo, sin contar a los bebés. Si traes más de dos mascotas, avísale a la anfitriona.',
+      saveChange: 'Guardar',
       guestDetails: 'A nombre de quién va la reserva',
       firstName: 'Nombre',
       lastName: 'Apellido',
@@ -721,6 +731,11 @@ export const translations = {
       statusCheckedOut: 'Concluída',
     },
     checkout: {
+      editDatesTitle: 'Alterar as datas',
+      editGuestsTitle: 'Alterar o número de hóspedes',
+      editGuestsLead:
+        'Esta casa acomoda {count} hóspedes, sem contar os bebês. Se trouxer mais de dois animais, avise a anfitriã.',
+      saveChange: 'Salvar',
       guestDetails: 'Em nome de quem é a reserva',
       firstName: 'Nome',
       lastName: 'Sobrenome',
@@ -1007,6 +1022,11 @@ export const translations = {
       statusCheckedOut: 'Terminée',
     },
     checkout: {
+      editDatesTitle: 'Changer les dates',
+      editGuestsTitle: 'Modifier le nombre de voyageurs',
+      editGuestsLead:
+        'Cette maison accueille {count} voyageurs, bébés non compris. Si vous venez avec plus de deux animaux, prévenez l’hôtesse.',
+      saveChange: 'Enregistrer',
       guestDetails: 'Au nom de qui est la réservation',
       firstName: 'Prénom',
       lastName: 'Nom',
@@ -1294,6 +1314,11 @@ export const translations = {
       statusCheckedOut: 'Abgeschlossen',
     },
     checkout: {
+      editDatesTitle: 'Daten ändern',
+      editGuestsTitle: 'Anzahl der Gäste ändern',
+      editGuestsLead:
+        'Dieses Haus bietet Platz für {count} Gäste, Babys nicht mitgezählt. Bei mehr als zwei Haustieren sagen Sie der Gastgeberin Bescheid.',
+      saveChange: 'Speichern',
       guestDetails: 'Auf wen die Buchung läuft',
       firstName: 'Vorname',
       lastName: 'Nachname',

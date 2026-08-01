@@ -3162,3 +3162,57 @@ contrasta contra ese crema.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (245 tests)
 ```
+
+---
+
+## 50. Cambiar fechas y huéspedes sin salir del checkout
+
+Pedido: los "Modificar" del resumen deben abrir diálogos, como en Airbnb, en
+lugar de devolver al cotizador.
+
+### Extraído, no duplicado
+
+El calendario y el selector de huéspedes ya existían dentro de
+`availability-card.tsx`. Copiarlos al checkout habría copiado **las reglas**:
+qué noches se deshabilitan, que la salida no es una noche, que los bebés no
+cuentan para el aforo, que los adultos nunca bajan de uno. Dos copias de una
+regla divergen la primera vez que una cambia.
+
+Salen a tres componentes compartidos:
+
+|                       |                                                               |
+| --------------------- | ------------------------------------------------------------- |
+| `StayCalendar`        | disponibilidad, mínimo de noches, precios por noche, leyenda  |
+| `GuestPicker`         | los cuatro contadores y el aforo                              |
+| `ServiceAnimalDialog` | la explicación de que un animal de servicio no es una mascota |
+
+`availability-card.tsx` baja de 655 a 456 líneas y deja de contener lógica que
+el checkout también necesitaba.
+
+### Los diálogos
+
+`EditDatesDialog` **carga su propia disponibilidad** al abrirse. El huésped
+puede llevar veinte minutos en esta página y la semana a la que se está mudando
+puede haberse reservado mientras tanto; usar los datos con los que se pintó la
+página sería ofrecerle unas fechas que el servidor rechazaría.
+
+Los dos escriben en la URL, que es de donde se lee la reserva, así que el precio
+se recalcula solo. No hay una segunda copia de la estadía que pueda quedar
+desincronizada con la que se está cotizando.
+
+`EditGuestsDialog` edita sobre una copia: cerrar con la X deja la reserva como
+estaba.
+
+### Un corte que salió mal
+
+El primer intento de extraer el selector de huéspedes buscó el `})}` de cierre
+y enganchó el de la definición del array, 250 líneas antes de lo que debía. Se
+restauró el archivo desde git y se rehízo verificando el bloque extraído antes
+de escribir — el mismo error de §42, donde no comprobar lo que un script había
+hecho costó dos diagnósticos equivocados.
+
+```
+portada y checkout            → HTTP 200, sin errores de compilación
+pnpm build ✅   pnpm lint ✅ (16 avisos, los mismos de antes)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```

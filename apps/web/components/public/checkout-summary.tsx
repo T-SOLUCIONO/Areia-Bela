@@ -17,8 +17,9 @@ interface Props {
   language: Language
   /** Already worded by the caller from the house's real policy. */
   policyText: string
-  /** Where "change" sends them back to. */
-  changeHref: string
+  /** Opens the dialogs that edit the stay in place. */
+  onChangeDates: () => void
+  onChangeGuests: () => void
 }
 
 /**
@@ -29,7 +30,13 @@ interface Props {
  * time someone reached the pay button, what they were paying for had scrolled
  * away. Here it travels with them.
  */
-export function CheckoutSummary({ quote, language, policyText, changeHref }: Props) {
+export function CheckoutSummary({
+  quote,
+  language,
+  policyText,
+  onChangeDates,
+  onChangeGuests,
+}: Props) {
   const copy = translations[language].checkout
   const quoteCopy = translations[language].quote
   const guestCopy = translations[language].guestArea
@@ -101,11 +108,11 @@ export function CheckoutSummary({ quote, language, policyText, changeHref }: Pro
         </Link>
       </div>
 
-      <Row label={copy.summaryDates} action={copy.summaryChange} href={changeHref}>
+      <Row label={copy.summaryDates} action={copy.summaryChange} onAction={onChangeDates}>
         {day(quote.checkIn, 'd MMM')} – {day(quote.checkOut, 'd MMM yyyy')}
       </Row>
 
-      <Row label={copy.summaryGuests} action={copy.summaryChange} href={changeHref}>
+      <Row label={copy.summaryGuests} action={copy.summaryChange} onAction={onChangeGuests}>
         {party}
       </Row>
 
@@ -141,12 +148,12 @@ export function CheckoutSummary({ quote, language, policyText, changeHref }: Pro
 function Row({
   label,
   action,
-  href,
+  onAction,
   children,
 }: {
   label: string
   action: string
-  href: string
+  onAction: () => void
   children: React.ReactNode
 }) {
   return (
@@ -155,12 +162,15 @@ function Row({
         <p className="font-medium text-foreground">{label}</p>
         <p className="mt-0.5 text-sm text-muted-foreground">{children}</p>
       </div>
-      <Link
-        href={href}
+      {/* A button, not a link: it edits the booking in place rather than
+          sending the guest back to the quoter to start again. */}
+      <button
+        type="button"
+        onClick={onAction}
         className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-foreground underline hover:bg-muted"
       >
         {action}
-      </Link>
+      </button>
     </div>
   )
 }
