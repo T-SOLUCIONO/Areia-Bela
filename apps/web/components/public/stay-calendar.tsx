@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback, useSyncExternalStore } from 'react'
 import { format, isWithinInterval, startOfDay, startOfMonth } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
@@ -7,6 +8,38 @@ import { type Language } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
+
+/** Two months need roughly this much width at the cell size below. */
+const TWO_MONTH_QUERY = '(min-width: 46rem)'
+
+/**
+ * Whether two months fit side by side.
+ *
+ * `useSyncExternalStore` rather than an effect: the viewport is an external
+ * system React should subscribe to, and this is the API for that. It also
+ * takes a server value, so the first paint is not a guess that then jumps.
+ *
+ * The breakpoint is measured, not chosen. Two months at 3rem cells need about
+ * 700px and the dialog they live in is capped at 768px minus its padding, so
+ * below this the second month overflowed and the page grew a horizontal
+ * scrollbar to show a calendar.
+ */
+function useTwoMonths(): boolean {
+  const subscribe = useCallback((notify: () => void) => {
+    const query = window.matchMedia(TWO_MONTH_QUERY)
+    query.addEventListener('change', notify)
+    return () => query.removeEventListener('change', notify)
+  }, [])
+
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(TWO_MONTH_QUERY).matches,
+    // On the server, assume the roomy case: a desktop reader gets the right
+    // layout immediately and a phone corrects on hydration, rather than every
+    // desktop flashing a single month first.
+    () => true,
+  )
+}
 
 export interface StayRange {
   from?: Date
@@ -49,6 +82,7 @@ export function StayCalendar({
   className,
 }: Props) {
   const locale = DATE_LOCALES[language]
+  const twoMonths = useTwoMonths()
   const today = new Date()
   const todayStart = startOfDay(today)
 
@@ -61,7 +95,7 @@ export function StayCalendar({
       <Calendar
         mode="range"
         selected={value.from ? { from: value.from, to: value.to } : undefined}
-        numberOfMonths={2}
+        numberOfMonths={twoMonths ? 2 : 1}
         // A month that is entirely behind us is a month nobody can book. The
         // dialog used to open on the current month and show the stay in the
         // second pane; when the stay was in August that meant a full grid of
@@ -129,7 +163,9 @@ export function StayCalendar({
         }}
         onDayMouseEnter={onHoverDate}
         onDayMouseLeave={() => onHoverDate?.(undefined)}
-        className="w-full [--cell-size:3rem]"
+        // Fluid rather than fixed: at a flat 3rem, two months needed more
+        // width than the dialog had.
+        className="w-full [--cell-size:clamp(2.25rem,7vw,3rem)]"
         components={{
           DayButton: (dayProps) => {
             const iso = format(dayProps.day.date, 'yyyy-MM-dd')

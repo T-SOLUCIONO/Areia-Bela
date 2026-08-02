@@ -17,3 +17,17 @@ export class CreateBlockedDateDto {
   @MaxLength(200)
   reason?: string
 }
+
+/**
+ * What a block can be corrected to after the fact.
+ *
+ * The dates are deliberately absent: moving a block is not an edit, it is a
+ * different block, and it has to be checked against bookings all over again.
+ * Fixing a typo in the reason should not need that.
+ */
+export class UpdateBlockedDateDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  reason?: string
+}

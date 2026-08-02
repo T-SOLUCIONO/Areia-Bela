@@ -6,7 +6,7 @@ import { Public } from '../auth/decorators/public.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { UpdatePropertyDto } from './dto/update-property.dto'
 import { CreateExtraDto, UpdateExtraDto } from './dto/extra.dto'
-import { CreateBlockedDateDto } from './dto/blocked-date.dto'
+import { CreateBlockedDateDto, UpdateBlockedDateDto } from './dto/blocked-date.dto'
 import { CreatePriceRuleDto, UpdatePriceRuleDto } from './dto/price-rule.dto'
 
 // The guest-facing site calls these without signing in, so they opt out of the
@@ -43,6 +43,13 @@ export class PropertiesController {
   @Post(':slug/blocked-dates')
   blockDates(@Param('slug') slug: string, @Body() dto: CreateBlockedDateDto) {
     return this.propertiesService.blockDates(slug, dto)
+  }
+
+  /** Correcting why, not when: moving a block means making a different one. */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('blocked-dates/:id')
+  updateBlockedDate(@Param('id') id: string, @Body() dto: UpdateBlockedDateDto) {
+    return this.propertiesService.updateBlockedDate(id, dto)
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)

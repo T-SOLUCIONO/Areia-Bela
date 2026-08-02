@@ -4322,3 +4322,82 @@ pnpm typecheck ✅   pnpm test ✅ (295 tests, 6 nuevos)
 - **Sin precio negociado.** Un descuento acordado por teléfono no tiene dónde
   ponerse: aplicarlo bien exige decidir si baja también la base imponible, y eso
   toca lo que se declara a Florida. Fase 7.5.
+
+---
+
+## 67. Las tres deudas del panel
+
+### El calendario, a dos meses
+
+Bloquear un rango que cruzaba el cambio de mes —una reparación entre diciembre y
+enero, la Navidad de la anfitriona— obligaba a navegar con la selección a medias
+confiando en que sobreviviera. Ahora se ven dos meses a la vez.
+
+Un detalle que hacía falta pensar: un día del mes vecino se dibuja para que las
+columnas cuadren, pero **no se puede pulsar** en el panel donde no le toca.
+Sin eso, hacer clic en el "1 de agosto" que asoma bajo julio habría seleccionado
+una fecha que el lector no está mirando. Cada panel lleva su mes escrito encima,
+porque con dos rejillas juntas deja de ser obvio cuál es cuál.
+
+Los contadores de noches libres y ocupadas cuentan ahora el rango entero.
+
+### El motivo de un bloqueo, editable
+
+Corregir una errata obligaba a liberar las noches y volver a bloquearlas — lo
+que, durante esos segundos, ponía a la venta una semana que la anfitriona había
+cerrado. Ahora se edita en el mismo diálogo donde se libera.
+
+Las **fechas siguen sin ser editables**, y es deliberado: mover un bloqueo no es
+editarlo, es otro bloqueo, y hay que comprobarlo de nuevo contra las reservas.
+Arreglar una errata no debería pagar ese precio.
+
+Un motivo vacío borra el anterior en vez de guardar una cadena en blanco.
+
+### El scroll horizontal del diálogo de fechas
+
+Dos meses a `--cell-size: 3rem` piden unos 700px; el diálogo está topado en
+768px menos su relleno. Se salía por poco, y la página entera crecía una barra
+horizontal para enseñar un calendario.
+
+Dos arreglos, y ninguno es esconder el desbordamiento:
+
+- **Un mes por debajo de 46rem**, decidido con `useSyncExternalStore` sobre una
+  media query en vez de un efecto: el viewport es un sistema externo al que
+  React debe suscribirse, y esa es la API. Da además un valor de servidor, así
+  que el primer pintado no es una suposición que luego salta.
+- **Celda fluida**, `clamp(2.25rem, 7vw, 3rem)`, para que encoja antes de
+  empujar.
+
+El `overflow-x-hidden` del diálogo queda como cinturón sobre los tirantes: si un
+cambio futuro vuelve a ensancharlo, recorta el diálogo y no la página.
+
+Esto arregla de paso el cotizador público en móvil, donde dos meses a 3rem
+tampoco cabían.
+
+## 68. `accessNotes`, con estructura y sin inventos
+
+El usuario pidió llenarlo con datos de ejemplo. Se llenó con una **plantilla de
+marcadores**, no con datos.
+
+CLAUDE.md prohíbe inventar valores plausibles, y este campo es el peor sitio
+para saltarse esa regla: un código de puerta inventado es uno que un huésped
+acaba tecleando de pie frente a la casa. Lo que se escribió es real —**la forma**:
+las preguntas que todo huésped hace— con 15 marcadores entre corchetes donde van
+las respuestas.
+
+```
+- Puerta principal: [cómo se abre — código, caja de llaves, cerradura inteligente]
+- Wi-Fi: red [nombre de la red], contraseña [contraseña]
+- Escríbele a Angélica al [teléfono de contacto]
+```
+
+Así la anfitriona sustituye en vez de decidir qué contar, y nada parece real por
+accidente. El script no pisa el campo si ya tiene contenido.
+
+**Sigue siendo del usuario**: mientras queden corchetes, el huésped los ve tal
+cual en su reserva y en el PDF.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores, 17 avisos — baseline)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+```

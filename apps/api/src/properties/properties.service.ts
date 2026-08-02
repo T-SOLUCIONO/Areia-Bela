@@ -19,7 +19,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { QuoteRequestDto } from './dto/quote-request.dto'
 import { UpdatePropertyDto } from './dto/update-property.dto'
 import { CreateExtraDto, UpdateExtraDto } from './dto/extra.dto'
-import { CreateBlockedDateDto } from './dto/blocked-date.dto'
+import { CreateBlockedDateDto, UpdateBlockedDateDto } from './dto/blocked-date.dto'
 import { CreatePriceRuleDto, UpdatePriceRuleDto } from './dto/price-rule.dto'
 
 const iso = (date: Date) => date.toISOString().slice(0, 10)
@@ -513,6 +513,33 @@ export class PropertiesService {
       startDate: created.startDate.toISOString(),
       endDate: created.endDate.toISOString(),
       reason: created.reason ?? undefined,
+    }
+  }
+
+  /**
+   * Corrects why a block exists, without touching when it exists.
+   *
+   * Fixing a typo used to mean freeing the nights and blocking them again —
+   * which, for the seconds in between, put a week the host had closed back on
+   * sale. The dates are not editable here on purpose: moving a block is a
+   * different block and has to be checked against bookings all over again.
+   */
+  async updateBlockedDate(id: string, dto: UpdateBlockedDateDto): Promise<BlockedDate> {
+    const existing = await this.prisma.blockedDate.findUnique({ where: { id } })
+    if (!existing) throw new NotFoundException('Blocked range not found')
+
+    const updated = await this.prisma.blockedDate.update({
+      where: { id },
+      // An empty string clears the reason rather than storing a blank one.
+      data: { reason: dto.reason?.trim() || null },
+    })
+
+    return {
+      id: updated.id,
+      propertyId: updated.propertyId,
+      startDate: updated.startDate.toISOString(),
+      endDate: updated.endDate.toISOString(),
+      reason: updated.reason ?? undefined,
     }
   }
 
