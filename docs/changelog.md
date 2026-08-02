@@ -4401,3 +4401,108 @@ cual en su reserva y en el PDF.
 pnpm build ✅   pnpm lint ✅ (0 errores, 17 avisos — baseline)
 pnpm typecheck ✅   pnpm test ✅ (295 tests)
 ```
+
+---
+
+## 69. Fase 7.5 — Impuestos: cuánto se debe y a quién
+
+Desbloqueada por el usuario: la limpieza **no** entra en la base imponible.
+Comprobado que ya era así — `computeQuote` aplica los porcentajes a
+`subtotal − descuento + huésped extra`, y la limpieza nunca estuvo dentro. No
+hubo nada que cambiar en el motor de precios.
+
+### El problema real
+
+Al huésped se le cobra **un** 13 %. Una declaración se presenta por **autoridad**:
+Florida DOR se lleva el 6 % estatal y el 1 % del condado, y el Tax Collector de
+Pinellas el 6 % de turismo — en calendarios distintos. `Property.taxesPercent`
+no puede ser lo que se declara.
+
+`TaxJurisdiction` guarda cada autoridad con su tasa y **sus fechas**, porque un
+cambio de tasa no debe reescribir lo ya cobrado: una tasa nueva es una fila
+nueva, la vieja se cierra.
+
+`TaxFiling` guarda que un periodo se declaró y se pagó. El informe siempre se
+puede recalcular; lo que no se puede deducir es si alguien lo presentó.
+
+Dos entidades nuevas, justificadas como pide CLAUDE.md, y ya previstas en el
+plan.
+
+### Un fallo propio que los datos reales destaparon
+
+La primera versión repartía todo con las tasas de **hoy**. Entonces apareció
+`AB-JJYK9R`: base 900, impuesto cobrado 103 — un **11,44 %**, no 13 %. Su
+factura suma correctamente, así que no es un error: se cobró con otra
+configuración y la factura está congelada, como debe estar.
+
+Repartir eso al 6/1/6 de hoy le habría dado a una autoridad una parte de dinero
+recaudado bajo otro arreglo. Ahora **cada estadía se reparte con las tasas
+vigentes el día en que se cobró**, que es exactamente para lo que la tabla tiene
+fechas.
+
+Y la anomalía se enseña en vez de suavizarse: cada estadía muestra su tasa
+efectiva, y la que no coincide con la de la casa sale en ámbar.
+
+```
+AB-JJYK9R  base   900  impuesto  103  = 11.44%  <-- distinta de la actual
+AB-E37EEZ  base  1800  impuesto  234  = 13%
+```
+
+### Comprobado contra la base real
+
+```
+Impuesto de desarrollo turístico     6%  recaudado 425.54  a declarar 378.00
+Impuesto estatal de Florida          6%  recaudado 425.54  a declarar 378.00
+Recargo del condado de Pinellas      1%  recaudado  70.92  a declarar  63.00
+
+suma de jurisdicciones: 922.00   total recaudado: 922.00        CUADRA
+columnas `taxes` de la base: 922.00                             CUADRA
+las tres tasas suman 13%   la casa cobra 13%                    CUADRA
+```
+
+El criterio de salida del plan pedía justo eso: que las cifras cuadren con la
+suma de las columnas `taxes` de las reservas del periodo.
+
+```
+declarado: $378 ref PRUEBA-12345    el informe lo refleja: sí
+declarado otra vez: 1 fila (corrige, no duplica)
+periodo invertido rechazado
+limpiado: 0 declaraciones de prueba
+```
+
+### Decisiones que son del contador, dichas en pantalla
+
+Dos, y las dos aparecen bajo el informe en vez de esconderse en el código:
+
+- Una estadía cuenta en el periodo en que se **pagó**, no en el que ocurre.
+- Un reembolso reduce la base **en proporción**. Exacto para una devolución
+  total, que es lo que han sido las dos reales.
+
+### Si las tasas no suman
+
+Un aviso rojo: si las jurisdicciones no suman lo que se le cobra al huésped,
+hay dinero recaudado sin autoridad a la que declararlo. No es un problema de
+redondeo y no se muestra como tal.
+
+### El CSV
+
+Resumen por autoridad más una fila por estadía, porque a un contador que recibe
+una cifra lo siguiente que pregunta es qué reservas la componen. Lleva BOM para
+que Excel no destroce "Jurisdicción".
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores, 18 avisos)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+```
+
+El aviso 18 es el mismo `set-state-in-effect` de toda pantalla del panel que
+carga datos (`reservations:95`, `payments:169`). Una página más, no un problema
+nuevo.
+
+### Diferido
+
+- **La tasa de una jurisdicción no se edita desde el panel.** Se siembran con
+  `pnpm --filter @areia-bela/api seed:taxes`. Cerrar una y abrir otra con fecha
+  nueva es lo que exige un cambio de tasa, y esa pantalla no está.
+- **Sin recordatorio de vencimiento.** El panel dice cuánto se debe, no cuándo
+  vence en cada autoridad.

@@ -286,6 +286,68 @@ enum RefundStatus {
   FAILED
 }
 
+/// One authority the host owes tax to, at one rate, for one stretch of time.
+///
+/// `Property.taxesPercent` is a single 13 % and stays the one figure a guest is
+/// charged. It cannot be what gets declared: Florida DOR and the Pinellas Tax
+/// Collector are remitted **separately**, on different calendars, and a return
+/// asks for their share, not a total.
+///
+/// Dated on purpose. A rate change must not rewrite what was already collected,
+/// so a new rate is a new row with its own `effectiveFrom`, and the old one is
+/// closed rather than edited.
+model TaxJurisdiction {
+  id        String  @id @default(cuid())
+  /// What the host calls it: "Estatal de Florida", "Condado de Pinellas".
+  name      String
+  /// Who the money is remitted to. Printed on the report the accountant gets.
+  authority String
+  percent   Decimal @db.Decimal(5, 2)
+
+  effectiveFrom DateTime  @db.Date
+  /// Null while this is the rate in force. Set when a new one supersedes it.
+  effectiveTo   DateTime? @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  filings TaxFiling[]
+
+  @@index([effectiveFrom])
+}
+
+/// A period declared and paid to one authority.
+///
+/// The report can always be recomputed from the bookings; what it cannot know
+/// is whether anyone actually filed it. That is the only thing stored here,
+/// which is also why it is a row rather than a flag: the reference of the
+/// payment and the date it went out are what an audit asks for.
+model TaxFiling {
+  id             String          @id @default(cuid())
+  jurisdictionId String
+  jurisdiction   TaxJurisdiction @relation(fields: [jurisdictionId], references: [id])
+
+  /// First and last day of the period, inclusive. Monthly or quarterly, as the
+  /// authority requires — stored as dates so neither is assumed.
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+
+  /// What was declared. Frozen: recomputing it later could disagree with what
+  /// was actually remitted, and the remittance is the fact.
+  amount    Decimal  @db.Decimal(10, 2)
+  filedAt   DateTime
+  /// Confirmation number from the authority, or the bank reference.
+  reference String?
+  notes     String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([jurisdictionId, periodStart, periodEnd])
+  @@index([periodStart])
+}
+
 model PriceRule {
   id          String     @id @default(cuid())
   propertyId  String
