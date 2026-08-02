@@ -4629,3 +4629,82 @@ pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (295 tests)
 las cinco rutas responden · 0 panics
 ```
+
+---
+
+## 72. Fechas bloqueadas por un pago que nunca se abrió
+
+Reporte del usuario: al intentar reservar y faltar algo, las fechas quedaban
+bloqueadas sin haber pagado.
+
+Se recorrieron los tres caminos:
+
+| Camino                                   | Qué hacía                                        |
+| ---------------------------------------- | ------------------------------------------------ |
+| Falta un dato del formulario             | 400 antes de escribir nada — **ya era correcto** |
+| **Stripe falla al abrir el pago**        | la fila ya estaba escrita → media hora bloqueada |
+| **El huésped vuelve atrás desde Stripe** | nada la liberaba → media hora bloqueada          |
+
+### El hueco de Stripe
+
+`hold()` escribe la reserva en una transacción y **después** llama a Stripe,
+deliberadamente: una transacción abierta durante una llamada de red sería un
+candado sobre el calendario entero mientras Stripe tarde (§29).
+
+Pero eso deja una ventana. Si Stripe se niega —clave mal puesta, red caída, la
+configuración de métodos de pago— la fila ya está confirmada y la semana queda
+cerrada por una página de pago que nadie llegó a ver.
+
+Un hold se gana sus fechas **cuando hay dónde pagar**. Si no lo hay, se sueltan
+en el acto.
+
+Comprobado con un Stripe que siempre falla, contra la base real:
+
+```
+antes:  ¿fechas libres? sí
+Stripe falló: "Stripe está caído"
+después: ¿fechas libres? SÍ — el hold se soltó
+la fila quedó: AB-G98835 CANCELLED — "No se pudo abrir el pago"  vence: nunca
+```
+
+La fila se conserva cancelada en vez de borrarse: que un pago no se pudiera
+abrir es algo que la anfitriona querrá ver si se repite.
+
+### El huésped que se arrepiente
+
+El `cancel_url` de Stripe ahora lleva el id de la reserva, así que en cuanto el
+huésped vuelve al checkout la semana sale a la venta otra vez, en lugar de
+quedarse cerrada el resto del hold. La URL se limpia después para que un
+refresco no lo pida dos veces.
+
+`POST /bookings/:id/abandon` es público porque el huésped no tiene sesión, y es
+seguro que lo sea: hace falta el id, solo toca un hold **sin pagar**, y lo peor
+que consigue un id adivinado es liberar fechas que la barrida iba a liberar
+dentro de la media hora. Va con límite de peticiones para que no sirva de
+buscador de ids.
+
+La guarda vive en el `where`, no en un `if`:
+
+```ts
+where: { id: bookingId, status: 'PENDING', paidAt: null }
+```
+
+Así un hold que se pagó entre medias no lo puede barrer un fallo que llega
+tarde.
+
+### Lo que no cambia, y por qué
+
+**Un hold sigue bloqueando las fechas mientras el huésped paga.** No es un
+efecto secundario: es lo que impide que dos personas paguen la misma semana, y
+es el motivo de la restricción de exclusión de §29. Sin él, el segundo en pagar
+descubre que su dinero compró unas fechas que ya no existen — que es
+exactamente el peor estado que este sistema tiene (§41).
+
+Lo que se ha arreglado es que las bloquee **solo** mientras hay un pago vivo.
+
+```
+POST /bookings/inventado/abandon → 204   (no revela si existe)
+/es/checkout?abandoned=... → 200
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (298 tests, 3 nuevos)
+```

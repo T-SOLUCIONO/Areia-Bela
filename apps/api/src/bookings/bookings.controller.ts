@@ -73,6 +73,22 @@ export class BookingsController {
   }
 
   /**
+   * The guest turned back at the payment page.
+   *
+   * Public because the guest is not signed in, and safe to be: it needs the
+   * booking's id, only touches a hold that is still unpaid, and the worst a
+   * guessed id achieves is freeing dates the sweep would free within the half
+   * hour anyway. Rate limited so it cannot be used to hunt for ids.
+   */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 600_000 } })
+  @HttpCode(204)
+  @Post(':id/abandon')
+  async abandon(@Param('id') id: string) {
+    await this.bookings.abandonHold(id)
+  }
+
+  /**
    * Stripe telling us what happened to a payment.
    *
    * This is the only thing in the system that can turn a hold into a booking.

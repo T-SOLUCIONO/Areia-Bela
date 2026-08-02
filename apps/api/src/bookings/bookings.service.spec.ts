@@ -408,6 +408,47 @@ describe('BookingsService', () => {
     })
   })
 
+  describe('a hold that never becomes payable', () => {
+    it('gives the dates straight back when Stripe refuses', async () => {
+      payments.checkoutUrlFor.mockRejectedValue(new Error('Stripe is down'))
+
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).rejects.toThrow('Stripe is down')
+
+      // The row is committed before Stripe is called, so without this the week
+      // stays shut for half an hour over a payment page nobody ever saw.
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'booking-1', status: 'PENDING', paidAt: null },
+          data: expect.objectContaining({
+            status: 'CANCELLED',
+            expiresAt: null,
+            cancellationReason: 'No se pudo abrir el pago',
+          }),
+        }),
+      )
+    })
+
+    it('frees a hold the guest turned back from', async () => {
+      await service.abandonHold('booking-1')
+
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // Guarded in the filter, so a hold paid in the meantime survives.
+          where: { id: 'booking-1', status: 'PENDING', paidAt: null },
+          data: expect.objectContaining({ status: 'CANCELLED' }),
+        }),
+      )
+    })
+
+    it('never throws while freeing one', async () => {
+      prisma.booking.updateMany.mockRejectedValue(new Error('database gone'))
+
+      // The caller is already dealing with a failure, and the sweep frees
+      // these dates within the half hour regardless.
+      await expect(service.abandonHold('booking-1')).resolves.toBeUndefined()
+    })
+  })
+
   describe('a stay taken over the phone', () => {
     const MANUAL = {
       checkIn: '2026-09-01',

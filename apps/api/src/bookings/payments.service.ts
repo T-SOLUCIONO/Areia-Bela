@@ -81,7 +81,10 @@ export class PaymentsService {
       // for a week the calendar had already released.
       expires_at: Math.floor(Date.now() / 1000) + (request.ttlMinutes ?? HOLD_TTL_MINUTES) * 60,
       success_url: `${request.origin}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${request.origin}/checkout?checkin=${request.checkIn}&checkout=${request.checkOut}&adults=${request.guests}`,
+      // Carries the booking back so the page can hand the dates over the
+      // moment the guest turns round, instead of the calendar staying shut
+      // for half an hour after they changed their mind.
+      cancel_url: `${request.origin}/checkout?checkin=${request.checkIn}&checkout=${request.checkOut}&adults=${request.guests}&abandoned=${request.bookingId}`,
       // The webhook needs exactly one thing: which hold this paid for.
       // Everything else about the stay is already a row in the database, where
       // whoever holds the session cannot edit it.

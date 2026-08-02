@@ -298,20 +298,28 @@ export class BookingsService {
       return { bookingId: booking.id, reference, quote, checkoutUrl: null, expiresAt: null }
     }
 
-    const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
-    const checkoutUrl = await this.payments.checkoutUrlFor({
-      bookingId: booking.id,
-      reference,
-      email: dto.guest.email,
-      stripeCustomerId: stripeCustomerId ?? undefined,
-      checkIn: dto.checkIn,
-      checkOut: dto.checkOut,
-      nights: quote.nights,
-      total: quote.total,
-      guests: dto.guests.adults + dto.guests.children,
-      origin,
-      ttlMinutes: PANEL_HOLD_TTL_MINUTES,
-    })
+    // Same reasoning as a website hold: a link that could not be created is a
+    // day of the calendar closed for nothing.
+    let checkoutUrl: string
+    try {
+      const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
+      checkoutUrl = await this.payments.checkoutUrlFor({
+        bookingId: booking.id,
+        reference,
+        email: dto.guest.email,
+        stripeCustomerId: stripeCustomerId ?? undefined,
+        checkIn: dto.checkIn,
+        checkOut: dto.checkOut,
+        nights: quote.nights,
+        total: quote.total,
+        guests: dto.guests.adults + dto.guests.children,
+        origin,
+        ttlMinutes: PANEL_HOLD_TTL_MINUTES,
+      })
+    } catch (error) {
+      await this.discardHold(booking.id, 'No se pudo abrir el pago')
+      throw error
+    }
 
     await this.prisma.booking.update({ where: { id: booking.id }, data: { checkoutUrl } })
 
@@ -407,20 +415,30 @@ export class BookingsService {
     // Stripe last, and outside the transaction: it is a network call to
     // someone else's service, and holding a database transaction open across
     // it would be a lock on the whole calendar for as long as Stripe takes.
-    const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
+    //
+    // But the row is already committed by now, so a Stripe that refuses would
+    // leave the week closed for half an hour over a payment page nobody ever
+    // saw. The hold only earns its dates once there is somewhere to pay.
+    let checkoutUrl: string
+    try {
+      const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
 
-    const checkoutUrl = await this.payments.checkoutUrlFor({
-      bookingId: booking.id,
-      reference: booking.reference,
-      email: dto.guest.email,
-      stripeCustomerId: stripeCustomerId ?? undefined,
-      checkIn: dto.checkIn,
-      checkOut: dto.checkOut,
-      nights: quote.nights,
-      total: quote.total,
-      guests: dto.guests.adults + dto.guests.children,
-      origin,
-    })
+      checkoutUrl = await this.payments.checkoutUrlFor({
+        bookingId: booking.id,
+        reference: booking.reference,
+        email: dto.guest.email,
+        stripeCustomerId: stripeCustomerId ?? undefined,
+        checkIn: dto.checkIn,
+        checkOut: dto.checkOut,
+        nights: quote.nights,
+        total: quote.total,
+        guests: dto.guests.adults + dto.guests.children,
+        origin,
+      })
+    } catch (error) {
+      await this.discardHold(booking.id, 'No se pudo abrir el pago')
+      throw error
+    }
 
     return {
       bookingId: booking.id,
@@ -456,6 +474,52 @@ export class BookingsService {
     })
     this.logger.log(`Created the Stripe customer for ${customer.email}`)
     return created
+  }
+
+  /**
+   * Gives the dates straight back.
+   *
+   * For a hold that never became payable — Stripe refused, or the guest turned
+   * round at the payment page. Nothing is announced: the guest is looking at
+   * the error, or at the calendar they just came back to, and an email saying
+   * their booking was cancelled would be news about something that never
+   * existed.
+   */
+  private async discardHold(bookingId: string, reason: string): Promise<void> {
+    try {
+      await this.prisma.booking.updateMany({
+        // `updateMany` with the guard in the filter, so a hold that got paid
+        // in the meantime cannot be swept by a late failure.
+        where: { id: bookingId, status: 'PENDING', paidAt: null },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancellationReason: reason,
+          expiresAt: null,
+          checkoutUrl: null,
+        },
+      })
+      this.logger.log(`Discarded hold ${bookingId}: ${reason}`)
+    } catch (error) {
+      // Never masks the original failure: the caller is already throwing, and
+      // the sweep will free these dates within the half hour anyway.
+      this.logger.error(
+        `Could not discard hold ${bookingId}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+    }
+  }
+
+  /**
+   * The guest turned back at the payment page.
+   *
+   * Public, and safe to be: it needs the booking's id, only touches a hold
+   * that is still unpaid, and the worst a guessed id achieves is freeing dates
+   * that were going to be freed within the half hour regardless.
+   */
+  async abandonHold(bookingId: string): Promise<void> {
+    await this.discardHold(bookingId, 'El huésped volvió atrás desde el pago')
   }
 
   /**

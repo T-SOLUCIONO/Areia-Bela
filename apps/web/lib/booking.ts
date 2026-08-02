@@ -276,3 +276,22 @@ export function getQuoteFromStorage(): BookingQuote | null {
 
 export const currency = (value: number) => `$${value.toLocaleString('en-US')}`
 export const shortDate = (iso: string) => format(parseISO(iso), 'MMM d, yyyy')
+
+/**
+ * Hands the dates back when the guest turns round at Stripe.
+ *
+ * Stripe's cancel URL carries the booking id, so the moment they land back
+ * here the week goes on sale again instead of staying shut for the rest of the
+ * hold. Failure is swallowed: the sweep frees it within the half hour anyway,
+ * and a guest who changed their mind should not be shown an error about it.
+ */
+export async function abandonHold(bookingId: string): Promise<void> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return
+
+  try {
+    await fetch(`${apiUrl}/bookings/${bookingId}/abandon`, { method: 'POST' })
+  } catch {
+    // Nothing to tell them. The dates come back either way.
+  }
+}
