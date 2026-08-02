@@ -33,7 +33,7 @@ import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { PROPERTY_SLUG } from '@/lib/property-data'
-import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { useAdminLanguage, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +65,7 @@ const iso = (day: Date) => format(day, 'yyyy-MM-dd')
  */
 export default function CalendarPage() {
   const { language, t } = useAdminLanguage()
+  const copyRef = useAdminCopyRef()
   const locale = language === 'en' ? enUS : esLocale
   const copy = t.calendar
 
@@ -93,11 +94,11 @@ export default function CalendarPage() {
       setBlocked(ranges)
       setBooked(bookings.filter((b) => b.status !== 'CANCELLED'))
     } catch {
-      toast.error(copy.loadFailed)
+      toast.error(copyRef.current.calendar.loadFailed)
     } finally {
       setLoading(false)
     }
-  }, [copy.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // The rule cannot see that every setState in `load` happens after an

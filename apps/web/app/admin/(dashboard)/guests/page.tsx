@@ -32,7 +32,7 @@ import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@areia-bela/ui/empty'
 import { apiFetch, ApiError } from '@/lib/api-client'
-import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { useAdminLanguage, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
 import { GuestDetailDialog, type GuestStay } from '@/components/admin/guest-detail-dialog'
 
@@ -96,6 +96,7 @@ const initials = (name: string) =>
 
 export default function GuestsPage() {
   const { language, t } = useAdminLanguage()
+  const copyRef = useAdminCopyRef()
   const copy = t.guests
   const locale = language === 'en' ? enUS : esLocale
 
@@ -112,10 +113,10 @@ export default function GuestsPage() {
     try {
       setGuests(await apiFetch<Guest[]>('/customers'))
     } catch {
-      toast.error(copy.loadFailed)
+      toast.error(copyRef.current.guests.loadFailed)
       setGuests([])
     }
-  }, [copy.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // Every setState in `load` happens after an await, so none of them are the

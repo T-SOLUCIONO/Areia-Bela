@@ -11,7 +11,7 @@ import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { cms, type SiteSettings as Settings } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { ImageField } from '@/components/admin/content/image-field'
 
 const BLANK: Settings = {
@@ -33,6 +33,7 @@ const BLANK: Settings = {
 
 export function SiteSettings() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [stored, setStored] = useState<Settings | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -49,9 +50,9 @@ export function SiteSettings() {
       setStored(settings)
       setDraft(settings)
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.content.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.content.loadFailed)
     }
-  }, [t.content.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

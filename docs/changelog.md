@@ -4506,3 +4506,70 @@ nuevo.
   nueva es lo que exige un cambio de tasa, y esa pantalla no está.
 - **Sin recordatorio de vencimiento.** El panel dice cuánto se debe, no cuándo
   vence en cada autoridad.
+
+---
+
+## 70. Cambiar de idioma borraba lo que estabas escribiendo
+
+Reporte del usuario: _"cuando se cambie de idioma se tiene que renderizar la
+página?, si cambio pierdo las selecciones que hice"_.
+
+Sí perdía, y la causa no era un remonte. El proveedor de idioma del panel es
+estado plano, sin navegación ni `router.refresh()`. El problema estaba doce
+capas más abajo, repetido **en trece sitios**:
+
+```ts
+const load = useCallback(async () => {
+  try {
+    const property = await cms.property()
+    setStored(property)
+    setDraft(property) // ← aquí muere lo que el usuario escribió
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.message : t.property.loadFailed)
+  }
+}, [t.property.loadFailed]) // ← una cadena traducida como dependencia
+
+useEffect(() => {
+  void load()
+}, [load])
+```
+
+La dependencia es un **mensaje de error**. Al cambiar de idioma la cadena cambia
+de valor, React rehace el callback, el efecto que lo observa se dispara, la
+pantalla vuelve a pedir los datos — y en un formulario eso es
+`setDraft(stored)`: todo lo tecleado, reemplazado por lo que hay en el servidor,
+por elegir otro idioma.
+
+### El arreglo
+
+Un mensaje no es motivo para volver a pedir datos. `useAdminCopyRef()` deja la
+copia alcanzable desde dentro de un callback sin participar en su identidad:
+
+```ts
+toast.error(err instanceof ApiError ? err.message : copyRef.current.property.loadFailed)
+}, [copyRef])   // un ref: el mismo objeto en cada render
+```
+
+El ref se asigna en un efecto, no durante el render: mutar un ref mientras se
+renderiza no es seguro bajo React concurrente, y un mensaje que va un commit por
+detrás es un mensaje que nadie distingue.
+
+```
+antes — dep = la cadena:  ¿cambia al cambiar idioma? SÍ → el efecto se relanza
+ahora — dep = el ref:     ¿cambia al cambiar idioma? no → el efecto NO se relanza
+```
+
+### Los trece
+
+Ajustes de la propiedad, ajustes del sitio, equipo, galería, landing, FAQs,
+reseñas, páginas, precios, calendario, huéspedes, y el diálogo de reembolso —
+donde además borraba el importe ya tecleado antes de mandarlo a Stripe.
+
+El decimocuarto se deja como está: `maintenance` filtra por nombres de área
+traducidos, así que ahí el `useMemo` **debe** depender del idioma. Recalcular un
+filtro no pierde nada; rehacer una petición sí.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+```

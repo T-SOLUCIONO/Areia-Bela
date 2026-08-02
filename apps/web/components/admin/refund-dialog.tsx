@@ -15,7 +15,7 @@ import {
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { apiFetch } from '@/lib/api-client'
-import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { useAdminLanguage, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
 
 type RefundReason = 'GRACE' | 'FULL' | 'HALF' | 'NONE' | 'STAY_STARTED'
@@ -80,6 +80,7 @@ export function RefundDialog({
 }) {
   const { language } = useAdminLanguage()
   const copy = adminCopy[language].reservations
+  const copyRef = useAdminCopyRef()
 
   const [summary, setSummary] = useState<RefundSummary | null>(null)
   const [amount, setAmount] = useState('')
@@ -100,9 +101,11 @@ export function RefundDialog({
         setSummary(data)
         setAmount(data.proposal.total > 0 ? data.proposal.total.toFixed(2) : '')
       })
-      .catch(() => toast.error(copy.loadFailed))
+      .catch(() => toast.error(copyRef.current.reservations.loadFailed))
       .finally(() => setLoading(false))
-  }, [open, bookingId, copy.loadFailed])
+    // Not keyed on the message: switching language would refetch and wipe the
+    // amount the host had already typed.
+  }, [open, bookingId, copyRef])
 
   const typed = Number(amount)
   const valid =

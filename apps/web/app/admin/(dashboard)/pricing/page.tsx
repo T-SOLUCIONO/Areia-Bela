@@ -8,7 +8,7 @@ import { Skeleton } from '@areia-bela/ui/skeleton'
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { PROPERTY_SLUG } from '@/lib/property-data'
 import { cms, type PropertySettings } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { useHasRole } from '@/components/admin/admin-session-provider'
 import { ExtrasManager } from '@/components/admin/extras-manager'
 import { StayRules } from '@/components/admin/stay-rules'
@@ -21,6 +21,7 @@ import { SeasonRules, type PriceRule } from '@/components/admin/season-rules'
  */
 export default function PricingPage() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const canEdit = useHasRole('superadmin', 'manager')
   const [property, setProperty] = useState<PropertySettings | null>(null)
   // Held apart from the property so saving a season re-renders just this list,
@@ -40,9 +41,9 @@ export default function PricingPage() {
       setProperty(next)
       setRules(seasons)
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.property.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.property.loadFailed)
     }
-  }, [t.property.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

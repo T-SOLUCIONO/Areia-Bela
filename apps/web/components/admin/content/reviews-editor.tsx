@@ -12,13 +12,14 @@ import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Switch } from '@areia-bela/ui/switch'
 import { ApiError } from '@/lib/api-client'
 import { landing, type Review } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { ImageField } from '@/components/admin/content/image-field'
 import { cn } from '@/lib/utils'
 
 export function ReviewsEditor() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [reviews, setReviews] = useState<Review[] | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Review>>({})
   const [pendingId, setPendingId] = useState<string | null>(null)
@@ -28,10 +29,10 @@ export function ReviewsEditor() {
     try {
       setReviews(await landing.reviews())
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.content.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.content.loadFailed)
       setReviews([])
     }
-  }, [t.content.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

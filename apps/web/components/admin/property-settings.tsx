@@ -10,7 +10,7 @@ import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { cms, type PropertySettings as Property } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { cn } from '@/lib/utils'
 
 const WEEKDAYS = [
@@ -33,6 +33,7 @@ const WEEKDAYS = [
  */
 export function PropertySettings() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [stored, setStored] = useState<Property | null>(null)
   const [draft, setDraft] = useState<Property | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -43,9 +44,9 @@ export function PropertySettings() {
       setStored(property)
       setDraft(property)
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.property.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.property.loadFailed)
     }
-  }, [t.property.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

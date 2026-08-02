@@ -29,7 +29,7 @@ import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { cms, type FAQ, type FAQCategory } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 
 const CATEGORIES: FAQCategory[] = ['GENERAL', 'PETS', 'POOL', 'TRASH', 'PARTIES']
 
@@ -44,6 +44,7 @@ const EMPTY_DRAFT: Draft = {
 
 export function FaqsManager() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editing, setEditing] = useState<FAQ | null>(null)
@@ -55,11 +56,11 @@ export function FaqsManager() {
     try {
       setFaqs(await cms.faqs())
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.content.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.content.loadFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [t.content.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { LANGUAGE_COOKIE } from '@areia-bela/shared'
 import { adminCopy, type AdminCopy } from '@/lib/admin-i18n'
 import type { AdminLanguage } from '@/lib/admin-i18n'
@@ -57,4 +57,31 @@ export function useAdminLanguage(): AdminLanguageContextValue {
 /** Shorthand for the common case of only needing the strings. */
 export function useAdminCopy(): AdminCopy {
   return useAdminLanguage().t
+}
+
+/**
+ * The strings, without dragging them into a dependency array.
+ *
+ * Every data-loading screen had its fetch keyed on an error message —
+ * `useCallback(..., [t.property.loadFailed])` — because the callback used one
+ * in a toast. Switching language changes that string, so the callback was
+ * rebuilt, the effect watching it fired, and the screen refetched. On a form
+ * that meant `setDraft(stored)`: everything the host had typed, replaced by
+ * what was on the server, for choosing a different language.
+ *
+ * A message is not a reason to refetch. This keeps the latest copy reachable
+ * from inside a callback while staying stable across renders.
+ */
+export function useAdminCopyRef(): { readonly current: AdminCopy } {
+  const { t } = useAdminLanguage()
+  const ref = useRef(t)
+
+  // Assigned in an effect rather than during render: a ref mutated while
+  // rendering is not safe under concurrent React, and a message that lags by
+  // one commit is a message nobody can tell apart.
+  useEffect(() => {
+    ref.current = t
+  }, [t])
+
+  return ref
 }
