@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { enUS, es as esLocale } from 'date-fns/locale'
 import {
+  ChevronDown,
   KeyRound,
   Loader2,
   Mail,
@@ -34,6 +35,20 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@a
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
+import { cn } from '@/lib/utils'
+
+interface GuestStay {
+  id: string
+  reference: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  guests: number
+  total: number
+  status: string
+  paidAt: string | null
+  refunded: number
+}
 
 interface Guest {
   id: string
@@ -45,6 +60,7 @@ interface Guest {
   country: string
   stays: number
   nights: number
+  stayHistory: GuestStay[]
   totalSpent: number
   firstStay: string | null
   lastStay: string | null
@@ -104,6 +120,9 @@ export default function GuestsPage() {
   const [removing, setRemoving] = useState<Guest | null>(null)
   const [busy, setBusy] = useState(false)
   const [sendingTo, setSendingTo] = useState<string | null>(null)
+  // Open one at a time by id rather than a boolean per card: the list is one
+  // component and a Set would grow without anyone ever closing them.
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -473,6 +492,69 @@ export default function GuestsPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* The aggregates said "3 stays, $3,735" and stopped there, so
+                    answering "which weeks?" meant leaving for Reservations and
+                    searching. The rows were already on the wire. */}
+                {guest.stayHistory.length > 0 && (
+                  <div className="mt-4 border-t border-border pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(expanded === guest.id ? null : guest.id)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 transition-transform',
+                          expanded === guest.id && 'rotate-180',
+                        )}
+                      />
+                      {expanded === guest.id ? copy.hideHistory : copy.history}
+                    </button>
+
+                    {expanded === guest.id && (
+                      <ul className="mt-3 space-y-2">
+                        {guest.stayHistory.map((stay) => (
+                          <li
+                            key={stay.id}
+                            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-[10px] bg-muted/50 px-3 py-2 text-sm"
+                          >
+                            <span className="font-medium text-foreground">{stay.reference}</span>
+                            <span className="text-muted-foreground">
+                              {format(parseISO(stay.checkIn), 'd MMM yyyy', { locale: locale })}
+                              {' → '}
+                              {format(parseISO(stay.checkOut), 'd MMM yyyy', {
+                                locale: locale,
+                              })}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {fill(copy.nights, { count: String(stay.nights) })} · {stay.guests}{' '}
+                              <Users className="inline h-3 w-3" />
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {(copy as unknown as Record<string, string>)[
+                                `status${stay.status}`
+                              ] ?? stay.status}
+                              {/* An unpaid hold is not a stay that earned money,
+                                  and the total beside it would say otherwise. */}
+                              {!stay.paidAt && ` · ${copy.historyUnpaid}`}
+                            </span>
+                            <span className="ml-auto text-right tabular-nums">
+                              <span className="text-foreground">
+                                ${stay.total.toLocaleString()}
+                              </span>
+                              {stay.refunded > 0 && (
+                                <span className="block text-xs text-muted-foreground">
+                                  − ${stay.refunded.toLocaleString()} {copy.historyRefunded}
+                                </span>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

@@ -3941,3 +3941,93 @@ Si además se quieren **atar los pagos históricos** a la ficha del huésped, ha
 que comprobar primero si Stripe deja cambiarle el `customer` a un PaymentIntent
 ya cobrado. No se probó porque hacerlo es modificar datos reales de la cuenta
 del usuario. Los pagos nuevos sí quedan atados desde ahora.
+
+---
+
+## 60. Los pagos históricos, atados a su huésped
+
+Autorizado por el usuario para probarlo, y luego para aplicarlo solo a los
+huéspedes conocidos.
+
+### Stripe dice que no… y que sí
+
+Cambiarle el cliente a un PaymentIntent ya cobrado está prohibido, y el mensaje
+es específico:
+
+```
+Some of the parameters you provided (customer) cannot be used when modifying
+a PaymentIntent that was created by Checkout.
+```
+
+Pero el **Charge** sí lo acepta mientras no tenga uno. Probado sobre un solo
+cobro antes de tocar nada más:
+
+```
+ch_3TzQ1W…  customer: —  →  cus_U91C6nsJ39hp3o   ACEPTADO
+```
+
+### Lo aplicado
+
+Script de una sola vez, no código permanente: cada reserva nueva ya pasa
+`customer` al checkout, así que el problema deja de crecer solo. Lo que quedaba
+era el montón anterior.
+
+```
+egiraldom@outlook.com    6 cobros → pepe grillo                 [ficha ya existía]
+egiraldom7@gmail.com     7 cobros → Silvia Andrea Ortiz         [ficha nueva]
+test1@yopmail.com        4 cobros → Silvia Andrea Barrios Ortiz [ficha nueva]
+sssss@gmail.com          1 cobro  → Silvia Andrea Barrios Ortiz [ficha nueva]
+erick_scream@msn.com     1 cobro  → Silvia Andrea Barrios Ortiz [ficha nueva]
+
+SALTADOS: wdss@saa.scom (1), erick.giraldo@banexcoin.com (1)
+atados: 19   saltados: 2
+```
+
+Se corrió primero **en seco**, y los números coincidieron con lo aplicado. Los
+dos saltados no son huéspedes de la base: un pago de alguien a quien no
+conocemos se queda suelto, porque eso es lo que es.
+
+Estado final en Stripe: **20 cobros con cliente, 2 sueltos**, y una sola ficha
+por huésped.
+
+`ensureCustomer` también aprendió a **reutilizar antes de crear**: busca por
+correo en Stripe primero. Sin eso habría duplicado a `egiraldom@outlook.com`,
+que ya tenía ficha hecha a mano en marzo.
+
+## 61. Cada huésped, con su historial
+
+Propuesta del usuario, y tenía razón: la pantalla decía "3 estadías · 9 noches ·
+$3.507" y ahí se acababa. Para saber **cuáles** había que irse a Reservas y
+buscar.
+
+Las filas ya se cargaban en el servidor para calcular esos agregados, así que
+enviarlas cuesta un campo más, no una petición más.
+
+Cada estadía muestra referencia, fechas, noches, huéspedes, estado, total y
+**lo reembolsado**. Una semana devuelta entera dejaba de verse en cuanto se
+sumaba al total.
+
+### Comprobado contra los datos reales
+
+```
+pepe grillo <egiraldom@outlook.com>  3 estadías · 9 noches · $3507
+   AB-UJHWKH  2026-08-27 → 2026-08-30  3n  $1017  CONFIRMED
+   AB-D7AVTF  2026-08-24 → 2026-08-27  3n  $1245  CONFIRMED
+   AB-JJYK9R  2026-07-31 → 2026-08-03  3n  $1245  CONFIRMED  −$1245 reembolsado
+   suma del historial pagado: $3507  CUADRA
+```
+
+Cuadra en los cuatro huéspedes.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (280 tests, 2 nuevos)
+```
+
+### Un matiz que queda a la vista, a propósito
+
+`pepe grillo` figura con **$3.507 gastados** y una de esas estadías se devolvió
+entera. El agregado dice lo que pagó, no lo que la casa se quedó; el reembolso
+aparece en su línea al desplegar. Si se prefiere que el total reste los
+reembolsos, es una decisión del usuario y cambia también quién cuenta como
+huésped recurrente.

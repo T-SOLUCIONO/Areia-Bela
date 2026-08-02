@@ -305,6 +305,13 @@ export class PaymentsService {
     if (!this.configured) return null
 
     try {
+      // Reuse before creating. Stripe will happily make a second record for an
+      // address it already has — including one the host typed by hand in the
+      // Dashboard — and duplicating a person is the thing this whole change
+      // exists to stop.
+      const existing = await this.stripe.customers.list({ email: guest.email, limit: 1 })
+      if (existing.data[0]) return existing.data[0].id
+
       const customer = await this.stripe.customers.create({
         email: guest.email,
         name: guest.name,
