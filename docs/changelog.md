@@ -4031,3 +4031,50 @@ entera. El agregado dice lo que pagó, no lo que la casa se quedó; el reembolso
 aparece en su línea al desplegar. Si se prefiere que el total reste los
 reembolsos, es una decisión del usuario y cambia también quién cuenta como
 huésped recurrente.
+
+---
+
+## 62. El historial de estadías, legible
+
+El usuario: "se ve muy feo ponerlo de lado". Tenía razón, y el problema era de
+jerarquía, no de estilo.
+
+### Lo que estaba mal
+
+Referencia, fechas, noches, huéspedes, estado y precio iban en **una sola fila**
+con `flex-wrap`. Seis datos con el mismo peso visual, rompiendo en un punto
+distinto en cada tarjeta según lo largo que fuera el nombre del huésped. Nada
+alineaba con nada.
+
+### Lo que hace ahora
+
+Cada estadía es un bloque que se lee de arriba abajo:
+
+```
+AB-JJYK9R  ● Confirmada                        $1,245
+31 jul → 3 ago 2026                              −$1,245
+3 noches · 👤 1                                reembolsado
+```
+
+- **Qué es** arriba: referencia y estado.
+- **Cuándo** en medio, en el tamaño del cuerpo porque es lo que más se busca.
+- **Detalle** abajo, en gris pequeño.
+- **Cuánto** en su propia columna a la derecha, para que los importes se puedan
+  comparar bajando la vista en vez de cazarlos por la fila.
+
+El estado pasa de texto suelto a etiqueta, con **la misma paleta que la pantalla
+de Reservas**: una reserva confirmada se ve igual en los dos sitios. El color
+repite la palabra, no la sustituye.
+
+Un importe sin pagar va en gris y la estadía lo dice con todas sus letras: un
+total en negro junto a una reserva que nadie pagó afirma algo que no es cierto.
+
+```
+divide-y, bg-emerald-50 y rounded-[12px] presentes en el CSS compilado
+/admin/guests → 307 al login   /es → 200   panics: 0
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (280 tests)
+```

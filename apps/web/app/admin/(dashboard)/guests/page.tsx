@@ -108,6 +108,14 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
 
+/** Same palette as the Reservations screen: one status, one look. */
+const STAY_STATUS_STYLE: Record<string, string> = {
+  CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  PENDING: 'bg-amber-50 text-amber-700 ring-amber-200',
+  CHECKED_IN: 'bg-sky-50 text-sky-700 ring-sky-200',
+  CHECKED_OUT: 'bg-slate-50 text-slate-600 ring-slate-200',
+}
+
 export default function GuestsPage() {
   const { language, t } = useAdminLanguage()
   const copy = t.guests
@@ -501,7 +509,7 @@ export default function GuestsPage() {
                     <button
                       type="button"
                       onClick={() => setExpanded(expanded === guest.id ? null : guest.id)}
-                      className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                      className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <ChevronDown
                         className={cn(
@@ -510,45 +518,81 @@ export default function GuestsPage() {
                         )}
                       />
                       {expanded === guest.id ? copy.hideHistory : copy.history}
+                      <span className="text-xs font-normal">({guest.stayHistory.length})</span>
                     </button>
 
+                    {/* One stay per block, read top to bottom.
+                        The first version put reference, dates, nights, status
+                        and price on a single wrapping row: five things at the
+                        same weight, breaking at different points on every card.
+                        Now each stay is a small record — what it is, when it
+                        was, what it cost — and the amounts share a column so
+                        they can be compared down the list. */}
                     {expanded === guest.id && (
-                      <ul className="mt-3 space-y-2">
+                      <ul className="mt-3 divide-y divide-border overflow-hidden rounded-[12px] border border-border">
                         {guest.stayHistory.map((stay) => (
                           <li
                             key={stay.id}
-                            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-[10px] bg-muted/50 px-3 py-2 text-sm"
+                            className="flex items-start justify-between gap-4 bg-muted/30 px-4 py-3"
                           >
-                            <span className="font-medium text-foreground">{stay.reference}</span>
-                            <span className="text-muted-foreground">
-                              {format(parseISO(stay.checkIn), 'd MMM yyyy', { locale: locale })}
-                              {' → '}
-                              {format(parseISO(stay.checkOut), 'd MMM yyyy', {
-                                locale: locale,
-                              })}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {fill(copy.nights, { count: String(stay.nights) })} · {stay.guests}{' '}
-                              <Users className="inline h-3 w-3" />
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {(copy as unknown as Record<string, string>)[
-                                `status${stay.status}`
-                              ] ?? stay.status}
-                              {/* An unpaid hold is not a stay that earned money,
-                                  and the total beside it would say otherwise. */}
-                              {!stay.paidAt && ` · ${copy.historyUnpaid}`}
-                            </span>
-                            <span className="ml-auto text-right tabular-nums">
-                              <span className="text-foreground">
-                                ${stay.total.toLocaleString()}
-                              </span>
-                              {stay.refunded > 0 && (
-                                <span className="block text-xs text-muted-foreground">
-                                  − ${stay.refunded.toLocaleString()} {copy.historyRefunded}
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium tabular-nums text-foreground">
+                                  {stay.reference}
                                 </span>
+                                {/* Colour repeats the word, never replaces it. */}
+                                <span
+                                  className={cn(
+                                    'rounded-full px-2 py-0.5 text-xs ring-1 ring-inset',
+                                    STAY_STATUS_STYLE[stay.status] ??
+                                      'bg-slate-100 text-slate-600 ring-slate-200',
+                                  )}
+                                >
+                                  {(copy as unknown as Record<string, string>)[
+                                    `status${stay.status}`
+                                  ] ?? stay.status}
+                                </span>
+                              </div>
+
+                              <p className="text-sm text-foreground">
+                                {format(parseISO(stay.checkIn), 'd MMM', { locale })}
+                                <span className="text-muted-foreground"> → </span>
+                                {format(parseISO(stay.checkOut), 'd MMM yyyy', { locale })}
+                              </p>
+
+                              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span>{fill(copy.nights, { count: String(stay.nights) })}</span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3 w-3" />
+                                  {stay.guests}
+                                </span>
+                                {/* An unpaid hold is not a stay that earned
+                                    money, and the total beside it says otherwise
+                                    unless this is spelled out. */}
+                                {!stay.paidAt && (
+                                  <span className="font-medium text-amber-700">
+                                    {copy.historyUnpaid}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 text-right">
+                              <p
+                                className={cn(
+                                  'tabular-nums',
+                                  stay.paidAt ? 'text-foreground' : 'text-muted-foreground',
+                                )}
+                              >
+                                ${stay.total.toLocaleString()}
+                              </p>
+                              {stay.refunded > 0 && (
+                                <p className="text-xs tabular-nums text-muted-foreground">
+                                  − ${stay.refunded.toLocaleString()}
+                                  <span className="block">{copy.historyRefunded}</span>
+                                </p>
                               )}
-                            </span>
+                            </div>
                           </li>
                         ))}
                       </ul>
