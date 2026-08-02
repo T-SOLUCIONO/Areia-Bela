@@ -4078,3 +4078,47 @@ divide-y, bg-emerald-50 y rounded-[12px] presentes en el CSS compilado
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (280 tests)
 ```
+
+---
+
+## 63. El huésped se abre, no se despliega
+
+El usuario preguntó si el historial iba mejor debajo del huésped o en un modal.
+Modal, por tres razones que se ven al usarlo:
+
+1. La tarjeta ya llevaba avatar, nombre, dos etiquetas, tres datos de contacto,
+   tres cifras y tres botones. Meterle una lista dentro la revienta.
+2. Desplegar hacia abajo **empuja al resto de la lista** y el lector pierde
+   dónde estaba — justo la persona que acababa de mirar.
+3. Con 5 huéspedes se aguanta. Con 50 no.
+
+Una persona es un sujeto que se abre, no una fila que se despliega.
+
+### Lo que gana al abrirse
+
+Sitio para que convivan cosas que antes competían por una línea: contacto con
+enlaces a correo y teléfono, las tres cifras en su fila, la **nota privada**
+destacada —antes se truncaba con puntos suspensivos en la lista— y el historial
+completo. Las acciones quedan fijas abajo, la cabecera fija arriba: en un
+huésped con quince estadías el nombre no se va de la pantalla.
+
+### Detalles que no se ven pero se notan
+
+- La tarjeta responde a **Enter y espacio**, no solo al ratón.
+- Los botones de la fila **paran la propagación**: sin eso, borrar un huésped lo
+  habría abierto además de preguntar si se borra.
+- Editar desde el modal lo cierra antes de abrir el formulario, en vez de
+  apilar dos diálogos.
+
+Sale a su propio archivo (`guest-detail-dialog.tsx`) en vez de engordar una
+página que ya iba por 500 líneas.
+
+```
+/admin/guests → 307 al login   /es → 200   panics: 0
+advertencias de lint en los archivos tocados: 0
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores, 17 avisos — el mismo baseline)
+pnpm typecheck ✅   pnpm test ✅ (280 tests)
+```

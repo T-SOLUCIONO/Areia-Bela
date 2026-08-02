@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { enUS, es as esLocale } from 'date-fns/locale'
 import {
-  ChevronDown,
   KeyRound,
   Loader2,
   Mail,
@@ -35,20 +34,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@a
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
-import { cn } from '@/lib/utils'
-
-interface GuestStay {
-  id: string
-  reference: string
-  checkIn: string
-  checkOut: string
-  nights: number
-  guests: number
-  total: number
-  status: string
-  paidAt: string | null
-  refunded: number
-}
+import { GuestDetailDialog, type GuestStay } from '@/components/admin/guest-detail-dialog'
 
 interface Guest {
   id: string
@@ -108,14 +94,6 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
 
-/** Same palette as the Reservations screen: one status, one look. */
-const STAY_STATUS_STYLE: Record<string, string> = {
-  CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  PENDING: 'bg-amber-50 text-amber-700 ring-amber-200',
-  CHECKED_IN: 'bg-sky-50 text-sky-700 ring-sky-200',
-  CHECKED_OUT: 'bg-slate-50 text-slate-600 ring-slate-200',
-}
-
 export default function GuestsPage() {
   const { language, t } = useAdminLanguage()
   const copy = t.guests
@@ -128,9 +106,7 @@ export default function GuestsPage() {
   const [removing, setRemoving] = useState<Guest | null>(null)
   const [busy, setBusy] = useState(false)
   const [sendingTo, setSendingTo] = useState<string | null>(null)
-  // Open one at a time by id rather than a boolean per card: the list is one
-  // component and a Set would grow without anyone ever closing them.
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [opened, setOpened] = useState<Guest | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -381,7 +357,21 @@ export default function GuestsPage() {
       ) : (
         <div className="grid gap-3">
           {visible.map((guest) => (
-            <Card key={guest.id}>
+            <Card
+              key={guest.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpened(guest)}
+              onKeyDown={(event) => {
+                // A card that only responds to a mouse is a card half the
+                // people cannot use.
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setOpened(guest)
+                }
+              }}
+              className="cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary font-serif text-lg text-primary">
@@ -465,7 +455,14 @@ export default function GuestsPage() {
                     </>
                   )}
 
-                  <div className="flex items-center gap-1">
+                  {/* Its own click target inside a clickable card: without
+                      stopping here, deleting a guest would also open them. */}
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    role="presentation"
+                  >
                     {guest.stays > 0 && (
                       <Button
                         variant="ghost"
@@ -504,106 +501,25 @@ export default function GuestsPage() {
                 {/* The aggregates said "3 stays, $3,735" and stopped there, so
                     answering "which weeks?" meant leaving for Reservations and
                     searching. The rows were already on the wire. */}
-                {guest.stayHistory.length > 0 && (
-                  <div className="mt-4 border-t border-border pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setExpanded(expanded === guest.id ? null : guest.id)}
-                      className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <ChevronDown
-                        className={cn(
-                          'h-4 w-4 transition-transform',
-                          expanded === guest.id && 'rotate-180',
-                        )}
-                      />
-                      {expanded === guest.id ? copy.hideHistory : copy.history}
-                      <span className="text-xs font-normal">({guest.stayHistory.length})</span>
-                    </button>
-
-                    {/* One stay per block, read top to bottom.
-                        The first version put reference, dates, nights, status
-                        and price on a single wrapping row: five things at the
-                        same weight, breaking at different points on every card.
-                        Now each stay is a small record — what it is, when it
-                        was, what it cost — and the amounts share a column so
-                        they can be compared down the list. */}
-                    {expanded === guest.id && (
-                      <ul className="mt-3 divide-y divide-border overflow-hidden rounded-[12px] border border-border">
-                        {guest.stayHistory.map((stay) => (
-                          <li
-                            key={stay.id}
-                            className="flex items-start justify-between gap-4 bg-muted/30 px-4 py-3"
-                          >
-                            <div className="min-w-0 space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-medium tabular-nums text-foreground">
-                                  {stay.reference}
-                                </span>
-                                {/* Colour repeats the word, never replaces it. */}
-                                <span
-                                  className={cn(
-                                    'rounded-full px-2 py-0.5 text-xs ring-1 ring-inset',
-                                    STAY_STATUS_STYLE[stay.status] ??
-                                      'bg-slate-100 text-slate-600 ring-slate-200',
-                                  )}
-                                >
-                                  {(copy as unknown as Record<string, string>)[
-                                    `status${stay.status}`
-                                  ] ?? stay.status}
-                                </span>
-                              </div>
-
-                              <p className="text-sm text-foreground">
-                                {format(parseISO(stay.checkIn), 'd MMM', { locale })}
-                                <span className="text-muted-foreground"> → </span>
-                                {format(parseISO(stay.checkOut), 'd MMM yyyy', { locale })}
-                              </p>
-
-                              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                <span>{fill(copy.nights, { count: String(stay.nights) })}</span>
-                                <span className="flex items-center gap-1">
-                                  <Users className="h-3 w-3" />
-                                  {stay.guests}
-                                </span>
-                                {/* An unpaid hold is not a stay that earned
-                                    money, and the total beside it says otherwise
-                                    unless this is spelled out. */}
-                                {!stay.paidAt && (
-                                  <span className="font-medium text-amber-700">
-                                    {copy.historyUnpaid}
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-
-                            <div className="shrink-0 text-right">
-                              <p
-                                className={cn(
-                                  'tabular-nums',
-                                  stay.paidAt ? 'text-foreground' : 'text-muted-foreground',
-                                )}
-                              >
-                                ${stay.total.toLocaleString()}
-                              </p>
-                              {stay.refunded > 0 && (
-                                <p className="text-xs tabular-nums text-muted-foreground">
-                                  − ${stay.refunded.toLocaleString()}
-                                  <span className="block">{copy.historyRefunded}</span>
-                                </p>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <GuestDetailDialog
+        guest={opened}
+        open={opened !== null}
+        onOpenChange={(next) => !next && setOpened(null)}
+        onEdit={() => {
+          if (!opened) return
+          const guest = opened
+          setOpened(null)
+          setEditing(formFor(guest))
+        }}
+        onSendLink={() => opened && void sendLink(opened)}
+        sendingLink={sendingTo === opened?.id}
+      />
 
       {dialogs}
     </div>
