@@ -80,6 +80,11 @@ model Customer {
   loginTokens GuestLoginToken[]
 }
 
+enum BookingSource {
+  WEBSITE
+  PANEL
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -125,6 +130,14 @@ model Booking {
 
   status     BookingStatus @default(PENDING)
   totalPrice Decimal       @db.Decimal(10, 2)
+
+  /// Where the booking came from. A stay taken over the phone never appears in
+  /// Stripe's ledger, so without this the payments panel looks like it is
+  /// missing money that was in fact received in cash.
+  source        BookingSource @default(WEBSITE)
+  /// How it was collected when Stripe was not involved: CASH, TRANSFER, CARD,
+  /// OTHER. Null on anything Stripe handled — that has a PaymentIntent instead.
+  paymentMethod String?
 
   // The bill as it was charged, frozen at the moment of booking.
   //

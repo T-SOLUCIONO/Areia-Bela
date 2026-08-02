@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react'
 import { format, isBefore, parseISO, startOfToday } from 'date-fns'
 import { enUS, es as esLocale } from 'date-fns/locale'
-import { CalendarDays, ClipboardList, Loader2, Mail, PawPrint, Phone, Users } from 'lucide-react'
+import {
+  CalendarDays,
+  ClipboardList,
+  Loader2,
+  Mail,
+  PawPrint,
+  Phone,
+  Plus,
+  Users,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent } from '@areia-bela/ui/card'
@@ -22,6 +31,7 @@ import { apiFetch } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
 import { RefundDialog } from '@/components/admin/refund-dialog'
+import { NewBookingDialog } from '@/components/admin/new-booking-dialog'
 import { cn } from '@/lib/utils'
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
@@ -36,6 +46,7 @@ interface Reservation {
   pets: number
   total: number
   status: BookingStatus
+  source: 'WEBSITE' | 'PANEL'
   expiresAt: string | null
   paidAt: string | null
   refunded: number
@@ -65,6 +76,7 @@ export default function ReservationsPage() {
   const [failed, setFailed] = useState(false)
   const [cancelling, setCancelling] = useState<Reservation | null>(null)
   const [refunding, setRefunding] = useState<Reservation | null>(null)
+  const [creating, setCreating] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -171,6 +183,13 @@ export default function ReservationsPage() {
             >
               {statusLabel(row.status)}
             </span>
+            {/* A stay taken by phone will never appear in Stripe's ledger,
+                  so the payments screen would look like it lost the money. */}
+            {row.source === 'PANEL' && (
+              <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground ring-1 ring-inset ring-border">
+                {copy.sourcePANEL}
+              </span>
+            )}
             {row.status === 'PENDING' && row.expiresAt && (
               <span className="text-xs text-muted-foreground">
                 {fill(copy.holdExpires, { time: format(parseISO(row.expiresAt), 'HH:mm') })}
@@ -274,9 +293,15 @@ export default function ReservationsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-serif text-2xl text-foreground">{copy.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-2xl text-foreground">{copy.title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
+        </div>
+        <Button variant="brand" onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4" />
+          {copy.newBooking}
+        </Button>
       </div>
 
       {upcoming.length > 0 && (
@@ -326,6 +351,8 @@ export default function ReservationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <NewBookingDialog open={creating} onOpenChange={setCreating} onCreated={() => void load()} />
 
       <RefundDialog
         bookingId={refunding?.id ?? null}

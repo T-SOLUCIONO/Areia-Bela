@@ -24,6 +24,7 @@ import { StripeWebhookService } from './stripe-webhook.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { CancelBookingDto } from './dto/cancel-booking.dto'
 import { IssueRefundDto } from './dto/issue-refund.dto'
+import { CreateManualBookingDto } from './dto/manual-booking.dto'
 import { RefundsService } from './refunds.service'
 import { BookingPdfService } from '../guest/booking-pdf.service'
 
@@ -53,15 +54,22 @@ export class BookingsController {
   @Throttle({ default: { limit: 8, ttl: 600_000 } })
   @Post(':slug/hold')
   hold(@Param('slug') slug: string, @Body() dto: CreateHoldDto, @Req() req: Request) {
-    // Stripe refuses a relative return URL, so it needs an absolute one. The
-    // Origin header is set by the browser and cannot be forged from a page on
-    // another site — and CORS already restricts who may call this at all.
+    return this.bookings.hold(slug, dto, this.originFor(req))
+  }
+
+  /**
+   * Where Stripe should send the guest back to.
+   *
+   * Stripe refuses a relative return URL, so it needs an absolute one. The
+   * Origin header is set by the browser and cannot be forged from a page on
+   * another site — and CORS already restricts who may call this at all.
+   */
+  private originFor(req: Request): string {
     const origin = req.headers.origin
     if (!origin || !this.allowedOrigins.includes(origin)) {
       throw new BadRequestException('Unknown origin')
     }
-
-    return this.bookings.hold(slug, dto, origin)
+    return origin
   }
 
   /**
@@ -137,6 +145,24 @@ export class BookingsController {
   @Get()
   list() {
     return this.bookings.list()
+  }
+
+  /**
+   * A stay taken over the phone.
+   *
+   * Not `@Public()` and not rate limited the way the guest hold is: this is
+   * behind a session and the person using it is the one who owns the calendar.
+   * The price is still the server's — the host types dates and a party, never
+   * a total.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post(':slug/manual')
+  createManual(
+    @Param('slug') slug: string,
+    @Body() dto: CreateManualBookingDto,
+    @Req() req: Request,
+  ) {
+    return this.bookings.createManual(slug, dto, this.originFor(req))
   }
 
   /** Cancelling frees the nights. A VIEWER can look but not do this. */

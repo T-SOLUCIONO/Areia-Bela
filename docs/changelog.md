@@ -4227,3 +4227,98 @@ pnpm typecheck ✅   pnpm test ✅ (289 tests, 9 nuevos)
 - **No se puede cambiar el tipo de una temporada** ya creada. Pasar HIGH a
   WEEKEND obligaría a soltar las fechas y podría chocar con la regla de fin de
   semana existente; se borra y se crea.
+
+---
+
+## 66. Fase 7.3 — La reserva que se toma por teléfono
+
+Estaba diferido desde §34: _"no se puede crear una reserva desde el panel. Se
+puede añadir al huésped, pero una estadía tomada por teléfono todavía no tiene
+por dónde entrar"_.
+
+### El precio sigue siendo del servidor
+
+El formulario manda fechas y huéspedes; **nunca un total**. Se cotiza en vivo
+contra el mismo endpoint que usa el cotizador público, porque quien está en la
+llamada tiene que decir una cifra en voz alta — y la que dice es la que se
+cobra.
+
+```
+desglose de AB-ARXMN2: 1356 vs total 1356  CUADRA
+```
+
+### Dos formas de cobrar, y ninguna a medias
+
+|                                                     | Estado                       | Vence    |
+| --------------------------------------------------- | ---------------------------- | -------- |
+| Ya cobrada (efectivo, transferencia, tarjeta, otro) | `CONFIRMED`, `paidAt` puesto | nunca    |
+| Enviar enlace de pago                               | `PENDING`                    | 24 horas |
+
+Media hora es lo correcto para alguien que ya está en la página de pago y lo
+incorrecto para alguien que acaba de colgar: tiene que buscar el correo, leerlo
+y encontrar la tarjeta. Stripe no sostiene una sesión más de 24 horas, así que
+ese es el techo, no una preferencia.
+
+El enlace va **al portapapeles** al crearla: la anfitriona está al teléfono y va
+a pegarlo en un mensaje, no a dictar una URL.
+
+Solo se le manda confirmación al huésped cuando el dinero ya está. A quien no ha
+pagado no se le promete una estadía.
+
+### Los límites se enseñan, no se imponen
+
+Un mínimo de noches existe para que un desconocido no se lleve una sola noche en
+Navidad. Quien está al teléfono es la persona que puso ese mínimo, y negarle su
+propia excepción sería el software discutiendo con su dueña. El diálogo avisa
+—"estas fechas piden mínimo 7 noches"— y deja crear igual.
+
+Lo que **sí** se impone es lo que no es una preferencia: la restricción de
+solapamiento y las fechas bloqueadas.
+
+### `Booking.source`
+
+Columna nueva, `WEBSITE` o `PANEL`. Sin ella una reserva cobrada en efectivo
+parece dinero que el panel de pagos perdió: ese panel lee el libro de Stripe, y
+un billete de cien nunca aparece ahí. La lista de reservas la marca con una
+etiqueta.
+
+`paymentMethod` guarda cómo se cobró cuando Stripe no intervino.
+
+### Comprobado contra la base y Stripe reales
+
+```
+EN EFECTIVO  AB-ARXMN2  $1356
+   estado CONFIRMED  origen PANEL  método CASH
+   pagada: sí   vence: nunca   enlace: ninguno
+
+solape rechazado: Those dates are already taken
+
+CON ENLACE   AB-4GGQA8  $1017
+   estado PENDING  vence en 24 h
+   enlace: https://checkout.stripe.com/c/pay/cs_test_a1a...
+
+limpiado: 2 reservas de prueba y su huésped
+```
+
+### Un aviso de lint que se arregló en vez de silenciarse
+
+El diálogo llamaba a `setQuoting(true)` dentro del efecto. En vez de un
+`eslint-disable`, "todavía calculando" pasa a ser una comparación: se guarda
+para qué fechas es la cotización que hay, y la respuesta se deriva. Misma forma
+que en la pantalla de pagos (§56). Los avisos vuelven a 17, el baseline.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (295 tests, 6 nuevos)
+```
+
+### Diferido
+
+- **Sin extras en el alta manual.** El formulario manda `extraIds: []`. Una
+  cuna o la piscina climatizada se añaden después editando la reserva… que
+  tampoco se puede editar todavía.
+- **No se puede editar una reserva ya creada.** Corregir una fecha mal tomada
+  obliga a cancelar y rehacer.
+- **Sin precio negociado.** Un descuento acordado por teléfono no tiene dónde
+  ponerse: aplicarlo bien exige decidir si baja también la base imponible, y eso
+  toca lo que se declara a Florida. Fase 7.5.

@@ -81,13 +81,20 @@ desde el navegador; la anfitriona ve las reservas y puede cancelarlas desde
 sola cosa para que el flujo corra de punta a punta sin intervención:
 `STRIPE_WEBHOOK_SECRET` con un valor real (ver `docs/env.md`).
 
-## Fase 7 — Stripe completo
+## Fase 7 — Stripe completo ✅ completada
 
 - Webhooks (`checkout.session.completed`, `payment_intent.failed`) — **los dos
   primeros se adelantaron en Fase 6.3**, junto con `checkout.session.expired`.
   Ver `docs/changelog.md` §29.
 - El `Booking` se crea en el webhook, nunca en el frontend — **hecho en 6.3**.
-- Reembolsos desde admin, panel de pagos.
+- Reembolsos desde admin ✅ (§53–§55), panel de pagos ✅ (§56–§59).
+- Alta de reservas por teléfono ✅ (§66).
+- Mínimos de noches por temporada ✅ (§65), con alta y edición de temporadas.
+
+**Criterio de salida:** cancelar una reserva pagada ofrece el reembolso con la
+cifra que dicta la política; el panel de pagos cuadra con el libro de Stripe;
+una reserva tomada por teléfono respeta la restricción de solapamiento y su
+precio lo calcula el servidor. Cumplido en `docs/changelog.md` §53 a §66.
 
 ## Fase 7.5 — Impuestos (módulo de recaudación y declaración)
 

@@ -9,6 +9,7 @@ import type { PaymentsService } from './payments.service'
 import type { GuestService } from '../guest/guest.service'
 import type { PrismaService } from '../prisma/prisma.service'
 import type { CreateHoldDto } from './dto/create-hold.dto'
+import { ManualPaymentMethod } from './dto/manual-booking.dto'
 
 const QUOTE = {
   nights: 7,
@@ -404,6 +405,115 @@ describe('BookingsService', () => {
         NotFoundException,
       )
       expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('a stay taken over the phone', () => {
+    const MANUAL = {
+      checkIn: '2026-09-01',
+      checkOut: '2026-09-08',
+      guests: { adults: 4, children: 2, infants: 1, pets: 1 },
+      guest: DTO.guest,
+      extraIds: ['extra-pet'],
+      locale: 'es',
+    }
+
+    beforeEach(() => {
+      properties.getQuote = jest.fn().mockResolvedValue(QUOTE)
+      prisma.property.findUnique.mockResolvedValue({
+        id: 'prop-1',
+        checkInTime: '16:00',
+        checkOutTime: '10:00',
+      })
+    })
+
+    it('confirms it on the spot when the money is already in hand', async () => {
+      const result = await service.createManual(
+        'areia-bela',
+        { ...MANUAL, paymentMethod: ManualPaymentMethod.CASH },
+        ORIGIN,
+      )
+
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            source: 'PANEL',
+            status: 'CONFIRMED',
+            paymentMethod: 'CASH',
+            // A confirmed stay does not expire.
+            expiresAt: null,
+          }),
+        }),
+      )
+      // No Stripe: there is nothing to charge.
+      expect(payments.checkoutUrlFor).not.toHaveBeenCalled()
+      expect(result.checkoutUrl).toBeNull()
+      expect(notifications.guestConfirmation).toHaveBeenCalled()
+    })
+
+    it('opens a day-long payment link when the guest has not paid yet', async () => {
+      const result = await service.createManual('areia-bela', MANUAL, ORIGIN)
+
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PENDING', paymentMethod: null }),
+        }),
+      )
+      // Half an hour is right for someone on the checkout page and wrong for
+      // someone who just hung up.
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ ttlMinutes: 24 * 60 }),
+      )
+      expect(result.checkoutUrl).toContain('checkout.stripe.com')
+      // Nothing is promised to a guest who has not paid.
+      expect(notifications.guestConfirmation).not.toHaveBeenCalled()
+    })
+
+    it('prices it on the server, never from the caller', async () => {
+      await service.createManual(
+        'areia-bela',
+        { ...MANUAL, paymentMethod: ManualPaymentMethod.TRANSFER },
+        ORIGIN,
+      )
+
+      expect(properties.getQuote).toHaveBeenCalledWith(
+        'areia-bela',
+        expect.objectContaining({ checkIn: '2026-09-01', checkOut: '2026-09-08' }),
+      )
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ totalPrice: QUOTE.total }) }),
+      )
+    })
+
+    it('refuses dates the host has blocked', async () => {
+      prisma.blockedDate.findFirst.mockResolvedValue({ id: 'blocked-1' })
+
+      await expect(service.createManual('areia-bela', MANUAL, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
+      expect(prisma.booking.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses dates somebody already has', async () => {
+      prisma.booking.create.mockRejectedValue(overlapError())
+
+      await expect(service.createManual('areia-bela', MANUAL, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
+    })
+
+    it('takes a stay shorter than the house minimum, because the host said so', async () => {
+      // The limits exist to stop a stranger booking one night over Christmas.
+      // The person on the phone is the one who set them.
+      properties.getQuote = jest.fn().mockResolvedValue({ ...QUOTE, nights: 1, minNights: 5 })
+
+      await expect(
+        service.createManual(
+          'areia-bela',
+          { ...MANUAL, paymentMethod: ManualPaymentMethod.CASH },
+          ORIGIN,
+        ),
+      ).resolves.toBeDefined()
     })
   })
 

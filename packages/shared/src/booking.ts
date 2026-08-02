@@ -8,6 +8,16 @@
 export const HOLD_TTL_MINUTES = 30
 
 /**
+ * How long a payment link taken over the phone keeps the dates.
+ *
+ * Half an hour is right for someone already on the checkout page and wrong for
+ * someone who has just hung up: they need to find the email, read it, and get
+ * their card. Stripe will not hold a checkout session longer than 24 hours,
+ * so this is the ceiling rather than a preference.
+ */
+export const PANEL_HOLD_TTL_MINUTES = 24 * 60
+
+/**
  * Reference alphabet.
  *
  * References get dictated over the phone, so the letters that sound or look

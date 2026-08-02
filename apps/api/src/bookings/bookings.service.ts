@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common'
 import type { Booking, BookingStatus, Customer, Prisma } from '@prisma/client'
 import {
+  PANEL_HOLD_TTL_MINUTES,
   checkStayLength,
   generateReference,
   HOLD_TTL_MINUTES,
@@ -17,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
+import { CreateManualBookingDto } from './dto/manual-booking.dto'
 import { PaymentsService } from './payments.service'
 import { GuestService, type MyBooking } from '../guest/guest.service'
 
@@ -33,6 +35,15 @@ export interface HoldResult {
   quote: QuoteBreakdown
   /** Where to send the guest to pay. */
   checkoutUrl: string
+}
+
+/** A stay the host typed in. Null `checkoutUrl` means the money is already in. */
+export interface ManualBookingResult {
+  bookingId: string
+  reference: string
+  quote: QuoteBreakdown
+  checkoutUrl: string | null
+  expiresAt: string | null
 }
 
 type BookingWithGuest = Booking & { customer: Customer; extras: Array<{ extra: { name: string } }> }
@@ -128,6 +139,189 @@ export class BookingsService {
     // Unreachable in practice: six characters out of 31 collide about once in
     // 887 million, and five draws in a row is not a thing that happens.
     throw new ConflictException('Could not allocate a booking reference')
+  }
+
+  /**
+   * A stay taken over the phone.
+   *
+   * The same price, the same exclusion constraint, the same customer row as a
+   * booking made on the site — only the way the money arrives is different. The
+   * host still never sends a total: this prices the stay from the dates and the
+   * party, exactly as the public quote does.
+   *
+   * The length limits are deliberately **not** enforced. They exist to stop a
+   * stranger booking a single night over Christmas; the person on the phone is
+   * the one who set them, and refusing her own exception would be the software
+   * arguing with its owner.
+   */
+  async createManual(
+    slug: string,
+    dto: CreateManualBookingDto,
+    origin: string,
+  ): Promise<ManualBookingResult> {
+    const quote = await this.properties.getQuote(slug, {
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      guests: dto.guests,
+      extraIds: dto.extraIds,
+      extraUnits: dto.extraUnits,
+    })
+
+    const property = await this.prisma.property.findUnique({
+      where: { slug },
+      select: { id: true, checkInTime: true, checkOutTime: true },
+    })
+    if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    // A blocked date is not a booking, so the constraint knows nothing about
+    // it. The host can still block first and book after — this only refuses
+    // the collision, not the intent.
+    const blocked = await this.prisma.blockedDate.findFirst({
+      where: {
+        propertyId: property.id,
+        startDate: { lt: new Date(dto.checkOut) },
+        endDate: { gt: new Date(dto.checkIn) },
+      },
+    })
+    if (blocked) {
+      throw new ConflictException('Those dates are blocked. Free them first.')
+    }
+
+    const collected = dto.paymentMethod !== undefined
+    // Paid in cash holds for ever; a payment link holds for a day, because the
+    // guest has to find the email and their card after hanging up.
+    const expiresAt = collected ? null : new Date(Date.now() + PANEL_HOLD_TTL_MINUTES * 60_000)
+
+    for (let attempt = 0; attempt < REFERENCE_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.insertManual(property, dto, quote, expiresAt, origin)
+      } catch (error) {
+        if (this.isOverlap(error)) {
+          throw new ConflictException('Those dates are already taken')
+        }
+        if (this.isReferenceCollision(error) && attempt < REFERENCE_ATTEMPTS - 1) continue
+        throw error
+      }
+    }
+    throw new ConflictException('Could not allocate a booking reference')
+  }
+
+  private async insertManual(
+    property: { id: string; checkInTime: string; checkOutTime: string },
+    dto: CreateManualBookingDto,
+    quote: QuoteBreakdown,
+    expiresAt: Date | null,
+    origin: string,
+  ): Promise<ManualBookingResult> {
+    const reference = generateReference()
+    const collected = dto.paymentMethod !== undefined
+
+    const booking = await this.prisma.$transaction(async (tx) => {
+      // Same sweep as a website hold: the constraint cannot call now(), so
+      // expired holds still occupy their dates until something cancels them.
+      await tx.booking.updateMany({
+        where: { status: 'PENDING', expiresAt: { lt: new Date() } },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancellationReason: 'El plazo de pago venció',
+        },
+      })
+
+      const customer = await tx.customer.upsert({
+        where: { email: dto.guest.email },
+        update: {
+          firstName: dto.guest.firstName,
+          lastName: dto.guest.lastName,
+          phone: dto.guest.phone,
+          country: dto.guest.country,
+        },
+        create: {
+          firstName: dto.guest.firstName,
+          lastName: dto.guest.lastName,
+          email: dto.guest.email,
+          phone: dto.guest.phone,
+          country: dto.guest.country,
+        },
+      })
+
+      return tx.booking.create({
+        data: {
+          propertyId: property.id,
+          customerId: customer.id,
+          reference,
+          checkIn: new Date(dto.checkIn),
+          checkOut: new Date(dto.checkOut),
+          adults: dto.guests.adults,
+          children: dto.guests.children,
+          infants: dto.guests.infants,
+          pets: dto.guests.pets ?? 0,
+          source: 'PANEL',
+          // Cash in hand is a confirmed stay, not a hold waiting on Stripe.
+          status: collected ? 'CONFIRMED' : 'PENDING',
+          paidAt: collected ? new Date() : null,
+          paymentMethod: dto.paymentMethod ?? null,
+          totalPrice: quote.total,
+          nightsSubtotal: quote.subtotal,
+          weeklyDiscount: quote.weeklyDiscount,
+          extrasTotal: quote.extrasTotal,
+          additionalGuestFee: quote.additionalGuestFee,
+          cleaningFee: quote.cleaningFee,
+          serviceFee: quote.serviceFee,
+          taxes: quote.taxes,
+          expiresAt,
+          specialRequests: dto.specialRequests,
+          locale: dto.locale ?? 'es',
+          extras: {
+            create: quote.extras.map((extra) => ({
+              extraId: extra.id,
+              quantity: extra.quantity,
+            })),
+          },
+        },
+        include: { customer: true, extras: { include: { extra: true } } },
+      })
+    })
+
+    const notice = this.noticeFor(booking)
+
+    if (collected) {
+      // Already paid, so the guest gets the same confirmation a website
+      // booking would send them. Nothing about how it was paid changes what
+      // they need to know.
+      await this.notifications.guestConfirmation({
+        ...notice,
+        locale: booking.locale,
+        checkInTime: property.checkInTime,
+        checkOutTime: property.checkOutTime,
+      })
+      return { bookingId: booking.id, reference, quote, checkoutUrl: null, expiresAt: null }
+    }
+
+    const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
+    const checkoutUrl = await this.payments.checkoutUrlFor({
+      bookingId: booking.id,
+      reference,
+      email: dto.guest.email,
+      stripeCustomerId: stripeCustomerId ?? undefined,
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      nights: quote.nights,
+      total: quote.total,
+      guests: dto.guests.adults + dto.guests.children,
+      origin,
+      ttlMinutes: PANEL_HOLD_TTL_MINUTES,
+    })
+
+    await this.prisma.booking.update({ where: { id: booking.id }, data: { checkoutUrl } })
+
+    return {
+      bookingId: booking.id,
+      reference,
+      quote,
+      checkoutUrl,
+      expiresAt: expiresAt?.toISOString() ?? null,
+    }
   }
 
   private async createHold(
@@ -470,6 +664,8 @@ export class BookingsService {
       pets: number
       total: number
       status: BookingStatus
+      /** WEBSITE or PANEL. A phone booking never shows in Stripe's ledger. */
+      source: string
       expiresAt: string | null
       /** Null means never paid, whatever the status says. */
       paidAt: string | null
@@ -507,6 +703,7 @@ export class BookingsService {
       pets: booking.pets,
       total: Number(booking.totalPrice),
       status: booking.status,
+      source: booking.source,
       expiresAt: booking.expiresAt?.toISOString() ?? null,
       paidAt: booking.paidAt?.toISOString() ?? null,
       refunded: booking.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),

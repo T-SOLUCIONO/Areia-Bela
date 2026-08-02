@@ -16,6 +16,8 @@ export interface CheckoutRequest {
   guests: number
   /** Where the guest came from, for the return URLs. */
   origin: string
+  /** Minutes the session stays open. Defaults to the website's hold. */
+  ttlMinutes?: number
 }
 
 /**
@@ -77,7 +79,7 @@ export class PaymentsService {
         : { customer_email: request.email }),
       // The session dies with the hold, or Stripe would keep taking payments
       // for a week the calendar had already released.
-      expires_at: Math.floor(Date.now() / 1000) + HOLD_TTL_MINUTES * 60,
+      expires_at: Math.floor(Date.now() / 1000) + (request.ttlMinutes ?? HOLD_TTL_MINUTES) * 60,
       success_url: `${request.origin}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${request.origin}/checkout?checkin=${request.checkIn}&checkout=${request.checkOut}&adults=${request.guests}`,
       // The webhook needs exactly one thing: which hold this paid for.
