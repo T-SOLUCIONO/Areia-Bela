@@ -35,6 +35,7 @@ import { apiFetch, ApiError } from '@/lib/api-client'
 import { useAdminLanguage, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
 import { GuestDetailDialog, type GuestStay } from '@/components/admin/guest-detail-dialog'
+import { Pagination, usePagination } from '@/components/admin/pagination'
 
 interface Guest {
   id: string
@@ -108,6 +109,20 @@ export default function GuestsPage() {
   const [busy, setBusy] = useState(false)
   const [sendingTo, setSendingTo] = useState<string | null>(null)
   const [opened, setOpened] = useState<Guest | null>(null)
+
+  // Above every early return: a hook cannot be skipped on one render and run
+  // on the next. `guests` is null while loading, hence the fallback.
+  //
+  // Paged over what the search already narrowed, not over everything: paging
+  // through results that do not match would be paging through nothing.
+  const needle = query.trim().toLowerCase()
+  const visible = (guests ?? []).filter(
+    (guest) =>
+      !needle ||
+      guest.name.toLowerCase().includes(needle) ||
+      guest.email.toLowerCase().includes(needle),
+  )
+  const paged = usePagination(visible)
 
   const load = useCallback(async () => {
     try {
@@ -320,14 +335,6 @@ export default function GuestsPage() {
     )
   }
 
-  const needle = query.trim().toLowerCase()
-  const visible = needle
-    ? guests.filter(
-        (guest) =>
-          guest.name.toLowerCase().includes(needle) || guest.email.toLowerCase().includes(needle),
-      )
-    : guests
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -357,7 +364,7 @@ export default function GuestsPage() {
         <p className="py-12 text-center text-sm text-muted-foreground">{copy.noMatch}</p>
       ) : (
         <div className="grid gap-3">
-          {visible.map((guest) => (
+          {paged.visible.map((guest) => (
             <Card
               key={guest.id}
               role="button"
@@ -505,6 +512,15 @@ export default function GuestsPage() {
               </CardContent>
             </Card>
           ))}
+
+          <Pagination
+            page={paged.page}
+            pages={paged.pages}
+            onPage={paged.setPage}
+            firstShown={paged.firstShown}
+            lastShown={paged.lastShown}
+            total={paged.total}
+          />
         </div>
       )}
 

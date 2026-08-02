@@ -32,6 +32,7 @@ import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
 import { RefundDialog } from '@/components/admin/refund-dialog'
 import { NewBookingDialog } from '@/components/admin/new-booking-dialog'
+import { Pagination, usePagination } from '@/components/admin/pagination'
 import { cn } from '@/lib/utils'
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
@@ -94,6 +95,16 @@ export default function ReservationsPage() {
   useEffect(() => {
     void load()
   }, [])
+
+  // Above every early return: a hook cannot be skipped on one render and run
+  // on the next.
+  //
+  // Only the past is paged. What is coming is what the host acts on, and it is
+  // bounded by how far ahead one house can be booked; the history is not.
+  const today = startOfToday()
+  const pagedPast = usePagination(
+    (reservations ?? []).filter((row) => isBefore(parseISO(row.checkOut), today)),
+  )
 
   const statusLabel = (status: BookingStatus) =>
     ({
@@ -163,7 +174,6 @@ export default function ReservationsPage() {
     )
   }
 
-  const today = startOfToday()
   const upcoming = reservations.filter((row) => !isBefore(parseISO(row.checkOut), today))
   const past = reservations.filter((row) => isBefore(parseISO(row.checkOut), today))
 
@@ -318,7 +328,15 @@ export default function ReservationsPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {copy.past} · {past.length}
           </h2>
-          {past.map(renderRow)}
+          {pagedPast.visible.map(renderRow)}
+          <Pagination
+            page={pagedPast.page}
+            pages={pagedPast.pages}
+            onPage={pagedPast.setPage}
+            firstShown={pagedPast.firstShown}
+            lastShown={pagedPast.lastShown}
+            total={pagedPast.total}
+          />
         </section>
       )}
 

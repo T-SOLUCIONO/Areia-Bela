@@ -30,6 +30,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@a
 import { apiFetch } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
+import { Pagination, usePagination } from '@/components/admin/pagination'
 import { cn } from '@/lib/utils'
 
 interface Jurisdiction {
@@ -121,6 +122,10 @@ export default function TaxesPage() {
   useEffect(() => {
     void load(period)
   }, [load, period])
+
+  // Arriba de cualquier return temprano.
+  // A year of stays is a long table; the CSV is what an accountant reads whole.
+  const pagedStays = usePagination(report?.stays ?? [])
 
   const money = (value: number) =>
     value.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
@@ -362,7 +367,7 @@ export default function TaxesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {report.stays.map((stay) => {
+                      {pagedStays.visible.map((stay) => {
                         const outlier =
                           Math.abs(stay.effectivePercent - report.chargedPercent) > 0.01
                         return (
@@ -403,6 +408,16 @@ export default function TaxesPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+                <div className="px-4 pb-3">
+                  <Pagination
+                    page={pagedStays.page}
+                    pages={pagedStays.pages}
+                    onPage={pagedStays.setPage}
+                    firstShown={pagedStays.firstShown}
+                    lastShown={pagedStays.lastShown}
+                    total={pagedStays.total}
+                  />
                 </div>
               </Card>
             )}

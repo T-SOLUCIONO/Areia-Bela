@@ -18,6 +18,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@a
 import { apiFetch } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
+import { Pagination, usePagination } from '@/components/admin/pagination'
 import { cn } from '@/lib/utils'
 
 interface LedgerRow {
@@ -168,6 +169,11 @@ export default function PaymentsPage() {
   useEffect(() => {
     void load(period)
   }, [load, period])
+
+  // Arriba de cualquier return temprano: un hook no puede saltarse en un
+  // render y ejecutarse en el siguiente.
+  // The ledger is the one list here that grows without a ceiling.
+  const pagedRows = usePagination(report?.rows ?? [])
 
   const amountIn = (amount: number, currency: string) =>
     `${amount.toLocaleString(language === 'en' ? 'en-US' : 'es-ES', {
@@ -580,7 +586,7 @@ export default function PaymentsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {report.rows.map((row) => {
+                      {pagedRows.visible.map((row) => {
                         const fees = row.processingFee + row.conversionFee + row.otherFees
                         return (
                           <tr key={row.id} className="border-b border-border/60 last:border-0">
@@ -673,6 +679,16 @@ export default function PaymentsPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+                <div className="px-4 pb-3">
+                  <Pagination
+                    page={pagedRows.page}
+                    pages={pagedRows.pages}
+                    onPage={pagedRows.setPage}
+                    firstShown={pagedRows.firstShown}
+                    lastShown={pagedRows.lastShown}
+                    total={pagedRows.total}
+                  />
                 </div>
               </Card>
             )}

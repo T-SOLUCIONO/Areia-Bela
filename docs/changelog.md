@@ -4573,3 +4573,59 @@ filtro no pierde nada; rehacer una petición sí.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (295 tests)
 ```
+
+---
+
+## 71. Paginación en el panel
+
+Pedido del usuario. Un `usePagination` compartido más un control, en vez de
+cuatro implementaciones que se irían separando.
+
+### Dónde, y dónde no
+
+| Pantalla  | Se pagina                        |
+| --------- | -------------------------------- |
+| Reservas  | solo el **pasado**               |
+| Huéspedes | la lista, después de la búsqueda |
+| Pagos     | el libro de movimientos          |
+| Impuestos | las estadías del periodo         |
+
+En Reservas, lo que viene **no** se pagina: es sobre lo que la anfitriona actúa,
+y está acotado por lo lejos que se puede reservar una casa. El historial no lo
+está.
+
+En Huéspedes se pagina lo ya filtrado. Paginar sobre todo y luego buscar sería
+pasar páginas de resultados que no coinciden.
+
+### Es del lado del cliente, y se dice
+
+Los endpoints siguen devolviendo todo. Para una casa eso está bien y no es lo
+que dolía: lo que dolía era pintar cuatrocientas tarjetas. Cuando el payload sea
+el problema, la solución es un endpoint paginado y este control sigue
+funcionando encima.
+
+### Dos cosas que el linter tenía razón en señalar
+
+**Los hooks iban después de un `return` temprano.** Cuatro errores, no avisos, y
+con motivo: un hook que se salta en un render y se ejecuta en el siguiente
+rompe el orden del que React depende. Subidos por encima de todo `return`, con
+la lista de origen tolerando el `null` de mientras carga.
+
+**La página fuera de rango se corregía en un efecto.** Borrar al último huésped
+de la página 7 deja esa página vacía; arreglarlo después pinta el vacío y luego
+salta. Ahora se recorta durante el render, así que la página vacía no llega a
+existir. La página guardada se deja intacta: la lista puede volver a crecer, y
+con ella la posición.
+
+```
+    0 elementos, pág 1 → 1/1  mostrando 0-0
+   21 elementos, pág 2 → 2/2  mostrando 21-21
+  140 elementos, pág 7 → 7/7  mostrando 121-140
+   19 elementos, pág 7 → 1/1  mostrando 1-19     ← recortada
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+las cinco rutas responden · 0 panics
+```
