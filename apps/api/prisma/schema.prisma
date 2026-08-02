@@ -282,6 +282,10 @@ model PriceRule {
   startDate   DateTime?  @db.Date // null for the recurring WEEKEND rule
   endDate     DateTime?  @db.Date
   nightlyRate Decimal    @db.Decimal(10, 2)
+  /// How many nights a stay *starting* in this season must be. Null leaves the
+  /// house-wide `Property.minNights` in charge. A season can only ask for more
+  /// nights, never fewer.
+  minNights   Int?
   active      Boolean    @default(true)
 }
 

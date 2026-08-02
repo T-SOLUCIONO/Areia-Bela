@@ -4150,3 +4150,80 @@ anfitriona a mano.
 Nota de ubicación: el campo vive en **Precios** por estar junto a las reglas de
 estadía, pero cómo entrar a la casa no es un precio. Se mueve a Ajustes si el
 usuario lo prefiere.
+
+---
+
+## 65. Fase 7.4 — Mínimos de noches por temporada
+
+Estaba declarado como diferido desde §36: _"hoy el mínimo es uno para todo el
+año, y lo habitual es exigir más noches en las fechas altas"_.
+
+### Lo que apareció al ir a hacerlo
+
+`PriceRule` **no tenía CRUD**. Ni endpoint, ni pantalla: una temporada alta solo
+podía existir sembrando la base de datos. Añadir una columna de mínimo a una
+tabla que nadie puede escribir habría sido entregar media función, así que la
+fase incluye el alta, edición y borrado de temporadas.
+
+### Quién decide el mínimo
+
+La **fecha de llegada**, no todas las noches que toca la estadía.
+
+Es lo que el huésped ya entiende de reservar en otros sitios, y es la versión
+que se puede explicar en un calendario: "llegar esta semana son mínimo siete
+noches". Tomar la regla más estricta que la estadía roza significaría que una
+reserva de febrero que termina el primer día de temporada alta de pronto exige
+una semana, por un motivo invisible al elegir las fechas.
+
+El coste de esa decisión es real y está escrito en el código: quien llega la
+noche antes de una semana alta se lleva el mínimo de temporada baja para una
+estadía que es casi toda alta.
+
+Una temporada solo puede pedir **más** noches, nunca menos: el mínimo de la casa
+es un suelo que ninguna regla baja.
+
+### Guardarraíles, comprobados contra la base real
+
+```
+solape rechazado:            These dates overlap "PRUEBA Navidad"
+fechas invertidas:           The season ends before it starts
+finde con fechas:            A WEEKEND rule has no dates: it is the fallback rate
+base protegida:              The base rate cannot be deleted
+mínimo limpiado:             null
+limpiado: 1 fila de prueba   temporadas antes 1 → después 1
+```
+
+El solape importa más de lo que parece: `ruleForNight` toma la primera regla
+HIGH que encaja, así que dos rangos superpuestos harían que la misma noche se
+cobrara de una forma u otra según el orden en que la base devolviera las filas.
+La misma estadía, dos precios, en dos peticiones seguidas.
+
+Las filas de prueba se borraron **por id**, solo las que creó el script.
+
+### Un bug que el tipado destapó
+
+La pantalla iba a cargar las temporadas de `GET /properties/:slug`, que devuelve
+el `Decimal` de Prisma como **string** y además esconde las reglas inactivas. El
+componente llama a `.toFixed()`. Un `as unknown as` lo habría dejado pasar hasta
+producción; ahora se cargan del endpoint propio, que devuelve números.
+
+### Lo que ve el huésped
+
+El cotizador ya sabía decir "esta casa acepta reservas de al menos N noches".
+Ahora ese N sale del `quote`, que conoce la temporada de la fecha de llegada, en
+vez de la propiedad. El calendario sigue permitiendo el mínimo de la casa y el
+precio explica el resto en cuanto se eligen fechas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (289 tests, 9 nuevos)
+```
+
+### Diferido
+
+- **El calendario no pinta el mínimo por fecha.** Muestra el de la casa;
+  react-day-picker toma un único `min` para toda la rejilla. El huésped se
+  entera al elegir las fechas, no antes.
+- **No se puede cambiar el tipo de una temporada** ya creada. Pasar HIGH a
+  WEEKEND obligaría a soltar las fechas y podría chocar con la regla de fin de
+  semana existente; se borra y se crea.

@@ -7,6 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator'
 import { UpdatePropertyDto } from './dto/update-property.dto'
 import { CreateExtraDto, UpdateExtraDto } from './dto/extra.dto'
 import { CreateBlockedDateDto } from './dto/blocked-date.dto'
+import { CreatePriceRuleDto, UpdatePriceRuleDto } from './dto/price-rule.dto'
 
 // The guest-facing site calls these without signing in, so they opt out of the
 // globally registered JwtAuthGuard. Everything else defaults to protected.
@@ -81,6 +82,31 @@ export class PropertiesController {
   @Patch('extras/:id')
   updateExtra(@Param('id') id: string, @Body() dto: UpdateExtraDto) {
     return this.propertiesService.updateExtra(id, dto)
+  }
+
+  /** The seasons, for the panel. Public reads go through the quote instead. */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @Get(':slug/price-rules')
+  listPriceRules(@Param('slug') slug: string) {
+    return this.propertiesService.listPriceRules(slug)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post(':slug/price-rules')
+  createPriceRule(@Param('slug') slug: string, @Body() dto: CreatePriceRuleDto) {
+    return this.propertiesService.createPriceRule(slug, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch('price-rules/:id')
+  updatePriceRule(@Param('id') id: string, @Body() dto: UpdatePriceRuleDto) {
+    return this.propertiesService.updatePriceRule(id, dto)
+  }
+
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Delete('price-rules/:id')
+  deletePriceRule(@Param('id') id: string) {
+    return this.propertiesService.deletePriceRule(id)
   }
 
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)

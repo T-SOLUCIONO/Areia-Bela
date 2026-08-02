@@ -1,17 +1,18 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarRange, DollarSign, Sparkles } from 'lucide-react'
+import { CalendarRange, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '@areia-bela/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Skeleton } from '@areia-bela/ui/skeleton'
-import { ApiError } from '@/lib/api-client'
+import { apiFetch, ApiError } from '@/lib/api-client'
+import { PROPERTY_SLUG } from '@/lib/property-data'
 import { cms, type PropertySettings } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
 import { useHasRole } from '@/components/admin/admin-session-provider'
 import { ExtrasManager } from '@/components/admin/extras-manager'
 import { StayRules } from '@/components/admin/stay-rules'
+import { SeasonRules, type PriceRule } from '@/components/admin/season-rules'
 
 /**
  * Priced per night for the whole house, not per room type — there is one unit.
@@ -22,10 +23,22 @@ export default function PricingPage() {
   const t = useAdminCopy()
   const canEdit = useHasRole('superadmin', 'manager')
   const [property, setProperty] = useState<PropertySettings | null>(null)
+  // Held apart from the property so saving a season re-renders just this list,
+  // rather than refetching the whole screen for a rate change.
+  const [rules, setRules] = useState<PriceRule[] | null>(null)
 
   const load = useCallback(async () => {
     try {
-      setProperty(await cms.property())
+      // Two calls on purpose. `GET /properties/:slug` returns Prisma's Decimal
+      // as a string and hides inactive rules; the seasons endpoint returns
+      // numbers and everything the host can edit. Casting one into the other
+      // would have shipped a `.toFixed()` on a string.
+      const [next, seasons] = await Promise.all([
+        cms.property(),
+        apiFetch<PriceRule[]>(`/properties/${PROPERTY_SLUG}/price-rules`),
+      ])
+      setProperty(next)
+      setRules(seasons)
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.property.loadFailed)
     }
@@ -103,51 +116,46 @@ export default function PricingPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-serif text-lg">
-            <CalendarRange className="h-5 w-5 text-primary" />
-            {t.pricing.seasonsTitle}
-          </CardTitle>
-          <CardDescription>{t.pricing.seasonsSubtitle}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {seasonRules.length > 0 ? (
-            <ul className="divide-y divide-border">
-              {seasonRules.map((rule) => (
-                <li key={rule.id} className="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <p className="font-medium">{rule.name}</p>
-                    {rule.startDate && rule.endDate && (
-                      <p className="text-sm text-muted-foreground">
-                        {rule.startDate.slice(0, 10)} → {rule.endDate.slice(0, 10)}
-                      </p>
-                    )}
-                  </div>
-                  <span className="font-serif text-xl tabular-nums">
-                    ${Number(rule.nightlyRate).toFixed(0)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            /* No invented rates: docs/domain-decisions.md has no real seasonal
-               figures, and making some up would be worse than showing none.
-               Season rules are applied to quotes in Fase 6. */
-            <div className="flex items-start gap-3 rounded-xl border border-dashed border-border p-6">
-              <DollarSign className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-foreground">{t.pricing.noSeasonRules}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Badge variant="secondary">{t.pricing.seasonLow}</Badge>
-                  <Badge variant="outline">{t.pricing.seasonHigh}</Badge>
-                  <Badge variant="outline">{t.pricing.seasonWeekend}</Badge>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Editable at last. It was a read-only list, so a peak season could
+          only be created by seeding the database. */}
+      {canEdit ? (
+        <SeasonRules slug={property.slug} rules={rules ?? []} onChange={setRules} />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-serif text-lg">
+              <CalendarRange className="h-5 w-5 text-primary" />
+              {t.pricing.seasonsTitle}
+            </CardTitle>
+            <CardDescription>{t.pricing.seasonsSubtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {seasonRules.length === 0 ? (
+              <p className="rounded-[12px] border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                {t.pricing.noSeasonRules}
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {seasonRules.map((rule) => (
+                  <li key={rule.id} className="flex items-center justify-between gap-4 py-3">
+                    <div>
+                      <p className="font-medium">{rule.name}</p>
+                      {rule.startDate && rule.endDate && (
+                        <p className="text-sm text-muted-foreground">
+                          {rule.startDate.slice(0, 10)} → {rule.endDate.slice(0, 10)}
+                        </p>
+                      )}
+                    </div>
+                    <span className="font-serif text-xl tabular-nums">
+                      ${Number(rule.nightlyRate).toFixed(0)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

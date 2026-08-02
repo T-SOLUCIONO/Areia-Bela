@@ -79,7 +79,13 @@ export class BookingsService {
 
     // The calendar already stops a guest picking two nights when four are
     // required, but the calendar is a browser. This is the authority.
-    const lengthProblem = checkStayLength(quote.nights, property)
+    //
+    // The minimum comes from the quote: it knows which season the arrival date
+    // falls in, and a peak week can ask for more nights than the house does.
+    const lengthProblem = checkStayLength(quote.nights, {
+      minNights: quote.minNights,
+      maxNights: property.maxNights,
+    })
     if (lengthProblem) {
       throw new BadRequestException(
         lengthProblem.kind === 'tooShort'
