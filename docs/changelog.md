@@ -4122,3 +4122,31 @@ advertencias de lint en los archivos tocados: 0
 pnpm build ✅   pnpm lint ✅ (0 errores, 17 avisos — el mismo baseline)
 pnpm typecheck ✅   pnpm test ✅ (280 tests)
 ```
+
+---
+
+## 64. MODERATE confirmada
+
+El usuario confirma que **MODERATE** es la política de cancelación correcta.
+Cierra el pendiente abierto en §40.
+
+No hay cambio de código: era ya el valor por defecto del schema y el que tiene
+la fila real en la base. Lo que cambia es que deja de ser una suposición
+heredada de lo que el sitio venía prometiendo ("cancelación gratuita hasta 5
+días antes") y pasa a ser una decisión tomada.
+
+Sigue siendo editable desde el panel; cambiarla es un `PATCH`, no un
+despliegue. Lo que se cobra y lo que se devuelve sale de `CANCELLATION_RULES`,
+así que cambiarla mueve también lo que propone el diálogo de reembolso.
+
+### Sigue vacío, y sigue siendo del usuario
+
+`Property.accessNotes` — dónde aparcar, cómo funciona la puerta — se escribe en
+`/admin/pricing`, en "Reglas de la estadía". Vacío hoy, así que ni el área del
+huésped ni el PDF muestran ese bloque (los dos comprueban antes de pintarlo, no
+sale un título huérfano). Mientras siga así, esa información la manda la
+anfitriona a mano.
+
+Nota de ubicación: el campo vive en **Precios** por estar junto a las reglas de
+estadía, pero cómo entrar a la casa no es un precio. Se mueve a Ajustes si el
+usuario lo prefiere.
