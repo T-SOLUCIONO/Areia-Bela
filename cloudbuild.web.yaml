@@ -13,11 +13,6 @@
 #
 steps:
   - name: gcr.io/cloud-builders/docker
-    # Los Dockerfile usan `RUN --mount=type=cache`, que es sintaxis de
-    # BuildKit. El constructor clásico no la entiende y aborta con
-    # "the --mount option requires BuildKit".
-    env:
-      - DOCKER_BUILDKIT=1
     args:
       - build
       - --file=apps/web/Dockerfile
