@@ -295,3 +295,58 @@ Lo mismo para `seed` (con `ADMIN_SEED_PASSWORD`) y `seed:taxes`.
 3. Una reserva de prueba llega hasta Stripe y vuelve confirmada.
 4. Subir una foto desde `/admin/content` y **volver a verla tras un
    despliegue** — si desaparece, es el punto 2 de arriba.
+
+### Sin Docker en la máquina: construir con Cloud Build
+
+`gcloud builds submit --tag` da por hecho un `Dockerfile` en la raíz del
+contexto, y aquí están en `apps/*/Dockerfile` mientras el contexto debe ser la
+raíz del repositorio — la imagen necesita el lockfile, el workspace y los
+paquetes compartidos. De ahí `cloudbuild.api.yaml` y `cloudbuild.web.yaml`.
+
+```bash
+gcloud artifacts repositories create areia-bela \
+  --repository-format=docker --location=us-central1
+
+gcloud builds submit --config cloudbuild.api.yaml --substitutions=_TAG=1
+```
+
+Están separados por el mismo motivo que el orden de despliegue: la web no se
+puede construir hasta conocer la URL del API.
+
+### El webhook de Stripe
+
+En local hacía falta un túnel para que Stripe alcanzara el portátil. En Cloud
+Run no: el servicio ya tiene una URL pública con HTTPS.
+
+En **Stripe → Developers → Webhooks → Add endpoint**:
+
+- URL: `https://TU-API.run.app/bookings/stripe-webhook`
+- Eventos, **solo estos dos**: `checkout.session.completed` y
+  `checkout.session.expired`
+
+El `whsec_...` que devuelve va en el servicio:
+
+```bash
+gcloud run services update areia-bela-api --region us-central1 \
+  --update-env-vars STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Tres cosas que muerden:
+
+- **El servicio tiene que ser `--allow-unauthenticated`.** Stripe no sabe
+  autenticarse con IAM de Google; con el servicio cerrado recibe un 403 y
+  reintenta en vano. La ruta la protege la firma, que es lo correcto: la
+  seguridad la da el `whsec_`, no el cortafuegos.
+- **Test y producción son endpoints distintos, con secretos distintos.** El
+  `whsec_` de uno no vale en el otro.
+- **Un arranque en frío puede agotar la espera de Stripe.** Reintenta, y la
+  reconciliación de §41 lo cubre — pero es otro argumento para
+  `--min-instances=1`.
+
+Comprobación: **Send test webhook** con `checkout.session.completed` debe
+responder **200**. Un 400 con `Invalid signature` significa que ese `whsec_` no
+es el de ese endpoint.
+
+En local, en lugar de un túnel: `stripe listen --forward-to
+localhost:3001/bookings/stripe-webhook`. Da su propio `whsec_` temporal y no se
+renombra solo, que es exactamente lo que pasó cuatro veces con el túnel rápido.

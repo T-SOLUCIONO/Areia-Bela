@@ -1,0 +1,36 @@
+# Construye la imagen del API en Cloud Build.
+#
+# Existe porque `gcloud builds submit --tag` da por hecho un `Dockerfile` en la
+# raíz del contexto, y aquí está en `apps/api/`. El contexto tiene que ser la
+# raíz del repositorio de todas formas: la imagen necesita el lockfile, el
+# workspace y los paquetes compartidos.
+#
+#   gcloud builds submit --config cloudbuild.api.yaml \
+#     --substitutions=_REGION=us-central1,_TAG=1
+#
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=apps/api/Dockerfile
+      # Dos etiquetas: una fija para poder volver atrás, y `latest` para no
+      # tener que recordar el número al desplegar.
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:${_TAG}
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:latest
+      - .
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:${_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:latest
+
+substitutions:
+  _REGION: us-central1
+  _REPO: areia-bela
+  _TAG: latest
+
+options:
+  # El build por defecto se queda corto para un `pnpm install` de un monorepo.
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s
