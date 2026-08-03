@@ -20,9 +20,23 @@ type Props = {
   photos: Photo[]
   propertyName: string
   showAllLabel: string
+  /** Read aloud instead of "button": an icon is not a name. */
+  closeLabel: string
 }
 
-export function PhotoGallery({ photos, propertyName, showAllLabel }: Props) {
+/**
+ * The caption, or the house.
+ *
+ * `??` was here, and it only catches null. Nine of the forty-six photos carry
+ * `caption: ''` — an empty string is not null, so those rendered `alt=""` and
+ * the button around them had no accessible name at all: a screen reader read
+ * out "button" and nothing else.
+ */
+function captionOf(photo: { caption?: string }, fallback: string): string {
+  return photo.caption?.trim() || fallback
+}
+
+export function PhotoGallery({ photos, propertyName, showAllLabel, closeLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [startIndex, setStartIndex] = useState(0)
 
@@ -47,7 +61,7 @@ export function PhotoGallery({ photos, propertyName, showAllLabel }: Props) {
         >
           <Image
             src={hero.large}
-            alt={hero.caption ?? propertyName}
+            alt={captionOf(hero, propertyName)}
             fill
             className="object-cover transition-transform duration-700 hover:scale-[1.03]"
             priority
@@ -66,7 +80,7 @@ export function PhotoGallery({ photos, propertyName, showAllLabel }: Props) {
           >
             <Image
               src={photo.large}
-              alt={photo.caption ?? propertyName}
+              alt={captionOf(photo, propertyName)}
               fill
               className="object-cover transition-transform duration-700 hover:scale-[1.03]"
             />
@@ -97,6 +111,9 @@ export function PhotoGallery({ photos, propertyName, showAllLabel }: Props) {
               className="absolute right-2 top-2 z-10 rounded-full bg-white"
             >
               <X className="h-4 w-4" />
+              {/* An icon is not a name. Without this a screen reader announces
+                  "button" and the only way out of the gallery is unlabelled. */}
+              <span className="sr-only">{closeLabel}</span>
             </Button>
             <Carousel key={startIndex} opts={{ startIndex, loop: true }}>
               <CarouselContent>
@@ -105,7 +122,7 @@ export function PhotoGallery({ photos, propertyName, showAllLabel }: Props) {
                     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-black sm:aspect-video">
                       <Image
                         src={photo.large}
-                        alt={photo.caption ?? propertyName}
+                        alt={captionOf(photo, propertyName)}
                         fill
                         className="object-contain"
                       />

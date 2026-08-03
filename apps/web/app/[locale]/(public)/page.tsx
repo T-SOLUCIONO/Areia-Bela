@@ -170,6 +170,7 @@ export default function HomePage() {
                 photos={propertyData.photos}
                 propertyName={propertyData.name}
                 showAllLabel={home.showAllPhotos}
+                closeLabel={ui.closeGallery}
               />
             </div>
 

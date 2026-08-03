@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { SITE_URL } from '@/lib/site-url'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -14,6 +15,10 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
+  // Everything relative below resolves against this. Without it an Open Graph
+  // image is a path, and the server rendering a shared link has no page to
+  // resolve a path against — so the preview comes out blank.
+  metadataBase: new URL(SITE_URL),
   title: 'Areia Bela | Book direct',
   description:
     'Book your stay at Areia Bela. Modern amenities, fast booking, and a professional host experience.',

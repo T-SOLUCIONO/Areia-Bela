@@ -13,6 +13,7 @@ import type {
 } from '@/lib/cms-client'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const PROPERTY_SLUG = 'areia-bela'
 
 export interface SiteContent {
   pages: Partial<Record<CMSPageSlug, CMSPage>>
@@ -94,4 +95,38 @@ export async function getSiteContent(locale: string = DEFAULT_LOCALE): Promise<S
 /** The items of one list within a section, already ordered by the API. */
 export function itemsOf(section: ContentSection | undefined, kind: ContentItemKind): ContentItem[] {
   return section?.items.filter((item) => item.kind === kind) ?? []
+}
+
+/** The facts about the house, for the server-rendered structured data. */
+export interface PublicProperty {
+  name: string
+  description: string
+  address: string
+  city: string
+  state: string
+  country: string
+  maxGuests: number
+  bedrooms: number
+  bathrooms: number
+  checkInTime: string
+  checkOutTime: string
+  priceRules?: Array<{ nightlyRate: string | number; active: boolean }>
+}
+
+/**
+ * The house, from the API.
+ *
+ * Returns null rather than a shape full of blanks when the API is unreachable:
+ * the only caller is the structured data, and structured data with empty
+ * fields is worse than none — it tells a search engine the house has no
+ * address rather than that we could not look it up.
+ */
+export async function getPublicProperty(): Promise<PublicProperty | null> {
+  try {
+    const response = await fetch(`${API_URL}/properties/${PROPERTY_SLUG}`, { cache: 'no-store' })
+    if (!response.ok) return null
+    return (await response.json()) as PublicProperty
+  } catch {
+    return null
+  }
 }

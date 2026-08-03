@@ -33,6 +33,7 @@ export const translations = {
       heroAlt: 'Areia Bela beach stay',
       changeLanguage: 'Change language',
       toggleMenu: 'Toggle menu',
+      closeGallery: 'Close the gallery',
       language: 'Language',
     },
     confirmation: {
@@ -320,6 +321,7 @@ export const translations = {
       heroAlt: 'Estadía frente a la playa Areia Bela',
       changeLanguage: 'Cambiar idioma',
       toggleMenu: 'Abrir menú',
+      closeGallery: 'Cerrar la galería',
       language: 'Idioma',
     },
     confirmation: {
@@ -608,6 +610,7 @@ export const translations = {
       heroAlt: 'Estadia à beira-mar na Areia Bela',
       changeLanguage: 'Mudar de idioma',
       toggleMenu: 'Abrir menu',
+      closeGallery: 'Fechar a galeria',
       language: 'Idioma',
     },
     confirmation: {
@@ -894,6 +897,7 @@ export const translations = {
       heroAlt: 'Séjour en bord de mer à Areia Bela',
       changeLanguage: 'Changer de langue',
       toggleMenu: 'Ouvrir le menu',
+      closeGallery: 'Fermer la galerie',
       language: 'Langue',
     },
     confirmation: {
@@ -1183,6 +1187,7 @@ export const translations = {
       heroAlt: 'Strandaufenthalt in der Areia Bela',
       changeLanguage: 'Sprache wechseln',
       toggleMenu: 'Menü öffnen',
+      closeGallery: 'Galerie schließen',
       language: 'Sprache',
     },
     confirmation: {

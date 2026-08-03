@@ -4908,3 +4908,88 @@ cuando algo falla.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (308 unitarios)
 ```
+
+---
+
+## 76. Fase 8.3 — SEO técnico y accesibilidad
+
+No había nada de SEO técnico: ni `robots.txt`, ni `sitemap.xml`, ni canonical,
+ni hreflang, ni datos estructurados. En un sitio de **cinco idiomas** eso último
+es lo que más cuesta: sin `alternates.languages`, un buscador ve cinco páginas
+compitiendo por las mismas palabras en vez de una página en cinco idiomas.
+
+### Lo añadido
+
+- **`robots.ts`** — `/admin` fuera del índice. No es lo que lo protege (eso son
+  el middleware y los guards); lo que evita es que la pantalla de login del
+  panel salga al buscar la casa. `/my-booking` y `/confirmation` también,
+  porque esas URLs llevan una referencia de reserva.
+- **`sitemap.ts`** — una casa, cinco idiomas, con `x-default`. El checkout no
+  está: es un paso de una transacción, y pedirle a un crawler que lo indexe es
+  pedirle que indexe un carrito.
+- **`metadataBase`** — sin él, una imagen de Open Graph es una ruta, y el
+  servidor que renderiza un enlace compartido no tiene página contra la que
+  resolverla. La vista previa salía en blanco.
+- **Canonical y hreflang** en cada locale, y **fuera del `if` del CMS**: antes,
+  un API caído significaba una página sin canonical, que es invitar al buscador
+  a elegir uno por su cuenta.
+- **`VacationRental` en JSON-LD** con dirección, capacidad, dormitorios, baños y
+  horarios reales. Sin `aggregateRating` ni `review`: un rating que nadie dejó
+  es de las cosas por las que a un listado le cae una penalización manual.
+
+### Accesibilidad: un `??` que dejaba nueve botones sin nombre
+
+La auditoría dio un solo fallo real, y su causa era pequeña:
+
+```ts
+alt={photo.caption ?? propertyName}
+```
+
+`??` solo captura `null` y `undefined`. **Nueve de las 46 fotos** tienen
+`caption: ''`, y una cadena vacía no es null — así que esas nueve renderizaban
+`alt=""` y el botón que las envuelve se quedaba sin nombre accesible. Un lector
+de pantalla anunciaba "button" y nada más.
+
+También el botón de cerrar la galería, que era un icono sin texto.
+
+### Un test mío que reportaba cinco falsos positivos
+
+La primera versión comprobaba a mano el texto, el `aria-label` y el `title`.
+Un `<img alt="…">` dentro de un botón **sí** le da nombre a ese botón, y ninguna
+comprobación hecha a mano sabe eso. Ahora usa `ariaSnapshot()`, que es el
+cálculo del propio navegador.
+
+```
+- button "Cambiar idioma": ES
+- button "Ver todas las fotos"
+- button                        <- el único de verdad sin nombre
+```
+
+### Comprobado sirviendo, no leyendo el código
+
+```
+robots.txt   → Disallow: /admin, /my-booking, /confirmation + Sitemap:
+sitemap.xml  → 5 locales + hreflang x-default
+/es          → canonical + 6 alternates
+JSON-LD      → VacationRental · St. Petersburg, Florida · 8 huéspedes
+                3 dorm / 2 baños · 16:00–10:00 · desde $300
+                ¿inventa rating? False
+```
+
+Siete pruebas nuevas en `e2e/seo-a11y.spec.ts` vigilan todo esto: son las
+partes de una página que nadie mira, y por eso nada las caza salvo un test que
+vaya a buscarlas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308 unitarios)
+e2e SEO/a11y: 6 de 7 ✅
+```
+
+### Lo que queda por comprobar
+
+La séptima prueba —la de los datos estructurados— necesita el API, y el API
+necesita Postgres, que no está levantado en esta máquina. Cuando corra
+`docker compose up -d postgres` debería pasar: el mismo bloque se verificó con
+`curl` mientras el API estuvo arriba, y su ausencia con el API caído es el
+comportamiento correcto (mejor ningún JSON-LD que uno con campos en blanco).
