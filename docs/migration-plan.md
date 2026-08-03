@@ -7,7 +7,7 @@ de empezar. Ninguna fase avanza sin cumplir su criterio de salida.
 
 Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bilingüe ES/EN.
 
-## Fase 2 — Monorepo + limpieza de dominio + base bilingüe (EN CURSO)
+## Fase 2 — Monorepo + limpieza de dominio + base bilingüe ✅ completada
 
 - Crear Turborepo: `apps/web`, `apps/api` (placeholder), `packages/{ui,types,shared,utils,config}`.
 - Mover el frontend actual a `apps/web` sin romper el sitio.
@@ -21,7 +21,10 @@ Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bili
 
 **Criterio de salida:** `pnpm install && pnpm build && pnpm lint && pnpm typecheck` sin errores. Sitio actual sigue funcionando igual para el usuario final.
 
-## Fase 3 — Backend NestJS + PostgreSQL + Prisma
+**Cumplido.** Los cuatro comandos corren en verde en cada push desde §74, y el
+sitio público se recorre en un navegador en §75.
+
+## Fase 3 — Backend NestJS + PostgreSQL + Prisma ✅ completada
 
 - `apps/api` con Prisma, schema inicial (`Property`, `Availability`, `Booking`, `Customer`, `Extra`, `PriceRule`), migraciones, seed.
 - Seed con datos reales de Areia Bela (no ficticios) — ver `docs/domain-decisions.md`.
@@ -30,6 +33,10 @@ Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bili
 - Documentar base de datos + diagrama ER en `docs/database.md`.
 
 **Criterio de salida:** el quote server-side coincide con la UI actual; seed corre limpio desde cero.
+
+**Cumplido.** El E2E de §75 comprueba que el total de la pantalla es el que
+devuelve el servidor, y el job de migraciones de §74 aplica el historial
+completo sobre una base vacía y siembra dos veces sin duplicar.
 
 ## Fase 4 — Autenticación ✅ completada
 
@@ -47,7 +54,7 @@ punta a punta; cero credenciales demo en el código; `pnpm build`, `pnpm lint`,
 `pnpm typecheck` y `pnpm test` en verde. Ver `docs/changelog.md` §14 para la
 auditoría del checklist de seguridad.
 
-## Fase 5 — CMS / Admin
+## Fase 5 — CMS / Admin ✅ completada
 
 - Migrar a DB: settings, hero, footer, SEO, FAQs, políticas, todas las secciones descritas en `docs/domain-decisions.md`, en `es` y `en`.
 - Galería con upload + reorder + optimización de imágenes.
@@ -65,7 +72,7 @@ copia de marketing de la portada sigue en `lib/i18n.ts`, la optimización de
 imágenes pasa a Fase 8 y aplicar tarifas por temporada a una cotización es
 Fase 6.
 
-## Fase 6 — Sistema de reservas
+## Fase 6 — Sistema de reservas ✅ completada
 
 - Calendario tipo Airbnb (2 meses, hover range, fechas bloqueadas desde API) para **una sola propiedad**. ✅
 - Validación de conflictos, mínimo de noches, temporada de piscina climatizada. ✅
