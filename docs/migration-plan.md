@@ -96,7 +96,7 @@ cifra que dicta la política; el panel de pagos cuadra con el libro de Stripe;
 una reserva tomada por teléfono respeta la restricción de solapamiento y su
 precio lo calcula el servidor. Cumplido en `docs/changelog.md` §53 a §66.
 
-## Fase 7.5 — Impuestos (módulo de recaudación y declaración)
+## Fase 7.5 — Impuestos ✅ completada
 
 Pedido por el usuario: un módulo en `/admin` que haga lo que hace Stripe Tax
 —decir cuánto se debe y con qué desglose— porque **en una reserva directa la
