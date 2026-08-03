@@ -21,8 +21,12 @@ COPY packages/utils/package.json packages/utils/
 COPY packages/ui/package.json packages/ui/
 COPY packages/config/package.json packages/config/
 
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --filter @areia-bela/web...
+# Sin `--mount=type=cache`: esa sintaxis es de BuildKit y el constructor
+# clásico de Cloud Build la rechaza de plano. Lo que ahorraba era volver a
+# descargar paquetes entre builds; el caché de capas de Docker ya cubre el caso
+# habitual —los manifiestos no cambian, la capa se reutiliza— y una imagen que
+# no se puede construir no ahorra nada.
+RUN pnpm install --frozen-lockfile --filter @areia-bela/web...
 
 # ---------------------------------------------------------------------------
 FROM deps AS build

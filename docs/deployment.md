@@ -20,7 +20,10 @@ Dos imágenes y una base de datos. Los nombres de las variables están en
 # compose: falta una, y `up` falla en vez de arrancar con algo que el
 # repositorio conoce.
 export POSTGRES_USER=... POSTGRES_PASSWORD=... POSTGRES_DB=...
-export JWT_SECRET="$(openssl rand -base64 48)"
+export JWT_ACCESS_SECRET="$(openssl rand -base64 48)"
+# Ojo al nombre: es JWT_ACCESS_SECRET, no JWT_SECRET. El API se niega a
+# arrancar si falta o si mide menos de 32 caracteres, y el síntoma en Cloud Run
+# es un contenedor que nunca llega a escuchar en su puerto.
 export PUBLIC_SITE_URL=https://tudominio.com
 export NEXT_PUBLIC_API_URL=https://api.tudominio.com
 
@@ -229,7 +232,7 @@ printf '%s' "$(openssl rand -base64 48)" | gcloud secrets create jwt-secret --da
 printf '%s' 'sk_live_...' | gcloud secrets create stripe-secret-key --data-file=-
 ```
 
-Se montan con `--set-secrets JWT_SECRET=jwt-secret:latest`.
+Se montan con `--set-secrets JWT_ACCESS_SECRET=jwt-secret:latest`.
 
 ### Subir las imágenes
 
@@ -252,7 +255,7 @@ URL, y con ella se construye la web.
 ```bash
 gcloud run deploy areia-bela-api --image $REG/api:1 --region us-east1 \
   --add-cloudsql-instances PROYECTO:us-east1:areia-bela \
-  --set-secrets JWT_SECRET=jwt-secret:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest \
+  --set-secrets JWT_ACCESS_SECRET=jwt-secret:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest \
   --set-env-vars "DATABASE_URL=...,CORS_ORIGINS=https://areiabela.com,PUBLIC_SITE_URL=https://areiabela.com" \
   --min-instances=1 --port 3001 --allow-unauthenticated
 

@@ -37,7 +37,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
       CORS_ORIGINS: ${PUBLIC_SITE_URL:?set PUBLIC_SITE_URL}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
       # Optional. Each one the code already refuses to fake when absent: no
