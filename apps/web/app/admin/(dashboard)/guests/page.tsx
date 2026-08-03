@@ -32,8 +32,10 @@ import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@areia-bela/ui/empty'
 import { apiFetch, ApiError } from '@/lib/api-client'
-import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { useAdminLanguage, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
+import { GuestDetailDialog, type GuestStay } from '@/components/admin/guest-detail-dialog'
+import { Pagination, usePagination } from '@/components/admin/pagination'
 
 interface Guest {
   id: string
@@ -45,6 +47,7 @@ interface Guest {
   country: string
   stays: number
   nights: number
+  stayHistory: GuestStay[]
   totalSpent: number
   firstStay: string | null
   lastStay: string | null
@@ -94,6 +97,7 @@ const initials = (name: string) =>
 
 export default function GuestsPage() {
   const { language, t } = useAdminLanguage()
+  const copyRef = useAdminCopyRef()
   const copy = t.guests
   const locale = language === 'en' ? enUS : esLocale
 
@@ -104,15 +108,30 @@ export default function GuestsPage() {
   const [removing, setRemoving] = useState<Guest | null>(null)
   const [busy, setBusy] = useState(false)
   const [sendingTo, setSendingTo] = useState<string | null>(null)
+  const [opened, setOpened] = useState<Guest | null>(null)
+
+  // Above every early return: a hook cannot be skipped on one render and run
+  // on the next. `guests` is null while loading, hence the fallback.
+  //
+  // Paged over what the search already narrowed, not over everything: paging
+  // through results that do not match would be paging through nothing.
+  const needle = query.trim().toLowerCase()
+  const visible = (guests ?? []).filter(
+    (guest) =>
+      !needle ||
+      guest.name.toLowerCase().includes(needle) ||
+      guest.email.toLowerCase().includes(needle),
+  )
+  const paged = usePagination(visible)
 
   const load = useCallback(async () => {
     try {
       setGuests(await apiFetch<Guest[]>('/customers'))
     } catch {
-      toast.error(copy.loadFailed)
+      toast.error(copyRef.current.guests.loadFailed)
       setGuests([])
     }
-  }, [copy.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // Every setState in `load` happens after an await, so none of them are the
@@ -316,14 +335,6 @@ export default function GuestsPage() {
     )
   }
 
-  const needle = query.trim().toLowerCase()
-  const visible = needle
-    ? guests.filter(
-        (guest) =>
-          guest.name.toLowerCase().includes(needle) || guest.email.toLowerCase().includes(needle),
-      )
-    : guests
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -353,8 +364,22 @@ export default function GuestsPage() {
         <p className="py-12 text-center text-sm text-muted-foreground">{copy.noMatch}</p>
       ) : (
         <div className="grid gap-3">
-          {visible.map((guest) => (
-            <Card key={guest.id}>
+          {paged.visible.map((guest) => (
+            <Card
+              key={guest.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpened(guest)}
+              onKeyDown={(event) => {
+                // A card that only responds to a mouse is a card half the
+                // people cannot use.
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setOpened(guest)
+                }
+              }}
+              className="cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary font-serif text-lg text-primary">
@@ -438,7 +463,14 @@ export default function GuestsPage() {
                     </>
                   )}
 
-                  <div className="flex items-center gap-1">
+                  {/* Its own click target inside a clickable card: without
+                      stopping here, deleting a guest would also open them. */}
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    role="presentation"
+                  >
                     {guest.stays > 0 && (
                       <Button
                         variant="ghost"
@@ -473,11 +505,38 @@ export default function GuestsPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* The aggregates said "3 stays, $3,735" and stopped there, so
+                    answering "which weeks?" meant leaving for Reservations and
+                    searching. The rows were already on the wire. */}
               </CardContent>
             </Card>
           ))}
+
+          <Pagination
+            page={paged.page}
+            pages={paged.pages}
+            onPage={paged.setPage}
+            firstShown={paged.firstShown}
+            lastShown={paged.lastShown}
+            total={paged.total}
+          />
         </div>
       )}
+
+      <GuestDetailDialog
+        guest={opened}
+        open={opened !== null}
+        onOpenChange={(next) => !next && setOpened(null)}
+        onEdit={() => {
+          if (!opened) return
+          const guest = opened
+          setOpened(null)
+          setEditing(formFor(guest))
+        }}
+        onSendLink={() => opened && void sendLink(opened)}
+        sendingLink={sendingTo === opened?.id}
+      />
 
       {dialogs}
     </div>

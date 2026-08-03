@@ -17,10 +17,15 @@ import { UserRole } from '@prisma/client'
 import type { Request, Response } from 'express'
 import { Public } from '../auth/decorators/public.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
+import { CurrentUser } from '../auth/decorators/current-user.decorator'
+import type { AuthenticatedUser } from '../auth/auth.types'
 import { BookingsService } from './bookings.service'
 import { StripeWebhookService } from './stripe-webhook.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { CancelBookingDto } from './dto/cancel-booking.dto'
+import { IssueRefundDto } from './dto/issue-refund.dto'
+import { CreateManualBookingDto } from './dto/manual-booking.dto'
+import { RefundsService } from './refunds.service'
 import { BookingPdfService } from '../guest/booking-pdf.service'
 
 @Controller('bookings')
@@ -35,6 +40,7 @@ export class BookingsController {
     private readonly bookings: BookingsService,
     private readonly webhook: StripeWebhookService,
     private readonly pdfs: BookingPdfService,
+    private readonly refunds: RefundsService,
   ) {}
 
   /**
@@ -48,15 +54,38 @@ export class BookingsController {
   @Throttle({ default: { limit: 8, ttl: 600_000 } })
   @Post(':slug/hold')
   hold(@Param('slug') slug: string, @Body() dto: CreateHoldDto, @Req() req: Request) {
-    // Stripe refuses a relative return URL, so it needs an absolute one. The
-    // Origin header is set by the browser and cannot be forged from a page on
-    // another site — and CORS already restricts who may call this at all.
+    return this.bookings.hold(slug, dto, this.originFor(req))
+  }
+
+  /**
+   * Where Stripe should send the guest back to.
+   *
+   * Stripe refuses a relative return URL, so it needs an absolute one. The
+   * Origin header is set by the browser and cannot be forged from a page on
+   * another site — and CORS already restricts who may call this at all.
+   */
+  private originFor(req: Request): string {
     const origin = req.headers.origin
     if (!origin || !this.allowedOrigins.includes(origin)) {
       throw new BadRequestException('Unknown origin')
     }
+    return origin
+  }
 
-    return this.bookings.hold(slug, dto, origin)
+  /**
+   * The guest turned back at the payment page.
+   *
+   * Public because the guest is not signed in, and safe to be: it needs the
+   * booking's id, only touches a hold that is still unpaid, and the worst a
+   * guessed id achieves is freeing dates the sweep would free within the half
+   * hour anyway. Rate limited so it cannot be used to hunt for ids.
+   */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 600_000 } })
+  @HttpCode(204)
+  @Post(':id/abandon')
+  async abandon(@Param('id') id: string) {
+    await this.bookings.abandonHold(id)
   }
 
   /**
@@ -134,11 +163,57 @@ export class BookingsController {
     return this.bookings.list()
   }
 
+  /**
+   * A stay taken over the phone.
+   *
+   * Not `@Public()` and not rate limited the way the guest hold is: this is
+   * behind a session and the person using it is the one who owns the calendar.
+   * The price is still the server's — the host types dates and a party, never
+   * a total.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Post(':slug/manual')
+  createManual(
+    @Param('slug') slug: string,
+    @Body() dto: CreateManualBookingDto,
+    @Req() req: Request,
+  ) {
+    return this.bookings.createManual(slug, dto, this.originFor(req))
+  }
+
   /** Cancelling frees the nights. A VIEWER can look but not do this. */
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @HttpCode(204)
   @Patch(':id/cancel')
   async cancel(@Param('id') id: string, @Body() dto: CancelBookingDto) {
     await this.bookings.cancel(id, dto.reason)
+  }
+
+  /**
+   * What the policy says this cancellation is worth, and what has already been
+   * sent back. A VIEWER can see it; only the two roles above can act on it.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @Get(':id/refund')
+  refundSummary(@Param('id') id: string) {
+    return this.refunds.summaryFor(id)
+  }
+
+  /**
+   * Sends money back.
+   *
+   * Rate limited despite being behind auth: this is the one endpoint in the
+   * panel that moves money out, and a loop that hits it is worse than a loop
+   * that hits anything else here.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post(':id/refund')
+  issueRefund(
+    @Param('id') id: string,
+    @Body() dto: IssueRefundDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.refunds.issue(id, { amount: dto.amount, note: dto.note, userId: user?.id })
   }
 }

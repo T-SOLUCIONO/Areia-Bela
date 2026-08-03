@@ -33,7 +33,7 @@ import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { PROPERTY_SLUG } from '@/lib/property-data'
-import { useAdminLanguage } from '@/components/admin/admin-language-provider'
+import { useAdminLanguage, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +65,7 @@ const iso = (day: Date) => format(day, 'yyyy-MM-dd')
  */
 export default function CalendarPage() {
   const { language, t } = useAdminLanguage()
+  const copyRef = useAdminCopyRef()
   const locale = language === 'en' ? enUS : esLocale
   const copy = t.calendar
 
@@ -81,6 +82,8 @@ export default function CalendarPage() {
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [unblocking, setUnblocking] = useState<BlockedRange | null>(null)
+  // Seeded when the dialog opens, so cancelling leaves the stored reason alone.
+  const [reasonDraft, setReasonDraft] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -91,11 +94,11 @@ export default function CalendarPage() {
       setBlocked(ranges)
       setBooked(bookings.filter((b) => b.status !== 'CANCELLED'))
     } catch {
-      toast.error(copy.loadFailed)
+      toast.error(copyRef.current.calendar.loadFailed)
     } finally {
       setLoading(false)
     }
-  }, [copy.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // The rule cannot see that every setState in `load` happens after an
@@ -105,15 +108,22 @@ export default function CalendarPage() {
   }, [load])
 
   const today = startOfDay(new Date())
-  const month = addMonths(startOfMonth(today), monthOffset)
+  // Two months side by side.
+  //
+  // One month meant that blocking a range crossing a month boundary — a repair
+  // over the turn of the year, the host's own Christmas — required navigating
+  // away with the selection half made, hoping it survived. Both ends are now
+  // usually on screen at once.
+  const months = [0, 1].map((step) => addMonths(startOfMonth(today), monthOffset + step))
 
   // Padded to whole weeks so the columns always line up. Not memoized: it is
-  // 42 dates, and a manual useMemo here stops the React Compiler optimizing
-  // the component at all.
-  const grid = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
-    end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
-  })
+  // 42 dates per month, and a manual useMemo here stops the React Compiler
+  // optimizing the component at all.
+  const gridFor = (month: Date) =>
+    eachDayOfInterval({
+      start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
+      end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
+    })
 
   const blockFor = (day: Date) =>
     blocked.find((range) =>
@@ -146,7 +156,12 @@ export default function CalendarPage() {
       // Outside selection mode, a click on a blocked day is a request to free
       // it. Everything else is inert: bookings are cancelled from Reservations,
       // where the guest and the refund are in view.
-      if (block) setUnblocking(block)
+      if (block) {
+        setUnblocking(block)
+        // Seeded here rather than in an effect: the dialog opens because of
+        // this click, and there is nothing to synchronise afterwards.
+        setReasonDraft(block.reason ?? '')
+      }
       return
     }
 
@@ -204,6 +219,24 @@ export default function CalendarPage() {
     }
   }
 
+  const submitReason = async () => {
+    if (!unblocking) return
+    setBusy(true)
+    try {
+      await apiFetch<BlockedRange>(`/properties/blocked-dates/${unblocking.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: reasonDraft.trim() }),
+      })
+      toast.success(copy.reasonSaved)
+      setUnblocking(null)
+      await load()
+    } catch {
+      toast.error(copy.reasonFailed)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const submitUnblock = async () => {
     if (!unblocking) return
     setBusy(true)
@@ -223,7 +256,8 @@ export default function CalendarPage() {
   // whose ends are the same day, which is why one click plus a repeat works.
   const confirming = selecting && from !== null && to !== null
 
-  const monthDays = grid.filter((d) => isSameMonth(d, month))
+  // Counted across both panes, because that is the span being looked at.
+  const monthDays = months.flatMap((month) => gridFor(month).filter((d) => isSameMonth(d, month)))
   const takenCount = monthDays.filter((d) => blockFor(d) || bookingFor(d)).length
   const freeCount = monthDays.length - takenCount
 
@@ -258,7 +292,14 @@ export default function CalendarPage() {
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
           <div>
             <CardTitle className="font-serif text-xl capitalize">
-              {format(month, 'LLLL yyyy', { locale })}
+              {/* The year only once when both panes share it. */}
+              {format(
+                months[0],
+                months[0].getFullYear() === months[1].getFullYear() ? 'LLLL' : 'LLLL yyyy',
+                { locale },
+              )}
+              {' – '}
+              {format(months[1], 'LLLL yyyy', { locale })}
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
               {loading
@@ -319,61 +360,78 @@ export default function CalendarPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-7 gap-1 text-center sm:gap-2">
-                {weekdayLabels.map((label) => (
-                  <div
-                    key={label}
-                    className="pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                  >
-                    {label}
+              <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+                {months.map((month) => (
+                  <div key={month.toISOString()}>
+                    {/* Named per pane: with two grids side by side, "which
+                        month is this column?" stops being obvious. */}
+                    <p className="mb-2 text-center text-sm font-medium capitalize text-foreground lg:text-left">
+                      {format(month, 'LLLL yyyy', { locale })}
+                    </p>
+
+                    <div className="grid grid-cols-7 gap-1 text-center sm:gap-2">
+                      {weekdayLabels.map((label) => (
+                        <div
+                          key={label}
+                          className="pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                        >
+                          {label}
+                        </div>
+                      ))}
+
+                      {gridFor(month).map((day) => {
+                        const outside = !isSameMonth(day, month)
+                        const booking = bookingFor(day)
+                        const block = blockFor(day)
+                        const selected = inSelection(day)
+                        const past = isBefore(day, today)
+                        const isToday = isSameDay(day, today)
+                        // A day from the neighbouring month is drawn for
+                        // alignment and belongs to the other pane; clicking it
+                        // here would select a date the reader is not looking at.
+                        const clickable =
+                          !outside && (selecting ? !booking && !block && !past : Boolean(block))
+
+                        return (
+                          <button
+                            key={day.toISOString()}
+                            type="button"
+                            disabled={!clickable}
+                            onClick={() => handleDayClick(day)}
+                            title={dayTitle(day)}
+                            className={cn(
+                              'flex aspect-square flex-col items-end justify-between rounded-lg border p-1.5 text-sm transition-colors sm:p-2',
+                              outside && 'opacity-30',
+                              // Booked wins over blocked: if both somehow
+                              // apply, the one with a guest attached is what
+                              // matters.
+                              booking
+                                ? 'border-emerald-600 bg-emerald-600 text-white'
+                                : block
+                                  ? 'border-slate-400 bg-slate-200 text-slate-700'
+                                  : selected
+                                    ? 'border-primary bg-primary/25 text-foreground'
+                                    : 'border-border bg-secondary/30 text-foreground',
+                              past &&
+                                !booking &&
+                                !block &&
+                                'border-dashed bg-transparent text-muted-foreground',
+                              isToday && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
+                              clickable && 'cursor-pointer hover:opacity-80',
+                            )}
+                          >
+                            <span className="tabular-nums">{format(day, 'd')}</span>
+                            {booking && (
+                              <span className="w-full truncate text-left text-[10px] leading-none opacity-90">
+                                {booking.guestName.split(' ')[0]}
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 ))}
-
-                {grid.map((day) => {
-                  const outside = !isSameMonth(day, month)
-                  const booking = bookingFor(day)
-                  const block = blockFor(day)
-                  const selected = inSelection(day)
-                  const past = isBefore(day, today)
-                  const isToday = isSameDay(day, today)
-                  const clickable = selecting ? !booking && !block && !past : Boolean(block)
-
-                  return (
-                    <button
-                      key={day.toISOString()}
-                      type="button"
-                      disabled={!clickable}
-                      onClick={() => handleDayClick(day)}
-                      title={dayTitle(day)}
-                      className={cn(
-                        'flex aspect-square flex-col items-end justify-between rounded-lg border p-1.5 text-sm transition-colors sm:p-2',
-                        outside && 'opacity-30',
-                        // Booked wins over blocked: if both somehow apply, the
-                        // one with a guest attached is what matters.
-                        booking
-                          ? 'border-emerald-600 bg-emerald-600 text-white'
-                          : block
-                            ? 'border-slate-400 bg-slate-200 text-slate-700'
-                            : selected
-                              ? 'border-primary bg-primary/25 text-foreground'
-                              : 'border-border bg-secondary/30 text-foreground',
-                        past &&
-                          !booking &&
-                          !block &&
-                          'border-dashed bg-transparent text-muted-foreground',
-                        isToday && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
-                        clickable && 'cursor-pointer hover:opacity-80',
-                      )}
-                    >
-                      <span className="tabular-nums">{format(day, 'd')}</span>
-                      {booking && (
-                        <span className="w-full truncate text-left text-[10px] leading-none opacity-90">
-                          {booking.guestName.split(' ')[0]}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
               </div>
 
               {/* Identity is never colour alone. */}
@@ -446,14 +504,35 @@ export default function CalendarPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUnblocking(null)} disabled={busy}>
-              {copy.cancelSelection}
-            </Button>
+          {/* Correcting a typo used to mean freeing the nights and blocking
+              them again, which put a closed week back on sale for the seconds
+              in between. */}
+          <div className="space-y-2">
+            <Label htmlFor="block-reason">{copy.editReason}</Label>
+            <Input
+              id="block-reason"
+              value={reasonDraft}
+              onChange={(event) => setReasonDraft(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{copy.editReasonHint}</p>
+          </div>
+
+          <DialogFooter className="sm:justify-between">
             <Button variant="destructive" onClick={() => void submitUnblock()} disabled={busy}>
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {copy.unblock}
             </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setUnblocking(null)} disabled={busy}>
+                {copy.cancelSelection}
+              </Button>
+              <Button
+                onClick={() => void submitReason()}
+                disabled={busy || reasonDraft.trim() === (unblocking?.reason ?? '')}
+              >
+                {copy.saveReason}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

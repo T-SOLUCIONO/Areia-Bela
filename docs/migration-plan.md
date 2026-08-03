@@ -7,7 +7,7 @@ de empezar. Ninguna fase avanza sin cumplir su criterio de salida.
 
 Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bilingüe ES/EN.
 
-## Fase 2 — Monorepo + limpieza de dominio + base bilingüe (EN CURSO)
+## Fase 2 — Monorepo + limpieza de dominio + base bilingüe ✅ completada
 
 - Crear Turborepo: `apps/web`, `apps/api` (placeholder), `packages/{ui,types,shared,utils,config}`.
 - Mover el frontend actual a `apps/web` sin romper el sitio.
@@ -21,7 +21,10 @@ Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bili
 
 **Criterio de salida:** `pnpm install && pnpm build && pnpm lint && pnpm typecheck` sin errores. Sitio actual sigue funcionando igual para el usuario final.
 
-## Fase 3 — Backend NestJS + PostgreSQL + Prisma
+**Cumplido.** Los cuatro comandos corren en verde en cada push desde §74, y el
+sitio público se recorre en un navegador en §75.
+
+## Fase 3 — Backend NestJS + PostgreSQL + Prisma ✅ completada
 
 - `apps/api` con Prisma, schema inicial (`Property`, `Availability`, `Booking`, `Customer`, `Extra`, `PriceRule`), migraciones, seed.
 - Seed con datos reales de Areia Bela (no ficticios) — ver `docs/domain-decisions.md`.
@@ -30,6 +33,10 @@ Ver `docs/current-analysis.md`. Decisiones tomadas: casa única (no hotel), bili
 - Documentar base de datos + diagrama ER en `docs/database.md`.
 
 **Criterio de salida:** el quote server-side coincide con la UI actual; seed corre limpio desde cero.
+
+**Cumplido.** El E2E de §75 comprueba que el total de la pantalla es el que
+devuelve el servidor, y el job de migraciones de §74 aplica el historial
+completo sobre una base vacía y siembra dos veces sin duplicar.
 
 ## Fase 4 — Autenticación ✅ completada
 
@@ -47,7 +54,7 @@ punta a punta; cero credenciales demo en el código; `pnpm build`, `pnpm lint`,
 `pnpm typecheck` y `pnpm test` en verde. Ver `docs/changelog.md` §14 para la
 auditoría del checklist de seguridad.
 
-## Fase 5 — CMS / Admin
+## Fase 5 — CMS / Admin ✅ completada
 
 - Migrar a DB: settings, hero, footer, SEO, FAQs, políticas, todas las secciones descritas en `docs/domain-decisions.md`, en `es` y `en`.
 - Galería con upload + reorder + optimización de imágenes.
@@ -65,7 +72,7 @@ copia de marketing de la portada sigue en `lib/i18n.ts`, la optimización de
 imágenes pasa a Fase 8 y aplicar tarifas por temporada a una cotización es
 Fase 6.
 
-## Fase 6 — Sistema de reservas
+## Fase 6 — Sistema de reservas ✅ completada
 
 - Calendario tipo Airbnb (2 meses, hover range, fechas bloqueadas desde API) para **una sola propiedad**. ✅
 - Validación de conflictos, mínimo de noches, temporada de piscina climatizada. ✅
@@ -81,15 +88,22 @@ desde el navegador; la anfitriona ve las reservas y puede cancelarlas desde
 sola cosa para que el flujo corra de punta a punta sin intervención:
 `STRIPE_WEBHOOK_SECRET` con un valor real (ver `docs/env.md`).
 
-## Fase 7 — Stripe completo
+## Fase 7 — Stripe completo ✅ completada
 
 - Webhooks (`checkout.session.completed`, `payment_intent.failed`) — **los dos
   primeros se adelantaron en Fase 6.3**, junto con `checkout.session.expired`.
   Ver `docs/changelog.md` §29.
 - El `Booking` se crea en el webhook, nunca en el frontend — **hecho en 6.3**.
-- Reembolsos desde admin, panel de pagos.
+- Reembolsos desde admin ✅ (§53–§55), panel de pagos ✅ (§56–§59).
+- Alta de reservas por teléfono ✅ (§66).
+- Mínimos de noches por temporada ✅ (§65), con alta y edición de temporadas.
 
-## Fase 7.5 — Impuestos (módulo de recaudación y declaración)
+**Criterio de salida:** cancelar una reserva pagada ofrece el reembolso con la
+cifra que dicta la política; el panel de pagos cuadra con el libro de Stripe;
+una reserva tomada por teléfono respeta la restricción de solapamiento y su
+precio lo calcula el servidor. Cumplido en `docs/changelog.md` §53 a §66.
+
+## Fase 7.5 — Impuestos ✅ completada
 
 Pedido por el usuario: un módulo en `/admin` que haga lo que hace Stripe Tax
 —decir cuánto se debe y con qué desglose— porque **en una reserva directa la
@@ -126,11 +140,24 @@ así que no se toca sin confirmación.
 jurisdicción, exportarlo y marcarlo como declarado; las cifras cuadran con la
 suma de las columnas `taxes` de las reservas de ese periodo.
 
-## Fase 8 — Calidad y producción
+## Fase 8 — Calidad y producción ✅ completada
 
-- Tests unitarios (pricing, auth), integración (API), E2E Playwright (flujo de reserva completo).
-- SEO técnico, accesibilidad WCAG AA, Lighthouse > 95.
-- GitHub Actions CI/CD, Docker de producción, documentación de deployment.
+- Tests unitarios (308) ✅, E2E Playwright del flujo de reserva ✅ (§75) y de
+  SEO/accesibilidad ✅ (§76).
+- SEO técnico ✅ (§76): robots, sitemap, canonical, hreflang, datos
+  estructurados. Accesibilidad: auditada y corregida ✅.
+- GitHub Actions ✅ (§74), Docker de producción y documentación de despliegue ✅
+  (§77, `docs/deployment.md`).
+
+**Criterio de salida:** cada push comprueba formato, lint, tipos, tests y build;
+el flujo de reserva se recorre en un navegador contra el API real; el sitio
+declara su canónica y su hreflang en los cinco idiomas; y hay una imagen de
+producción por app con su documentación. Cumplido en `docs/changelog.md` §74 a
+§77.
+
+**Diferido, declarado en `docs/deployment.md`:** el API corre con `ts-node`
+porque los paquetes de `packages/` publican TypeScript sin compilar; y no hay
+CD, porque automatizar un despliegue exige antes decidir dónde.
 
 ## Quick wins previos a Fase 2 (hacer primero, son rápidos y bajan riesgo)
 

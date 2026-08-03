@@ -9,6 +9,7 @@ import type { PaymentsService } from './payments.service'
 import type { GuestService } from '../guest/guest.service'
 import type { PrismaService } from '../prisma/prisma.service'
 import type { CreateHoldDto } from './dto/create-hold.dto'
+import { ManualPaymentMethod } from './dto/manual-booking.dto'
 
 const QUOTE = {
   nights: 7,
@@ -67,10 +68,13 @@ const BOOKING_ROW = {
   createdAt: new Date('2026-07-30'),
   expiresAt: new Date('2026-07-30T12:30:00Z'),
   customer: {
+    id: 'cust-1',
     firstName: 'Jane',
     lastName: 'Doe',
     email: 'jane@example.com',
     phone: '+13055550100',
+    // Null on a first-time guest; a returning one already has theirs.
+    stripeCustomerId: null as string | null,
   },
   extras: [{ extra: { name: 'Mascota' } }],
   property: { slug: 'areia-bela', checkInTime: '16:00', checkOutTime: '10:00' },
@@ -94,18 +98,19 @@ describe('BookingsService', () => {
       update: jest.Mock
       updateMany: jest.Mock
     }
-    customer: { upsert: jest.Mock; findUnique?: jest.Mock }
+    customer: { upsert: jest.Mock; update: jest.Mock; findUnique?: jest.Mock }
     $transaction: jest.Mock
   }
   let properties: { getQuote: jest.Mock }
   let guests: { myBooking: jest.Mock }
-  let payments: { checkoutUrlFor: jest.Mock; sessionStatus?: jest.Mock }
+  let payments: { checkoutUrlFor: jest.Mock; ensureCustomer: jest.Mock; sessionStatus?: jest.Mock }
   let notifications: {
     bookingCreated: jest.Mock
     bookingCancelled: jest.Mock
     bookingConflict: jest.Mock
     paymentNotCompleted: jest.Mock
     guestConfirmation: jest.Mock
+    guestCancellation: jest.Mock
   }
   let service: BookingsService
 
@@ -120,7 +125,11 @@ describe('BookingsService', () => {
         update: jest.fn().mockResolvedValue(BOOKING_ROW),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      customer: { upsert: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
+      customer: {
+        upsert: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+      },
       // Runs the callback against the same mocks, which is enough to assert
       // what happens inside the transaction and in what order.
       $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
@@ -129,6 +138,7 @@ describe('BookingsService', () => {
     guests = { myBooking: jest.fn() }
     payments = {
       checkoutUrlFor: jest.fn().mockResolvedValue('https://checkout.stripe.com/c/pay/cs_test_1'),
+      ensureCustomer: jest.fn().mockResolvedValue('cus_new_1'),
     }
     notifications = {
       bookingCreated: jest.fn().mockResolvedValue(undefined),
@@ -136,6 +146,7 @@ describe('BookingsService', () => {
       bookingConflict: jest.fn().mockResolvedValue(undefined),
       paymentNotCompleted: jest.fn().mockResolvedValue(undefined),
       guestConfirmation: jest.fn().mockResolvedValue(undefined),
+      guestCancellation: jest.fn().mockResolvedValue(undefined),
     }
 
     service = new BookingsService(
@@ -397,7 +408,230 @@ describe('BookingsService', () => {
     })
   })
 
+  describe('a hold that never becomes payable', () => {
+    it('gives the dates straight back when Stripe refuses', async () => {
+      payments.checkoutUrlFor.mockRejectedValue(new Error('Stripe is down'))
+
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).rejects.toThrow('Stripe is down')
+
+      // The row is committed before Stripe is called, so without this the week
+      // stays shut for half an hour over a payment page nobody ever saw.
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'booking-1', status: 'PENDING', paidAt: null },
+          data: expect.objectContaining({
+            status: 'CANCELLED',
+            expiresAt: null,
+            cancellationReason: 'No se pudo abrir el pago',
+          }),
+        }),
+      )
+    })
+
+    it('frees a hold the guest turned back from', async () => {
+      await service.abandonHold('booking-1')
+
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // Guarded in the filter, so a hold paid in the meantime survives.
+          where: { id: 'booking-1', status: 'PENDING', paidAt: null },
+          data: expect.objectContaining({ status: 'CANCELLED' }),
+        }),
+      )
+    })
+
+    it('never throws while freeing one', async () => {
+      prisma.booking.updateMany.mockRejectedValue(new Error('database gone'))
+
+      // The caller is already dealing with a failure, and the sweep frees
+      // these dates within the half hour regardless.
+      await expect(service.abandonHold('booking-1')).resolves.toBeUndefined()
+    })
+  })
+
+  describe('a stay taken over the phone', () => {
+    const MANUAL = {
+      checkIn: '2026-09-01',
+      checkOut: '2026-09-08',
+      guests: { adults: 4, children: 2, infants: 1, pets: 1 },
+      guest: DTO.guest,
+      extraIds: ['extra-pet'],
+      locale: 'es',
+    }
+
+    beforeEach(() => {
+      properties.getQuote = jest.fn().mockResolvedValue(QUOTE)
+      prisma.property.findUnique.mockResolvedValue({
+        id: 'prop-1',
+        checkInTime: '16:00',
+        checkOutTime: '10:00',
+      })
+    })
+
+    it('confirms it on the spot when the money is already in hand', async () => {
+      const result = await service.createManual(
+        'areia-bela',
+        { ...MANUAL, paymentMethod: ManualPaymentMethod.CASH },
+        ORIGIN,
+      )
+
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            source: 'PANEL',
+            status: 'CONFIRMED',
+            paymentMethod: 'CASH',
+            // A confirmed stay does not expire.
+            expiresAt: null,
+          }),
+        }),
+      )
+      // No Stripe: there is nothing to charge.
+      expect(payments.checkoutUrlFor).not.toHaveBeenCalled()
+      expect(result.checkoutUrl).toBeNull()
+      expect(notifications.guestConfirmation).toHaveBeenCalled()
+    })
+
+    it('opens a day-long payment link when the guest has not paid yet', async () => {
+      const result = await service.createManual('areia-bela', MANUAL, ORIGIN)
+
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PENDING', paymentMethod: null }),
+        }),
+      )
+      // Half an hour is right for someone on the checkout page and wrong for
+      // someone who just hung up.
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ ttlMinutes: 24 * 60 }),
+      )
+      expect(result.checkoutUrl).toContain('checkout.stripe.com')
+      // Nothing is promised to a guest who has not paid.
+      expect(notifications.guestConfirmation).not.toHaveBeenCalled()
+    })
+
+    it('prices it on the server, never from the caller', async () => {
+      await service.createManual(
+        'areia-bela',
+        { ...MANUAL, paymentMethod: ManualPaymentMethod.TRANSFER },
+        ORIGIN,
+      )
+
+      expect(properties.getQuote).toHaveBeenCalledWith(
+        'areia-bela',
+        expect.objectContaining({ checkIn: '2026-09-01', checkOut: '2026-09-08' }),
+      )
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ totalPrice: QUOTE.total }) }),
+      )
+    })
+
+    it('refuses dates the host has blocked', async () => {
+      prisma.blockedDate.findFirst.mockResolvedValue({ id: 'blocked-1' })
+
+      await expect(service.createManual('areia-bela', MANUAL, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
+      expect(prisma.booking.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses dates somebody already has', async () => {
+      prisma.booking.create.mockRejectedValue(overlapError())
+
+      await expect(service.createManual('areia-bela', MANUAL, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
+    })
+
+    it('takes a stay shorter than the house minimum, because the host said so', async () => {
+      // The limits exist to stop a stranger booking one night over Christmas.
+      // The person on the phone is the one who set them.
+      properties.getQuote = jest.fn().mockResolvedValue({ ...QUOTE, nights: 1, minNights: 5 })
+
+      await expect(
+        service.createManual(
+          'areia-bela',
+          { ...MANUAL, paymentMethod: ManualPaymentMethod.CASH },
+          ORIGIN,
+        ),
+      ).resolves.toBeDefined()
+    })
+  })
+
+  describe('the guest\u2019s Stripe customer', () => {
+    it('creates one on a first payment and remembers it', async () => {
+      await service.hold('areia-bela', DTO, ORIGIN)
+
+      expect(payments.ensureCustomer).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'jane@example.com', name: 'Jane Doe' }),
+      )
+      expect(prisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 'cust-1' },
+        data: { stripeCustomerId: 'cus_new_1' },
+      })
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeCustomerId: 'cus_new_1' }),
+      )
+    })
+
+    it('reuses the one a returning guest already has', async () => {
+      // The whole point: Stripe never deduplicates by email, so a second
+      // booking that asked it for a customer would get a second person.
+      prisma.booking.create.mockResolvedValue({
+        ...BOOKING_ROW,
+        customer: { ...BOOKING_ROW.customer, stripeCustomerId: 'cus_existing' },
+      })
+
+      await service.hold('areia-bela', DTO, ORIGIN)
+
+      expect(payments.ensureCustomer).not.toHaveBeenCalled()
+      expect(prisma.customer.update).not.toHaveBeenCalled()
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeCustomerId: 'cus_existing' }),
+      )
+    })
+
+    it('still opens checkout when Stripe refuses to make a customer', async () => {
+      payments.ensureCustomer.mockResolvedValue(null)
+
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).resolves.toBeDefined()
+      expect(payments.checkoutUrlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ stripeCustomerId: undefined }),
+      )
+    })
+  })
+
   describe('cancelling', () => {
+    it('tells the guest, in their language, that their stay is off', async () => {
+      await service.cancel('booking-1', 'Fuga de agua')
+
+      expect(notifications.guestCancellation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reference: 'AB-XYZ123',
+          reason: 'Fuga de agua',
+          locale: 'en',
+        }),
+      )
+    })
+
+    it('does not promise a refund on a booking nobody paid for', async () => {
+      await service.cancel('booking-1')
+
+      expect(notifications.guestCancellation).toHaveBeenCalledWith(
+        expect.objectContaining({ paid: false }),
+      )
+    })
+
+    it('says money is coming back when the stay was paid', async () => {
+      prisma.booking.findUnique.mockResolvedValue({ ...BOOKING_ROW, paidAt: new Date() })
+
+      await service.cancel('booking-1')
+
+      expect(notifications.guestCancellation).toHaveBeenCalledWith(
+        expect.objectContaining({ paid: true }),
+      )
+    })
+
     it('frees the nights and tells the host why', async () => {
       await service.cancel('booking-1', 'Fuga de agua')
 
@@ -422,6 +656,7 @@ describe('BookingsService', () => {
 
       expect(prisma.booking.update).not.toHaveBeenCalled()
       expect(notifications.bookingCancelled).not.toHaveBeenCalled()
+      expect(notifications.guestCancellation).not.toHaveBeenCalled()
     })
   })
 

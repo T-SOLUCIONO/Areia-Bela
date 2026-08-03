@@ -8,10 +8,18 @@ import { BookingsService } from './bookings.service'
 import { StripeWebhookService } from './stripe-webhook.service'
 import { PaymentsService } from './payments.service'
 import { PaymentReconciliationService } from './payment-reconciliation.service'
+import { RefundsService } from './refunds.service'
 
 @Module({
   imports: [ScheduleModule.forRoot(), PropertiesModule, NotificationsModule, GuestModule],
   controllers: [BookingsController],
-  providers: [BookingsService, StripeWebhookService, PaymentsService, PaymentReconciliationService],
+  providers: [
+    BookingsService,
+    StripeWebhookService,
+    PaymentsService,
+    PaymentReconciliationService,
+    RefundsService,
+  ],
+  exports: [RefundsService, PaymentsService],
 })
 export class BookingsModule {}

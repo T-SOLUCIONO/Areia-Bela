@@ -13,7 +13,7 @@ import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { cms, type CMSPage, type CMSPageSlug } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { cn } from '@/lib/utils'
 
 /** The twelve slugs, in the order the guest site reads them. */
@@ -46,6 +46,7 @@ function blankPage(slug: CMSPageSlug, title: string): CMSPage {
 
 export function PagesEditor() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [pages, setPages] = useState<Record<string, CMSPage>>({})
   const [selected, setSelected] = useState<CMSPageSlug>('ABOUT_SPACE')
   const [draft, setDraft] = useState<CMSPage | null>(null)
@@ -57,11 +58,11 @@ export function PagesEditor() {
       const rows = await cms.pages()
       setPages(Object.fromEntries(rows.map((page) => [page.slug, page])))
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.content.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.content.loadFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [t.content.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

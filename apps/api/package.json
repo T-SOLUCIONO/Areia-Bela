@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "node --watch -r ts-node/register/transpile-only src/main.ts",
-    "start": "ts-node --transpile-only src/main.ts",
+    "dev": "node --watch --conditions=development -r ts-node/register/transpile-only src/main.ts",
+    "start": "node dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
@@ -15,7 +15,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "seed:cms": "ts-node prisma/seed-cms.ts",
-    "seed:landing": "ts-node prisma/seed-landing.ts"
+    "seed:landing": "ts-node prisma/seed-landing.ts",
+    "seed:taxes": "ts-node prisma/seed-taxes.ts",
+    "start:ts": "ts-node --transpile-only src/main.ts"
   },
   "dependencies": {
     "@areia-bela/shared": "workspace:*",

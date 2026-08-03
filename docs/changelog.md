@@ -3269,3 +3269,1880 @@ portada y checkout       → HTTP 200
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (245 tests)
 ```
+
+---
+
+## 52. Calendario: fuera el mes muerto y fuera la leyenda
+
+Tres correcciones sobre §51, vistas en uso.
+
+### El mes anterior ya no se puede mostrar ni alcanzar
+
+El diálogo abría en el mes de **hoy** y dejaba la estadía para el segundo
+panel. Con una reserva en agosto eso significaba una rejilla entera de julio
+apagada: un mes que nadie puede reservar ocupando la mitad del calendario.
+
+Ahora abre donde está la estadía, y la flecha `‹` no puede retroceder más allá
+del mes en curso:
+
+```tsx
+startMonth={startOfMonth(today)}
+defaultMonth={value.from && value.from > today ? startOfMonth(value.from) : undefined}
+```
+
+`startMonth` hacía falta además de `defaultMonth`: sin él la flecha seguía
+llevando a julio aunque el calendario abriera en agosto.
+
+### La leyenda se va
+
+Con un estado menos que explicar y un diálogo que ya venía justo de alto, la
+fila de muestras salió. Las cinco claves (`legendFree`, `legendToday`,
+`legendSelected`, `legendTaken`, `legendPast`) se eliminaron de los cinco
+idiomas en vez de dejarlas huérfanas en `i18n.ts`.
+
+Los estados no quedan sin explicar: el día no disponible conserva el tachado
+y la trama, que ya decían "esto no se vende" sin depender del color.
+
+### El día pasado, gris plano
+
+Estaba con borde punteado y `bg-transparent`, y el `bg-transparent` no se veía:
+va en la celda, y el botón encima la tapaba con el tinte de noche libre. Ahora
+el gris se pinta en el botón, donde vive el relleno visible.
+
+Un día **pasado y ocupado** sigue tramado. La distinción importa: la trama
+dice "alguien lo tiene", y a ayer no lo tiene nadie.
+
+```tsx
+past: (date) => date < todayStart && !taken(date) && !blocked(date)
+```
+
+### Comprobado
+
+```
+twMerge del día pasado → bg-slate-100 gana sobre bg-secondary/30
+grep de las claves de leyenda en apps/ y packages/ → 0
+portada: sin rastro de "Tu estadía" / "No disponible" / "Ya pasó"
+portada y checkout → HTTP 200
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (245 tests)
+```
+
+---
+
+## 53. Fase 7.1 — Se podía cancelar una reserva pagada y el dinero se quedaba
+
+El agujero: `cancel()` ponía la reserva en `CANCELLED`, devolvía las noches al
+calendario y terminaba con este comentario.
+
+```ts
+// Refunds are not automated: money going back out is a decision, not a
+// side effect of a click.
+```
+
+La primera frase era cierta y la segunda también, pero juntas dejaban al
+huésped cobrado mientras el checkout y el PDF le prometían una devolución. El
+sistema anunciaba un reembolso que no podía ejecutar.
+
+### Lo que decide, y lo que no
+
+`proposeRefund` **propone**. No mueve dinero. El panel enseña la propuesta
+línea por línea y la deja en un campo editable, porque quien sabe si la semana
+se puede revender no es una función.
+
+Lo que se guarda es la propuesta **y** lo enviado. La diferencia entre las dos
+es el único registro de que alguien tomó una decisión.
+
+### A qué se le aplica la política
+
+| Concepto                              | Qué vuelve                                 |
+| ------------------------------------- | ------------------------------------------ |
+| Noches, tarifa de servicio, impuestos | Lo que diga la escalera: 100 %, 50 % o 0 % |
+| Limpieza                              | Entero, siempre que el huésped no llegue   |
+| Extras                                | Enteros, por lo mismo                      |
+
+El impuesto sigue al dinero que se queda la anfitriona: no se debe nada sobre
+un importe devuelto, y como `computeQuote` lo calcula sobre el alojamiento,
+aplicar la misma tasa a los tres los mantiene coherentes entre sí.
+
+La limpieza es el único punto donde una política del 0 % igual devuelve dinero.
+Es deliberado y es lo que hace Airbnb: nadie limpió la casa. Una vez que la
+estadía empezó no vuelve nada — la casa sí se preparó para alguien que vino.
+
+### Por qué una tabla y no una columna
+
+`Refund` es entidad nueva, y CLAUDE.md pide justificarla. Un `refundedTotal`
+en `Booking` respondería "cuánto" y nada más. Hace falta además: excluir
+reembolsos de la base imponible en Fase 7.5 y saber **cuándo** ocurrieron,
+mostrar **quién** autorizó cada uno, y permitir dos sobre la misma reserva —
+uno parcial ahora y el resto tras una conversación. Nada de eso cabe en un
+acumulado.
+
+### El orden importa
+
+La fila se escribe **antes** de llamar a Stripe, y su `id` es la clave de
+idempotencia. Un reintento que llegue dos veces a Stripe lo rechaza Stripe, no
+se paga dos veces. Si Stripe se niega, la fila queda en `FAILED` con el motivo:
+un reembolso rechazado es algo que la anfitriona tiene que ver, no que borrar.
+
+Al huésped se le avisa **solo** cuando el dinero ya salió. Anunciar uno que
+luego falló sería peor que callarse.
+
+### Lo demás
+
+- `Booking.stripePaymentIntentId`: Stripe reembolsa un PaymentIntent, no una
+  sesión. Se guarda al confirmar. Las reservas anteriores no lo tienen, así que
+  se busca una vez por su sesión y se guarda — ruta que las 8 reservas pagadas
+  de la base van a usar.
+- Reembolsar no exige cancelar, y cancelar ofrece reembolsar acto seguido: es
+  una decisión en dos pasos, no dos recados.
+- El botón aparece aunque la reserva ya esté cancelada. Es justamente el caso
+  que más lo necesita: una estadía anulada con el dinero todavía cobrado.
+
+### Comprobado sobre las 8 reservas pagadas reales
+
+```
+Política vigente: MODERATE
+AB-JJYK9R  llegada 2026-07-31  pagó $1245  -> STAY_STARTED (-1d)  propone $0
+AB-T45RMB  llegada 2026-08-06  pagó $1245  -> FULL (5d)   propone $1245
+AB-E37EEZ  llegada 2026-08-09  pagó $2370  -> FULL (8d)   propone $2370
+AB-UJHWKH  llegada 2026-08-27  pagó $1017  -> FULL (26d)  propone $1017
+```
+
+Ninguna propuesta excede lo pagado. `AB-UJHWKH` es la comprobación que más
+dice: se reservó con limpieza y servicio apagados desde el panel, y la
+propuesta suma 900 + 117 = 1017, exactamente lo cobrado. El desglose cuadra con
+el total guardado, no con uno recalculado hoy.
+
+```
+GET  /bookings/:id/refund sin sesión → 401
+POST /bookings/:id/refund sin sesión → 401
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (269 tests, 24 nuevos)
+```
+
+### Pendiente del usuario
+
+Falta **un reembolso real en modo test** desde el panel, de punta a punta. No
+lo hice yo: mueve dinero en la cuenta de Stripe del usuario y no tengo su
+contraseña de admin para hacerlo por la vía que lo haría ella.
+
+### Diferido
+
+- **Sin `charge.refunded` en el webhook.** Un reembolso hecho desde el panel de
+  Stripe no aparece en este libro mayor. El panel propio sí queda al día.
+- **Sin reembolso parcial por noche.** Se devuelve un importe, no "las tres
+  últimas noches".
+
+---
+
+## 54. Al huésped no le llegaba nada cuando le cancelaban la reserva
+
+Pregunta del usuario, y al ir a mirarlo apareció un hueco más grande que la
+pregunta.
+
+### Lo que estaba roto
+
+`cancel()` liberaba las noches, avisaba a la anfitriona y **al huésped no le
+decía nada**. Se enteraba al llegar a la casa.
+
+Y el aviso que sí salía estaba mal escrito:
+
+```ts
+;`${booking.guestName} canceló su reserva.`
+```
+
+Ese método solo se llama desde el panel, así que quien cancela es la
+anfitriona. El correo le decía que había cancelado el huésped.
+
+### Lo que se hizo
+
+Un correo al huésped, en sus cinco idiomas, con el motivo si se escribió uno.
+No es opcional: los interruptores del panel son sobre cuánto ruido quiere la
+anfitriona, no sobre si a alguien se le avisa de que se le canceló el viaje.
+
+Promete el reembolso **solo si hay algo que devolver**. A quien nunca pagó no
+se le anuncia dinero de vuelta.
+
+### El plazo: lo que Stripe sabe y lo que no
+
+Pregunta del usuario: cómo saber cuánto tarda en llegarle. Se revisó el SDK
+instalado (`stripe@20.4.1`, `types/Refunds.d.ts`) antes de responder.
+
+**No existe ningún campo con fecha estimada de llegada.** Lo que sí hay en
+`destination_details.card`:
+
+| Campo              | Qué es                                             |
+| ------------------ | -------------------------------------------------- |
+| `type`             | `refund`, `reversal` o `pending`                   |
+| `reference`        | el ARN, con el que el banco del huésped lo rastrea |
+| `reference_status` | `pending`, `available` o `unavailable`             |
+
+`type` es el dato útil y casi nadie lo mira: si el cargo original **todavía no
+se liquidó**, Stripe hace un `reversal` y vuelve en 1–3 días hábiles. Si ya se
+liquidó, es un `refund` de verdad y son los 5–10 días de siempre. Dos esperas
+muy distintas, y Stripe sabe cuál aplica.
+
+Ahora el correo dice cuál de las dos es, en vez de recitar "5 a 10 días" a todo
+el mundo. Y añade el ARN **solo cuando `reference_status` es `available`**: un
+número de rastreo que el banco todavía no puede buscar manda al huésped a un
+callejón sin salida.
+
+El panel muestra lo mismo en el historial, para que la anfitriona pueda
+responder "¿dónde está mi dinero?" sin entrar a Stripe.
+
+### Un `!== null` que era un `Boolean()`
+
+El test nuevo falló, y no por el test: `paid: booking.paidAt !== null` da
+`true` cuando el campo viene ausente, porque `undefined !== null`. En una fila
+de Prisma real siempre viene, así que en producción no se notaba — pero la
+comprobación decía otra cosa de la que quería decir. Se corrigió el código.
+
+### Comprobado renderizando los correos de verdad
+
+```
+Hola Jane, tu reserva quedó cancelada.
+Motivo: Fuga de agua
+Si pagaste, el reembolso se gestiona ahora y te llega un correo aparte...
+
+Hi Jane, your booking has been cancelled.
+You were not charged for this booking.          ← sin promesa de reembolso
+
+Como el cargo todavía no se había liquidado, se anula directamente:
+suele desaparecer de tu extracto en 1 a 3 días hábiles.        ← reversal
+
+El dinero vuelve al mismo método de pago que usaste... 5 y 10 días hábiles.
+Si tu banco no lo encuentra, dale este número de rastreo: 751077...  ← refund
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (272 tests, 3 nuevos)
+```
+
+### Diferido
+
+- **Sin `charge.refund.updated` en el webhook.** El ARN llega a veces minutos
+  después del reembolso; si en ese momento era `pending`, no se rellena solo.
+  Hace falta escuchar ese evento para mantenerlo al día.
+
+---
+
+## 55. Los dos reembolsos reales, y el número de rastreo que faltaba
+
+El usuario hizo dos reembolsos desde el panel y preguntó cómo saber si llegaron
+a Stripe. Se comprobó preguntándole a Stripe, no a nuestra base.
+
+```
+re_3TzHKKFIUDUBDoC21lntboXT   succeeded   $1245.00   tipo refund
+  ARN 3977554206558176 (available)
+re_3Tz0qOFIUDUBDoC20KYB5rvi   succeeded   $1245.00   tipo refund
+  ARN 7091837703965765 (available)
+```
+
+`succeeded` es la palabra: Stripe ya lo mandó al banco del huésped.
+
+### Lo que la comprobación destapó
+
+Los dos ARN estaban **disponibles en Stripe y ausentes en nuestra base**. Al
+crear el reembolso Stripe todavía los daba como `pending`, así que la fila
+guardó null — y los dos correos al huésped salieron sin número de rastreo.
+Estaba declarado como diferido en §54; los datos reales lo convirtieron en algo
+que arreglar hoy.
+
+### Se resuelve preguntando, no esperando
+
+La opción obvia era escuchar `charge.refund.updated` en el webhook. Se
+descartó por lo aprendido en §41: en este proyecto el webhook **es** el
+problema — el túnel se renombró cuatro veces y Stripe reintentaba contra un
+dominio muerto. Un dato que solo llega por webhook es un dato que a veces no
+llega.
+
+`summaryFor` pregunta por las filas a las que les falta el ARN, y solo por
+esas. Silencioso si falla: una referencia desactualizada no vale una pantalla
+rota.
+
+### Comprobado sobre los dos reembolsos reales
+
+```
+ANTES:     re_3Tz0qO...  ARN: —     re_3TzHKK...  ARN: —
+DESPUÉS:   re_3Tz0qO...  ARN: 7091837703965765
+           re_3TzHKK...  ARN: 3977554206558176
+```
+
+Coinciden exactamente con lo que devolvió la API de Stripe. Y `summaryFor` los
+devuelve ya en **esa misma llamada**, no en la siguiente: las filas se mutan en
+memoria además de guardarse, para que la anfitriona no tenga que cerrar y
+reabrir el diálogo.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests, 3 nuevos)
+```
+
+### Para que el usuario lo mire
+
+`AB-JJYK9R`: la política proponía **$0** (`STAY_STARTED`, la llegada era el 31
+de julio) y se devolvieron $1245. La reserva además sigue en `CONFIRMED`, sin
+cancelar. Puede ser intencionado —el importe se puede sobrescribir y por eso se
+guardan las dos cifras— o puede ser una prueba. El registro conserva la
+diferencia; la decisión es del usuario.
+
+---
+
+## 56. Fase 7.2 — Pagos: lo que se cobra no es lo que llega
+
+Pregunta del usuario: si podía tener un módulo de Stripe en el panel con pagos,
+reembolsos y transacciones. Antes de diseñarlo se miró qué tiene de verdad la
+cuenta, y lo que apareció cambió el diseño entero.
+
+### El hallazgo
+
+La cuenta de Stripe es **española y liquida en EUR**. La casa está en Florida y
+cobra en **USD**. Cada reserva pasa por una conversión antes de llegar al banco.
+
+```
+cobrado (USD)  liquidado (EUR)  proceso  conversión  neto (EUR)      %
+      1245.00          1079.30    34.25       21.59     1023.46   5.17%
+      2370.00          2066.53    65.35       41.33     1959.85   5.16%
+      1017.00           881.65    28.02       17.63      836.00   5.18%
+```
+
+Son **dos** comisiones, no una: la de proceso de Stripe y una de **cambio de
+moneda** que suma otro ~2 %. Un panel que sumara `Booking.totalPrice` habría
+enseñado 14.592 USD de un periodo en el que el neto real fueron 9.870,62 EUR.
+
+Por eso el módulo lee el **libro de Stripe** (`balance_transactions`), no
+nuestras reservas: solo esas filas traen la comisión, el neto y el importe en la
+moneda en la que la cuenta liquida de verdad.
+
+### Lo que enseña
+
+- Cobrado y reembolsado en la moneda del huésped (USD).
+- Liquidado, comisión de proceso, comisión de cambio y **neto** en EUR.
+- Un aviso que nombra la conversión en vez de esconderla dentro de un total de
+  "comisiones". Es la que nadie espera.
+- Saldo retenido en Stripe y transferencias al banco, con su fecha de llegada.
+- Cada movimiento, con la reserva y el huésped cuando se puede emparejar.
+
+### Lo que no se empareja se dice
+
+3 de 13 filas no tienen reserva en este sistema. No se ocultan ni se inventa un
+nombre: se cuentan y se nombran. Dinero cobrado sin reserva detrás es
+exactamente lo que hay que ver, no lo que hay que maquillar.
+
+### Un relleno que hacía falta
+
+Al principio solo emparejaban 4 de 13: las reservas anteriores a Fase 7 no
+guardaban `stripePaymentIntentId`, que es la única llave entre el libro de
+Stripe y nuestras reservas. Se rellenan solas al arrancar el API, una vez y sin
+repetir trabajo — la consulta solo encuentra las que aún lo tienen vacío.
+
+```
+antes:   reservas pagadas 8   con PaymentIntent 2
+después: reservas pagadas 8   con PaymentIntent 8
+filas emparejadas: 4 → 10 de 13
+```
+
+### Comprobado contra la cuenta real
+
+```
+cobrado a huéspedes  14592.00 USD
+reembolsado           2490.00 USD
+liquidado            12686.45 EUR
+reembolsos           -2158.62
+comisión de proceso   -403.48
+comisión de cambio    -253.73
+= NETO                9870.62 EUR
+
+comprobación (liquidado − reembolsos − comisiones): 9870.62  CUADRA
+```
+
+```
+/admin/payments sin sesión → 307 a /admin/login
+GET /payments sin sesión   → 401
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests)
+```
+
+Los avisos de lint pasan de 16 a 17: es el mismo `set-state-in-effect` que
+tienen todas las pantallas del panel que cargan datos (`reservations/page.tsx:83`
+es idéntico). Una página más, no un problema nuevo.
+
+### Para que el usuario lo decida
+
+Ese ~2 % de conversión es evitable: se paga por cobrar en USD y liquidar en EUR.
+Las salidas son cobrar en euros —que cambia el precio que ve el huésped— o
+pedirle a Stripe una cuenta bancaria en dólares. Ninguna se toca sin que el
+usuario lo decida: son 253,73 EUR en el periodo mirado.
+
+### Diferido
+
+- **Sin exportar a CSV.** Fase 7.5 lo necesita para el contador; aquí no se
+  adelantó.
+- **Sin disputas ni contracargos.** Stripe los expone aparte y todavía no hay
+  ninguno en la cuenta, así que no se construyó a ciegas.
+
+---
+
+## 57. La cuenta de Stripe pasó a EE. UU. y a dólares
+
+El usuario cambió la cuenta tras leer §56. Confirmado contra la API:
+
+```
+país: US    moneda por defecto: usd    (antes: ES / eur)
+```
+
+El cambio destapó **dos fallos propios** en el módulo recién escrito, ninguno
+visible mientras hubo una sola moneda.
+
+### 1. La moneda de liquidación salía del saldo
+
+```ts
+const settlementCurrency = balance?.available[0]?.currency ?? 'eur'
+```
+
+El saldo todavía tiene 9.394,22 EUR de antes del cambio, así que esa línea
+seguía diciendo **EUR** para una cuenta que ya liquida en **USD**. Ahora se lee
+de la cuenta, que es la única autoridad sobre lo que liquida:
+
+```ts
+const settlementCurrency = account?.defaultCurrency ?? 'usd'
+```
+
+### 2. Los totales sumaban monedas distintas
+
+Había un único bloque de totales. Con el histórico en EUR y todo lo nuevo
+llegando en USD, ese bloque habría sumado euros con dólares y devuelto un
+número sin significado.
+
+Ahora se agrupan **por moneda de liquidación**: un bloque por cada una, cada
+fila lleva la suya, y el panel avisa cuando el periodo cruza un cambio en vez de
+apilar dos columnas de cifras que parecen sumables.
+
+Se aprovechó para contar `payment` junto a `charge` — Stripe usa ese tipo para
+métodos que no son tarjeta, y es dinero igual. Había una fila así en el libro y
+no se estaba contando.
+
+### Comprobado tras el cambio
+
+```
+cuenta: país US   liquida AHORA en USD
+hubo conversión: true
+
+── bloque EUR  (HISTÓRICO)
+   cobrado      14592.00 USD
+   liquidado    12686.45
+   - conversión   253.73   (convierte: true)
+   = NETO        9870.62 EUR      comprobación 9870.62  CUADRA
+```
+
+El bloque histórico se marca como tal porque su moneda ya no es la de la
+cuenta. Cuando entre el primer cobro nuevo aparecerá un segundo bloque en USD,
+esta vez sin línea de conversión.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests)
+```
+
+### Lo que el usuario debería saber
+
+- **Los cobros nuevos ya no pagan conversión.** Se cobra en USD y la cuenta
+  liquida en USD. Era ~2 % por reserva.
+- **Los 9.394,22 EUR disponibles y 8.832,98 pendientes siguen en euros.** El
+  cambio no reconvierte lo que ya está dentro; ese saldo saldrá como euros.
+- **Las transferencias son diarias con 2 días de retraso**, según la cuenta.
+- No se pudo leer la cuenta bancaria de destino: la clave `sk_test_` no tiene
+  permiso sobre `external_accounts`. Conviene confirmar en el dashboard que hay
+  una cuenta en USD, o el saldo en dólares se quedará sin salida.
+
+---
+
+## 58. Pagos: quién pagó, con qué tarjeta, y qué se puede perder
+
+Dos peticiones del usuario, y un fallo propio encontrado por el camino.
+
+### El fallo: 39 procesos y una base sin conexiones
+
+La pantalla reventaba en `report.totals.map is not a function`. La causa no
+estaba en el código: quien respondía en `:3001` era un API **de ayer** con el
+código anterior, donde `totals` todavía era un objeto. El proceso nuevo había
+muerto al arrancar con `P2037 — Too many database connections opened`.
+
+Se habían acumulado **39 procesos** `main.ts` a lo largo de dos días, cada uno
+con su conexión a Postgres abierta. Todos parados, uno levantado. Es el mismo
+descuido de §55 con `.next`: dejar corriendo lo que ya no sirve.
+
+### Saldos
+
+Se emparejaban por posición:
+
+```ts
+pending: money(balance.pending[index]?.amount ?? 0)
+```
+
+Stripe no promete que `available` y `pending` vengan en el mismo orden. Con dos
+monedas en la cuenta, un disponible en EUR podía quedar junto a un pendiente en
+USD: un saldo que se lee perfectamente y es falso. Ahora se emparejan por
+moneda, y cada una es un bloque en vez de dos listas.
+
+### Clientes
+
+Petición del usuario: que los clientes vivan dentro de Pagos, por ser dato solo
+de Stripe.
+
+Al mirarlo apareció el motivo por el que una lista de clientes habría salido
+vacía: **ningún cobro estaba asociado a un cliente de Stripe**. Había 2 fichas,
+creadas a mano en marzo, sin un solo pago detrás. El checkout mandaba
+`customer_email`, que le da a Stripe el correo y no crea nada.
+
+Dos arreglos:
+
+1. `customer_creation: 'always'` en la sesión de checkout, para que los pagos
+   nuevos sí queden asociados.
+2. La lista se construye **agrupando los cobros por el correo de la tarjeta**,
+   que es la única forma honesta de responder "quién nos ha pagado" cuando el
+   histórico quedó suelto.
+
+```
+quien pagó: 5   fichas de cliente sin cobros: 1
+
+test1@yopmail.com       4 pagos  6105.00 USD   AB-C445Q9, AB-E37EEZ, AB-T45RMB
+egiraldom@outlook.com   4 pagos  4752.00 USD   AB-UJHWKH, AB-D7AVTF, AB-JJYK9R
+egiraldom7@gmail.com    1 pago   1245.00 USD   sin reserva en este sistema
+```
+
+Cinco personas con cifras reales, en vez de dos fichas vacías.
+
+### Lo que Stripe sabe y nosotros no
+
+Cada fila del libro gana lo que solo trae un cargo: la **tarjeta** (`visa
+••4242`), el **recibo oficial** de Stripe como enlace que la anfitriona puede
+reenviar, el **correo de quien pagó** —a veces el único nombre en una fila sin
+reserva— y el **nivel de riesgo**. El riesgo solo se pinta cuando Stripe lo
+marca: una etiqueta "normal" en las trece filas enseña al ojo a ignorarla.
+
+11 de 13 filas traen tarjeta y recibo.
+
+### Contracargos
+
+Sección nueva, encima del libro. Hoy no hay ninguno, pero es el único evento
+que se lleva el dinero sin preguntar y tiene **fecha límite**: no responder lo
+pierde por defecto. No es una fila para pasar de largo.
+
+Se emparejaban mal en la primera versión: comparaba `row.id` (un `txn_…`) con
+el id del cargo (`ch_…`), que nunca coinciden, y el respaldo habría colgado la
+disputa de una reserva cualquiera. Ahora la fila lleva su `chargeId`.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (275 tests)
+```
+
+### Diferido
+
+- **Las fichas de cliente de Stripe no se listan por sí solas.** Se cuentan las
+  que no tienen pago y se explica por qué. Cuando los pagos nuevos empiecen a
+  asociarse, esa cuenta debería dejar de crecer.
+
+---
+
+## 59. Un huésped, tres identidades en Stripe
+
+Observación del usuario, y es la buena: en Stripe el mismo correo aparecía
+repartido en varias entidades. Para `egiraldom@outlook.com` había **tres**:
+
+```
+Invitado "erick"   3 pagos   (mar–abr)
+Invitado "eeeee"  15 pagos   (jul)
+cus_U91C6nsJ39hp3o          gasto 0,00 US$
+```
+
+Y Stripe explica por qué, en su propio panel:
+
+> Se ha creado un usuario invitado para mostrar los pagos que no estaban
+> asociados con ninguna cuenta.
+
+### Los "Invitados" no existen
+
+No son objetos de la API. Son una agrupación que el Dashboard inventa para
+enseñar pagos huérfanos. No se pueden enlazar con nada porque no hay nada que
+enlazar.
+
+### Y el arreglo de §58 habría empeorado esto
+
+`customer_creation: 'always'` crea un cliente **por cada checkout**. Stripe no
+deduplica por correo, así que un huésped con tres estadías habría terminado con
+tres fichas. Se cambió antes de que llegara a producir ninguna.
+
+### La llave la llevamos nosotros
+
+`Customer.stripeCustomerId`, único, creado en el primer pago del huésped y
+reutilizado siempre después. La sesión de checkout recibe `customer: <id>` en
+vez de `customer_email`.
+
+```ts
+...(request.stripeCustomerId
+  ? { customer: request.stripeCustomerId }
+  : { customer_email: request.email }),
+```
+
+Si Stripe se niega a crear la ficha, la reserva **sigue adelante** sin ella: un
+pago no puede fallar porque un registro de agrupación no se pudo crear.
+
+### Emparejar por correo, dicho como lo que es
+
+El panel ahora enseña dos enlaces por pagador, y no los mezcla:
+
+| Enlace                | Cómo                        | Fiabilidad              |
+| --------------------- | --------------------------- | ----------------------- |
+| Reservas pagadas aquí | por el `PaymentIntent`      | sigue al dinero: seguro |
+| Mismo correo que…     | por el correo de la tarjeta | sigue a un texto: no    |
+
+La diferencia importa. Sobre los datos reales, mirando el año entero:
+
+```
+egiraldom@outlook.com        7 pagos  8487.00 USD
+   por el pago:   AB-UJHWKH, AB-D7AVTF, AB-JJYK9R
+   por el correo: pepe grillo · 4 reservas
+
+erick.giraldo@banexcoin.com  1 pago   3120.00 USD
+   por el pago:   ninguna reserva
+   por el correo: no está en la base          ← un desconocido
+```
+
+Un pago sin reserva hecho por alguien que se ha alojado tres veces no es lo
+mismo que uno hecho por alguien a quien no conocemos, y hasta ahora los dos se
+veían igual.
+
+### Lo que no se puede arreglar
+
+Los 3 pagos de marzo y abril **no tienen reserva en este sistema**, y no es un
+fallo de emparejamiento: no hay ninguna reserva pagada antes de julio. Son
+anteriores al sistema de reservas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (278 tests, 3 nuevos)
+```
+
+### Pendiente de decidir
+
+Si además se quieren **atar los pagos históricos** a la ficha del huésped, hay
+que comprobar primero si Stripe deja cambiarle el `customer` a un PaymentIntent
+ya cobrado. No se probó porque hacerlo es modificar datos reales de la cuenta
+del usuario. Los pagos nuevos sí quedan atados desde ahora.
+
+---
+
+## 60. Los pagos históricos, atados a su huésped
+
+Autorizado por el usuario para probarlo, y luego para aplicarlo solo a los
+huéspedes conocidos.
+
+### Stripe dice que no… y que sí
+
+Cambiarle el cliente a un PaymentIntent ya cobrado está prohibido, y el mensaje
+es específico:
+
+```
+Some of the parameters you provided (customer) cannot be used when modifying
+a PaymentIntent that was created by Checkout.
+```
+
+Pero el **Charge** sí lo acepta mientras no tenga uno. Probado sobre un solo
+cobro antes de tocar nada más:
+
+```
+ch_3TzQ1W…  customer: —  →  cus_U91C6nsJ39hp3o   ACEPTADO
+```
+
+### Lo aplicado
+
+Script de una sola vez, no código permanente: cada reserva nueva ya pasa
+`customer` al checkout, así que el problema deja de crecer solo. Lo que quedaba
+era el montón anterior.
+
+```
+egiraldom@outlook.com    6 cobros → pepe grillo                 [ficha ya existía]
+egiraldom7@gmail.com     7 cobros → Silvia Andrea Ortiz         [ficha nueva]
+test1@yopmail.com        4 cobros → Silvia Andrea Barrios Ortiz [ficha nueva]
+sssss@gmail.com          1 cobro  → Silvia Andrea Barrios Ortiz [ficha nueva]
+erick_scream@msn.com     1 cobro  → Silvia Andrea Barrios Ortiz [ficha nueva]
+
+SALTADOS: wdss@saa.scom (1), erick.giraldo@banexcoin.com (1)
+atados: 19   saltados: 2
+```
+
+Se corrió primero **en seco**, y los números coincidieron con lo aplicado. Los
+dos saltados no son huéspedes de la base: un pago de alguien a quien no
+conocemos se queda suelto, porque eso es lo que es.
+
+Estado final en Stripe: **20 cobros con cliente, 2 sueltos**, y una sola ficha
+por huésped.
+
+`ensureCustomer` también aprendió a **reutilizar antes de crear**: busca por
+correo en Stripe primero. Sin eso habría duplicado a `egiraldom@outlook.com`,
+que ya tenía ficha hecha a mano en marzo.
+
+## 61. Cada huésped, con su historial
+
+Propuesta del usuario, y tenía razón: la pantalla decía "3 estadías · 9 noches ·
+$3.507" y ahí se acababa. Para saber **cuáles** había que irse a Reservas y
+buscar.
+
+Las filas ya se cargaban en el servidor para calcular esos agregados, así que
+enviarlas cuesta un campo más, no una petición más.
+
+Cada estadía muestra referencia, fechas, noches, huéspedes, estado, total y
+**lo reembolsado**. Una semana devuelta entera dejaba de verse en cuanto se
+sumaba al total.
+
+### Comprobado contra los datos reales
+
+```
+pepe grillo <egiraldom@outlook.com>  3 estadías · 9 noches · $3507
+   AB-UJHWKH  2026-08-27 → 2026-08-30  3n  $1017  CONFIRMED
+   AB-D7AVTF  2026-08-24 → 2026-08-27  3n  $1245  CONFIRMED
+   AB-JJYK9R  2026-07-31 → 2026-08-03  3n  $1245  CONFIRMED  −$1245 reembolsado
+   suma del historial pagado: $3507  CUADRA
+```
+
+Cuadra en los cuatro huéspedes.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (280 tests, 2 nuevos)
+```
+
+### Un matiz que queda a la vista, a propósito
+
+`pepe grillo` figura con **$3.507 gastados** y una de esas estadías se devolvió
+entera. El agregado dice lo que pagó, no lo que la casa se quedó; el reembolso
+aparece en su línea al desplegar. Si se prefiere que el total reste los
+reembolsos, es una decisión del usuario y cambia también quién cuenta como
+huésped recurrente.
+
+---
+
+## 62. El historial de estadías, legible
+
+El usuario: "se ve muy feo ponerlo de lado". Tenía razón, y el problema era de
+jerarquía, no de estilo.
+
+### Lo que estaba mal
+
+Referencia, fechas, noches, huéspedes, estado y precio iban en **una sola fila**
+con `flex-wrap`. Seis datos con el mismo peso visual, rompiendo en un punto
+distinto en cada tarjeta según lo largo que fuera el nombre del huésped. Nada
+alineaba con nada.
+
+### Lo que hace ahora
+
+Cada estadía es un bloque que se lee de arriba abajo:
+
+```
+AB-JJYK9R  ● Confirmada                        $1,245
+31 jul → 3 ago 2026                              −$1,245
+3 noches · 👤 1                                reembolsado
+```
+
+- **Qué es** arriba: referencia y estado.
+- **Cuándo** en medio, en el tamaño del cuerpo porque es lo que más se busca.
+- **Detalle** abajo, en gris pequeño.
+- **Cuánto** en su propia columna a la derecha, para que los importes se puedan
+  comparar bajando la vista en vez de cazarlos por la fila.
+
+El estado pasa de texto suelto a etiqueta, con **la misma paleta que la pantalla
+de Reservas**: una reserva confirmada se ve igual en los dos sitios. El color
+repite la palabra, no la sustituye.
+
+Un importe sin pagar va en gris y la estadía lo dice con todas sus letras: un
+total en negro junto a una reserva que nadie pagó afirma algo que no es cierto.
+
+```
+divide-y, bg-emerald-50 y rounded-[12px] presentes en el CSS compilado
+/admin/guests → 307 al login   /es → 200   panics: 0
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (280 tests)
+```
+
+---
+
+## 63. El huésped se abre, no se despliega
+
+El usuario preguntó si el historial iba mejor debajo del huésped o en un modal.
+Modal, por tres razones que se ven al usarlo:
+
+1. La tarjeta ya llevaba avatar, nombre, dos etiquetas, tres datos de contacto,
+   tres cifras y tres botones. Meterle una lista dentro la revienta.
+2. Desplegar hacia abajo **empuja al resto de la lista** y el lector pierde
+   dónde estaba — justo la persona que acababa de mirar.
+3. Con 5 huéspedes se aguanta. Con 50 no.
+
+Una persona es un sujeto que se abre, no una fila que se despliega.
+
+### Lo que gana al abrirse
+
+Sitio para que convivan cosas que antes competían por una línea: contacto con
+enlaces a correo y teléfono, las tres cifras en su fila, la **nota privada**
+destacada —antes se truncaba con puntos suspensivos en la lista— y el historial
+completo. Las acciones quedan fijas abajo, la cabecera fija arriba: en un
+huésped con quince estadías el nombre no se va de la pantalla.
+
+### Detalles que no se ven pero se notan
+
+- La tarjeta responde a **Enter y espacio**, no solo al ratón.
+- Los botones de la fila **paran la propagación**: sin eso, borrar un huésped lo
+  habría abierto además de preguntar si se borra.
+- Editar desde el modal lo cierra antes de abrir el formulario, en vez de
+  apilar dos diálogos.
+
+Sale a su propio archivo (`guest-detail-dialog.tsx`) en vez de engordar una
+página que ya iba por 500 líneas.
+
+```
+/admin/guests → 307 al login   /es → 200   panics: 0
+advertencias de lint en los archivos tocados: 0
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores, 17 avisos — el mismo baseline)
+pnpm typecheck ✅   pnpm test ✅ (280 tests)
+```
+
+---
+
+## 64. MODERATE confirmada
+
+El usuario confirma que **MODERATE** es la política de cancelación correcta.
+Cierra el pendiente abierto en §40.
+
+No hay cambio de código: era ya el valor por defecto del schema y el que tiene
+la fila real en la base. Lo que cambia es que deja de ser una suposición
+heredada de lo que el sitio venía prometiendo ("cancelación gratuita hasta 5
+días antes") y pasa a ser una decisión tomada.
+
+Sigue siendo editable desde el panel; cambiarla es un `PATCH`, no un
+despliegue. Lo que se cobra y lo que se devuelve sale de `CANCELLATION_RULES`,
+así que cambiarla mueve también lo que propone el diálogo de reembolso.
+
+### Sigue vacío, y sigue siendo del usuario
+
+`Property.accessNotes` — dónde aparcar, cómo funciona la puerta — se escribe en
+`/admin/pricing`, en "Reglas de la estadía". Vacío hoy, así que ni el área del
+huésped ni el PDF muestran ese bloque (los dos comprueban antes de pintarlo, no
+sale un título huérfano). Mientras siga así, esa información la manda la
+anfitriona a mano.
+
+Nota de ubicación: el campo vive en **Precios** por estar junto a las reglas de
+estadía, pero cómo entrar a la casa no es un precio. Se mueve a Ajustes si el
+usuario lo prefiere.
+
+---
+
+## 65. Fase 7.4 — Mínimos de noches por temporada
+
+Estaba declarado como diferido desde §36: _"hoy el mínimo es uno para todo el
+año, y lo habitual es exigir más noches en las fechas altas"_.
+
+### Lo que apareció al ir a hacerlo
+
+`PriceRule` **no tenía CRUD**. Ni endpoint, ni pantalla: una temporada alta solo
+podía existir sembrando la base de datos. Añadir una columna de mínimo a una
+tabla que nadie puede escribir habría sido entregar media función, así que la
+fase incluye el alta, edición y borrado de temporadas.
+
+### Quién decide el mínimo
+
+La **fecha de llegada**, no todas las noches que toca la estadía.
+
+Es lo que el huésped ya entiende de reservar en otros sitios, y es la versión
+que se puede explicar en un calendario: "llegar esta semana son mínimo siete
+noches". Tomar la regla más estricta que la estadía roza significaría que una
+reserva de febrero que termina el primer día de temporada alta de pronto exige
+una semana, por un motivo invisible al elegir las fechas.
+
+El coste de esa decisión es real y está escrito en el código: quien llega la
+noche antes de una semana alta se lleva el mínimo de temporada baja para una
+estadía que es casi toda alta.
+
+Una temporada solo puede pedir **más** noches, nunca menos: el mínimo de la casa
+es un suelo que ninguna regla baja.
+
+### Guardarraíles, comprobados contra la base real
+
+```
+solape rechazado:            These dates overlap "PRUEBA Navidad"
+fechas invertidas:           The season ends before it starts
+finde con fechas:            A WEEKEND rule has no dates: it is the fallback rate
+base protegida:              The base rate cannot be deleted
+mínimo limpiado:             null
+limpiado: 1 fila de prueba   temporadas antes 1 → después 1
+```
+
+El solape importa más de lo que parece: `ruleForNight` toma la primera regla
+HIGH que encaja, así que dos rangos superpuestos harían que la misma noche se
+cobrara de una forma u otra según el orden en que la base devolviera las filas.
+La misma estadía, dos precios, en dos peticiones seguidas.
+
+Las filas de prueba se borraron **por id**, solo las que creó el script.
+
+### Un bug que el tipado destapó
+
+La pantalla iba a cargar las temporadas de `GET /properties/:slug`, que devuelve
+el `Decimal` de Prisma como **string** y además esconde las reglas inactivas. El
+componente llama a `.toFixed()`. Un `as unknown as` lo habría dejado pasar hasta
+producción; ahora se cargan del endpoint propio, que devuelve números.
+
+### Lo que ve el huésped
+
+El cotizador ya sabía decir "esta casa acepta reservas de al menos N noches".
+Ahora ese N sale del `quote`, que conoce la temporada de la fecha de llegada, en
+vez de la propiedad. El calendario sigue permitiendo el mínimo de la casa y el
+precio explica el resto en cuanto se eligen fechas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (289 tests, 9 nuevos)
+```
+
+### Diferido
+
+- **El calendario no pinta el mínimo por fecha.** Muestra el de la casa;
+  react-day-picker toma un único `min` para toda la rejilla. El huésped se
+  entera al elegir las fechas, no antes.
+- **No se puede cambiar el tipo de una temporada** ya creada. Pasar HIGH a
+  WEEKEND obligaría a soltar las fechas y podría chocar con la regla de fin de
+  semana existente; se borra y se crea.
+
+---
+
+## 66. Fase 7.3 — La reserva que se toma por teléfono
+
+Estaba diferido desde §34: _"no se puede crear una reserva desde el panel. Se
+puede añadir al huésped, pero una estadía tomada por teléfono todavía no tiene
+por dónde entrar"_.
+
+### El precio sigue siendo del servidor
+
+El formulario manda fechas y huéspedes; **nunca un total**. Se cotiza en vivo
+contra el mismo endpoint que usa el cotizador público, porque quien está en la
+llamada tiene que decir una cifra en voz alta — y la que dice es la que se
+cobra.
+
+```
+desglose de AB-ARXMN2: 1356 vs total 1356  CUADRA
+```
+
+### Dos formas de cobrar, y ninguna a medias
+
+|                                                     | Estado                       | Vence    |
+| --------------------------------------------------- | ---------------------------- | -------- |
+| Ya cobrada (efectivo, transferencia, tarjeta, otro) | `CONFIRMED`, `paidAt` puesto | nunca    |
+| Enviar enlace de pago                               | `PENDING`                    | 24 horas |
+
+Media hora es lo correcto para alguien que ya está en la página de pago y lo
+incorrecto para alguien que acaba de colgar: tiene que buscar el correo, leerlo
+y encontrar la tarjeta. Stripe no sostiene una sesión más de 24 horas, así que
+ese es el techo, no una preferencia.
+
+El enlace va **al portapapeles** al crearla: la anfitriona está al teléfono y va
+a pegarlo en un mensaje, no a dictar una URL.
+
+Solo se le manda confirmación al huésped cuando el dinero ya está. A quien no ha
+pagado no se le promete una estadía.
+
+### Los límites se enseñan, no se imponen
+
+Un mínimo de noches existe para que un desconocido no se lleve una sola noche en
+Navidad. Quien está al teléfono es la persona que puso ese mínimo, y negarle su
+propia excepción sería el software discutiendo con su dueña. El diálogo avisa
+—"estas fechas piden mínimo 7 noches"— y deja crear igual.
+
+Lo que **sí** se impone es lo que no es una preferencia: la restricción de
+solapamiento y las fechas bloqueadas.
+
+### `Booking.source`
+
+Columna nueva, `WEBSITE` o `PANEL`. Sin ella una reserva cobrada en efectivo
+parece dinero que el panel de pagos perdió: ese panel lee el libro de Stripe, y
+un billete de cien nunca aparece ahí. La lista de reservas la marca con una
+etiqueta.
+
+`paymentMethod` guarda cómo se cobró cuando Stripe no intervino.
+
+### Comprobado contra la base y Stripe reales
+
+```
+EN EFECTIVO  AB-ARXMN2  $1356
+   estado CONFIRMED  origen PANEL  método CASH
+   pagada: sí   vence: nunca   enlace: ninguno
+
+solape rechazado: Those dates are already taken
+
+CON ENLACE   AB-4GGQA8  $1017
+   estado PENDING  vence en 24 h
+   enlace: https://checkout.stripe.com/c/pay/cs_test_a1a...
+
+limpiado: 2 reservas de prueba y su huésped
+```
+
+### Un aviso de lint que se arregló en vez de silenciarse
+
+El diálogo llamaba a `setQuoting(true)` dentro del efecto. En vez de un
+`eslint-disable`, "todavía calculando" pasa a ser una comparación: se guarda
+para qué fechas es la cotización que hay, y la respuesta se deriva. Misma forma
+que en la pantalla de pagos (§56). Los avisos vuelven a 17, el baseline.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (295 tests, 6 nuevos)
+```
+
+### Diferido
+
+- **Sin extras en el alta manual.** El formulario manda `extraIds: []`. Una
+  cuna o la piscina climatizada se añaden después editando la reserva… que
+  tampoco se puede editar todavía.
+- **No se puede editar una reserva ya creada.** Corregir una fecha mal tomada
+  obliga a cancelar y rehacer.
+- **Sin precio negociado.** Un descuento acordado por teléfono no tiene dónde
+  ponerse: aplicarlo bien exige decidir si baja también la base imponible, y eso
+  toca lo que se declara a Florida. Fase 7.5.
+
+---
+
+## 67. Las tres deudas del panel
+
+### El calendario, a dos meses
+
+Bloquear un rango que cruzaba el cambio de mes —una reparación entre diciembre y
+enero, la Navidad de la anfitriona— obligaba a navegar con la selección a medias
+confiando en que sobreviviera. Ahora se ven dos meses a la vez.
+
+Un detalle que hacía falta pensar: un día del mes vecino se dibuja para que las
+columnas cuadren, pero **no se puede pulsar** en el panel donde no le toca.
+Sin eso, hacer clic en el "1 de agosto" que asoma bajo julio habría seleccionado
+una fecha que el lector no está mirando. Cada panel lleva su mes escrito encima,
+porque con dos rejillas juntas deja de ser obvio cuál es cuál.
+
+Los contadores de noches libres y ocupadas cuentan ahora el rango entero.
+
+### El motivo de un bloqueo, editable
+
+Corregir una errata obligaba a liberar las noches y volver a bloquearlas — lo
+que, durante esos segundos, ponía a la venta una semana que la anfitriona había
+cerrado. Ahora se edita en el mismo diálogo donde se libera.
+
+Las **fechas siguen sin ser editables**, y es deliberado: mover un bloqueo no es
+editarlo, es otro bloqueo, y hay que comprobarlo de nuevo contra las reservas.
+Arreglar una errata no debería pagar ese precio.
+
+Un motivo vacío borra el anterior en vez de guardar una cadena en blanco.
+
+### El scroll horizontal del diálogo de fechas
+
+Dos meses a `--cell-size: 3rem` piden unos 700px; el diálogo está topado en
+768px menos su relleno. Se salía por poco, y la página entera crecía una barra
+horizontal para enseñar un calendario.
+
+Dos arreglos, y ninguno es esconder el desbordamiento:
+
+- **Un mes por debajo de 46rem**, decidido con `useSyncExternalStore` sobre una
+  media query en vez de un efecto: el viewport es un sistema externo al que
+  React debe suscribirse, y esa es la API. Da además un valor de servidor, así
+  que el primer pintado no es una suposición que luego salta.
+- **Celda fluida**, `clamp(2.25rem, 7vw, 3rem)`, para que encoja antes de
+  empujar.
+
+El `overflow-x-hidden` del diálogo queda como cinturón sobre los tirantes: si un
+cambio futuro vuelve a ensancharlo, recorta el diálogo y no la página.
+
+Esto arregla de paso el cotizador público en móvil, donde dos meses a 3rem
+tampoco cabían.
+
+## 68. `accessNotes`, con estructura y sin inventos
+
+El usuario pidió llenarlo con datos de ejemplo. Se llenó con una **plantilla de
+marcadores**, no con datos.
+
+CLAUDE.md prohíbe inventar valores plausibles, y este campo es el peor sitio
+para saltarse esa regla: un código de puerta inventado es uno que un huésped
+acaba tecleando de pie frente a la casa. Lo que se escribió es real —**la forma**:
+las preguntas que todo huésped hace— con 15 marcadores entre corchetes donde van
+las respuestas.
+
+```
+- Puerta principal: [cómo se abre — código, caja de llaves, cerradura inteligente]
+- Wi-Fi: red [nombre de la red], contraseña [contraseña]
+- Escríbele a Angélica al [teléfono de contacto]
+```
+
+Así la anfitriona sustituye en vez de decidir qué contar, y nada parece real por
+accidente. El script no pisa el campo si ya tiene contenido.
+
+**Sigue siendo del usuario**: mientras queden corchetes, el huésped los ve tal
+cual en su reserva y en el PDF.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores, 17 avisos — baseline)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+```
+
+---
+
+## 69. Fase 7.5 — Impuestos: cuánto se debe y a quién
+
+Desbloqueada por el usuario: la limpieza **no** entra en la base imponible.
+Comprobado que ya era así — `computeQuote` aplica los porcentajes a
+`subtotal − descuento + huésped extra`, y la limpieza nunca estuvo dentro. No
+hubo nada que cambiar en el motor de precios.
+
+### El problema real
+
+Al huésped se le cobra **un** 13 %. Una declaración se presenta por **autoridad**:
+Florida DOR se lleva el 6 % estatal y el 1 % del condado, y el Tax Collector de
+Pinellas el 6 % de turismo — en calendarios distintos. `Property.taxesPercent`
+no puede ser lo que se declara.
+
+`TaxJurisdiction` guarda cada autoridad con su tasa y **sus fechas**, porque un
+cambio de tasa no debe reescribir lo ya cobrado: una tasa nueva es una fila
+nueva, la vieja se cierra.
+
+`TaxFiling` guarda que un periodo se declaró y se pagó. El informe siempre se
+puede recalcular; lo que no se puede deducir es si alguien lo presentó.
+
+Dos entidades nuevas, justificadas como pide CLAUDE.md, y ya previstas en el
+plan.
+
+### Un fallo propio que los datos reales destaparon
+
+La primera versión repartía todo con las tasas de **hoy**. Entonces apareció
+`AB-JJYK9R`: base 900, impuesto cobrado 103 — un **11,44 %**, no 13 %. Su
+factura suma correctamente, así que no es un error: se cobró con otra
+configuración y la factura está congelada, como debe estar.
+
+Repartir eso al 6/1/6 de hoy le habría dado a una autoridad una parte de dinero
+recaudado bajo otro arreglo. Ahora **cada estadía se reparte con las tasas
+vigentes el día en que se cobró**, que es exactamente para lo que la tabla tiene
+fechas.
+
+Y la anomalía se enseña en vez de suavizarse: cada estadía muestra su tasa
+efectiva, y la que no coincide con la de la casa sale en ámbar.
+
+```
+AB-JJYK9R  base   900  impuesto  103  = 11.44%  <-- distinta de la actual
+AB-E37EEZ  base  1800  impuesto  234  = 13%
+```
+
+### Comprobado contra la base real
+
+```
+Impuesto de desarrollo turístico     6%  recaudado 425.54  a declarar 378.00
+Impuesto estatal de Florida          6%  recaudado 425.54  a declarar 378.00
+Recargo del condado de Pinellas      1%  recaudado  70.92  a declarar  63.00
+
+suma de jurisdicciones: 922.00   total recaudado: 922.00        CUADRA
+columnas `taxes` de la base: 922.00                             CUADRA
+las tres tasas suman 13%   la casa cobra 13%                    CUADRA
+```
+
+El criterio de salida del plan pedía justo eso: que las cifras cuadren con la
+suma de las columnas `taxes` de las reservas del periodo.
+
+```
+declarado: $378 ref PRUEBA-12345    el informe lo refleja: sí
+declarado otra vez: 1 fila (corrige, no duplica)
+periodo invertido rechazado
+limpiado: 0 declaraciones de prueba
+```
+
+### Decisiones que son del contador, dichas en pantalla
+
+Dos, y las dos aparecen bajo el informe en vez de esconderse en el código:
+
+- Una estadía cuenta en el periodo en que se **pagó**, no en el que ocurre.
+- Un reembolso reduce la base **en proporción**. Exacto para una devolución
+  total, que es lo que han sido las dos reales.
+
+### Si las tasas no suman
+
+Un aviso rojo: si las jurisdicciones no suman lo que se le cobra al huésped,
+hay dinero recaudado sin autoridad a la que declararlo. No es un problema de
+redondeo y no se muestra como tal.
+
+### El CSV
+
+Resumen por autoridad más una fila por estadía, porque a un contador que recibe
+una cifra lo siguiente que pregunta es qué reservas la componen. Lleva BOM para
+que Excel no destroce "Jurisdicción".
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores, 18 avisos)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+```
+
+El aviso 18 es el mismo `set-state-in-effect` de toda pantalla del panel que
+carga datos (`reservations:95`, `payments:169`). Una página más, no un problema
+nuevo.
+
+### Diferido
+
+- **La tasa de una jurisdicción no se edita desde el panel.** Se siembran con
+  `pnpm --filter @areia-bela/api seed:taxes`. Cerrar una y abrir otra con fecha
+  nueva es lo que exige un cambio de tasa, y esa pantalla no está.
+- **Sin recordatorio de vencimiento.** El panel dice cuánto se debe, no cuándo
+  vence en cada autoridad.
+
+---
+
+## 70. Cambiar de idioma borraba lo que estabas escribiendo
+
+Reporte del usuario: _"cuando se cambie de idioma se tiene que renderizar la
+página?, si cambio pierdo las selecciones que hice"_.
+
+Sí perdía, y la causa no era un remonte. El proveedor de idioma del panel es
+estado plano, sin navegación ni `router.refresh()`. El problema estaba doce
+capas más abajo, repetido **en trece sitios**:
+
+```ts
+const load = useCallback(async () => {
+  try {
+    const property = await cms.property()
+    setStored(property)
+    setDraft(property) // ← aquí muere lo que el usuario escribió
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.message : t.property.loadFailed)
+  }
+}, [t.property.loadFailed]) // ← una cadena traducida como dependencia
+
+useEffect(() => {
+  void load()
+}, [load])
+```
+
+La dependencia es un **mensaje de error**. Al cambiar de idioma la cadena cambia
+de valor, React rehace el callback, el efecto que lo observa se dispara, la
+pantalla vuelve a pedir los datos — y en un formulario eso es
+`setDraft(stored)`: todo lo tecleado, reemplazado por lo que hay en el servidor,
+por elegir otro idioma.
+
+### El arreglo
+
+Un mensaje no es motivo para volver a pedir datos. `useAdminCopyRef()` deja la
+copia alcanzable desde dentro de un callback sin participar en su identidad:
+
+```ts
+toast.error(err instanceof ApiError ? err.message : copyRef.current.property.loadFailed)
+}, [copyRef])   // un ref: el mismo objeto en cada render
+```
+
+El ref se asigna en un efecto, no durante el render: mutar un ref mientras se
+renderiza no es seguro bajo React concurrente, y un mensaje que va un commit por
+detrás es un mensaje que nadie distingue.
+
+```
+antes — dep = la cadena:  ¿cambia al cambiar idioma? SÍ → el efecto se relanza
+ahora — dep = el ref:     ¿cambia al cambiar idioma? no → el efecto NO se relanza
+```
+
+### Los trece
+
+Ajustes de la propiedad, ajustes del sitio, equipo, galería, landing, FAQs,
+reseñas, páginas, precios, calendario, huéspedes, y el diálogo de reembolso —
+donde además borraba el importe ya tecleado antes de mandarlo a Stripe.
+
+El decimocuarto se deja como está: `maintenance` filtra por nombres de área
+traducidos, así que ahí el `useMemo` **debe** depender del idioma. Recalcular un
+filtro no pierde nada; rehacer una petición sí.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+```
+
+---
+
+## 71. Paginación en el panel
+
+Pedido del usuario. Un `usePagination` compartido más un control, en vez de
+cuatro implementaciones que se irían separando.
+
+### Dónde, y dónde no
+
+| Pantalla  | Se pagina                        |
+| --------- | -------------------------------- |
+| Reservas  | solo el **pasado**               |
+| Huéspedes | la lista, después de la búsqueda |
+| Pagos     | el libro de movimientos          |
+| Impuestos | las estadías del periodo         |
+
+En Reservas, lo que viene **no** se pagina: es sobre lo que la anfitriona actúa,
+y está acotado por lo lejos que se puede reservar una casa. El historial no lo
+está.
+
+En Huéspedes se pagina lo ya filtrado. Paginar sobre todo y luego buscar sería
+pasar páginas de resultados que no coinciden.
+
+### Es del lado del cliente, y se dice
+
+Los endpoints siguen devolviendo todo. Para una casa eso está bien y no es lo
+que dolía: lo que dolía era pintar cuatrocientas tarjetas. Cuando el payload sea
+el problema, la solución es un endpoint paginado y este control sigue
+funcionando encima.
+
+### Dos cosas que el linter tenía razón en señalar
+
+**Los hooks iban después de un `return` temprano.** Cuatro errores, no avisos, y
+con motivo: un hook que se salta en un render y se ejecuta en el siguiente
+rompe el orden del que React depende. Subidos por encima de todo `return`, con
+la lista de origen tolerando el `null` de mientras carga.
+
+**La página fuera de rango se corregía en un efecto.** Borrar al último huésped
+de la página 7 deja esa página vacía; arreglarlo después pinta el vacío y luego
+salta. Ahora se recorta durante el render, así que la página vacía no llega a
+existir. La página guardada se deja intacta: la lista puede volver a crecer, y
+con ella la posición.
+
+```
+    0 elementos, pág 1 → 1/1  mostrando 0-0
+   21 elementos, pág 2 → 2/2  mostrando 21-21
+  140 elementos, pág 7 → 7/7  mostrando 121-140
+   19 elementos, pág 7 → 1/1  mostrando 1-19     ← recortada
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (295 tests)
+las cinco rutas responden · 0 panics
+```
+
+---
+
+## 72. Fechas bloqueadas por un pago que nunca se abrió
+
+Reporte del usuario: al intentar reservar y faltar algo, las fechas quedaban
+bloqueadas sin haber pagado.
+
+Se recorrieron los tres caminos:
+
+| Camino                                   | Qué hacía                                        |
+| ---------------------------------------- | ------------------------------------------------ |
+| Falta un dato del formulario             | 400 antes de escribir nada — **ya era correcto** |
+| **Stripe falla al abrir el pago**        | la fila ya estaba escrita → media hora bloqueada |
+| **El huésped vuelve atrás desde Stripe** | nada la liberaba → media hora bloqueada          |
+
+### El hueco de Stripe
+
+`hold()` escribe la reserva en una transacción y **después** llama a Stripe,
+deliberadamente: una transacción abierta durante una llamada de red sería un
+candado sobre el calendario entero mientras Stripe tarde (§29).
+
+Pero eso deja una ventana. Si Stripe se niega —clave mal puesta, red caída, la
+configuración de métodos de pago— la fila ya está confirmada y la semana queda
+cerrada por una página de pago que nadie llegó a ver.
+
+Un hold se gana sus fechas **cuando hay dónde pagar**. Si no lo hay, se sueltan
+en el acto.
+
+Comprobado con un Stripe que siempre falla, contra la base real:
+
+```
+antes:  ¿fechas libres? sí
+Stripe falló: "Stripe está caído"
+después: ¿fechas libres? SÍ — el hold se soltó
+la fila quedó: AB-G98835 CANCELLED — "No se pudo abrir el pago"  vence: nunca
+```
+
+La fila se conserva cancelada en vez de borrarse: que un pago no se pudiera
+abrir es algo que la anfitriona querrá ver si se repite.
+
+### El huésped que se arrepiente
+
+El `cancel_url` de Stripe ahora lleva el id de la reserva, así que en cuanto el
+huésped vuelve al checkout la semana sale a la venta otra vez, en lugar de
+quedarse cerrada el resto del hold. La URL se limpia después para que un
+refresco no lo pida dos veces.
+
+`POST /bookings/:id/abandon` es público porque el huésped no tiene sesión, y es
+seguro que lo sea: hace falta el id, solo toca un hold **sin pagar**, y lo peor
+que consigue un id adivinado es liberar fechas que la barrida iba a liberar
+dentro de la media hora. Va con límite de peticiones para que no sirva de
+buscador de ids.
+
+La guarda vive en el `where`, no en un `if`:
+
+```ts
+where: { id: bookingId, status: 'PENDING', paidAt: null }
+```
+
+Así un hold que se pagó entre medias no lo puede barrer un fallo que llega
+tarde.
+
+### Lo que no cambia, y por qué
+
+**Un hold sigue bloqueando las fechas mientras el huésped paga.** No es un
+efecto secundario: es lo que impide que dos personas paguen la misma semana, y
+es el motivo de la restricción de exclusión de §29. Sin él, el segundo en pagar
+descubre que su dinero compró unas fechas que ya no existen — que es
+exactamente el peor estado que este sistema tiene (§41).
+
+Lo que se ha arreglado es que las bloquee **solo** mientras hay un pago vivo.
+
+```
+POST /bookings/inventado/abandon → 204   (no revela si existe)
+/es/checkout?abandoned=... → 200
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (298 tests, 3 nuevos)
+```
+
+---
+
+## 73. La plantilla de acceso no llega al huésped hasta estar rellena
+
+El usuario decide dejar `accessNotes` como plantilla y sustituirla más
+adelante. Razonable, pero tal cual estaba, **el huésped veía los corchetes**:
+
+```
+Puerta principal: [cómo se abre — código, caja de llaves, cerradura inteligente]
+Wi-Fi: red [nombre de la red], contraseña [contraseña]
+```
+
+Eso es peor que no decir nada. Un bloque vacío se lee como "esto llega por
+separado"; uno con corchetes se lee como que la casa se olvidó.
+
+Ahora el API no las expone mientras sigan siendo plantilla — ni en el área del
+huésped ni en el PDF, que ya se saltaba los bloques vacíos y por tanto no
+imprime ni el título.
+
+### La regla, y su sesgo
+
+Cualquier texto entre corchetes de dos o más caracteres cuenta como marcador.
+Es una heurística, y está inclinada a propósito: ocultar unas notas ya
+terminadas le cuesta al huésped un correo; enseñarle `[cómo se abre]` le cuesta
+una puerta que no puede abrir.
+
+El coste está asumido y pinado en un test: prosa que use corchetes de verdad
+—`[sic]`— también lo dispara. Por eso el panel **nombra** lo que encontró en
+lugar de limitarse a marcarlo: "faltan 14: [dirección completa…], [dónde
+aparcar…]". Marcar manda a buscar; nombrar manda al sitio.
+
+El aviso se recalcula al teclear, así que desaparece con el último corchete.
+
+### Comprobado sobre la propiedad real
+
+```
+la plantilla tiene 14 marcadores sin rellenar
+lo que ve el huésped hoy: NADA (bloque oculto)
+si se rellenaran:          se muestra
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308 tests, 10 nuevos)
+```
+
+### Pendientes del usuario, actualizados
+
+- **Rotar `STRIPE_SECRET_KEY`:** el usuario lo hará al pasar a producción, junto
+  con el resto de variables. Las actuales son `sk_test_`, que no mueven dinero
+  real. Lo que sí importa entonces: la clave `sk_live_` no puede llegar nunca al
+  repositorio.
+- **Cuenta bancaria en USD:** la cuenta está en `charges_enabled: false` y
+  `payouts_enabled: false` — es de test y sin activar, así que esto es una
+  pregunta de producción y va con lo anterior. Se configura en
+  `dashboard.stripe.com/settings/payouts`. Las transferencias están en diarias
+  con 2 días de retraso.
+- **`accessNotes`:** se queda como plantilla, ya sin riesgo para el huésped.
+
+---
+
+## 74. Fase 8.1 — CI
+
+Hasta ahora `lint`, `typecheck`, `test` y `build` solo corrían porque alguien
+los lanzaba a mano. Los cuatro han cazado algo real en esta sesión: `typecheck`
+un `Decimal` de Prisma pasado a `.toFixed()`, `lint` hooks colocados después de
+un `return` temprano, y los tests un `!== null` que debía ser una comprobación
+de veracidad. No son ceremonia.
+
+### Dos jobs
+
+**`check`** hace lo que se hacía a mano, ordenado de más barato a más caro: un
+desliz de formato falla en segundos en vez de después de un build de Next.
+
+**`migrations`** levanta un Postgres limpio y aplica **todo el historial desde
+cero**. Nadie lo había hecho nunca. Va con `continue-on-error`: una migración
+que no aplica sobre una base vacía tampoco aplicará en producción y merece
+saberse, pero no debe frenar un commit de documentación.
+
+### Probado en local antes de subirlo
+
+Base temporal, historial completo, seed dos veces:
+
+```
+All migrations have been successfully applied.
+conteos tras DOS pasadas: {"property":1,"extra":3,"priceRule":1,"user":1,"taxJurisdiction":3}
+idempotente ✓
+```
+
+Y la secuencia entera del workflow:
+
+```
+format:check ok   lint ok   typecheck ok   test ok   build ok
+```
+
+### Tres cosas que aparecieron al montarlo
+
+**`format:check` fallaba desde antes**, por comillas en `docker-compose.yml`.
+Añadirlo al CI sin arreglarlo habría hecho fallar la primera ejecución por algo
+que no tenía que ver con el cambio.
+
+**El seed aborta sin `ADMIN_SEED_PASSWORD`**, y hace bien: ningún entorno debe
+acabar con un admin de contraseña por defecto. Pero eso significaba que mi
+primera prueba de idempotencia no probaba nada — el seed moría a mitad. En CI
+la contraseña se genera con `openssl rand` dentro del paso y muere con el
+runner. Fijar una de usar y tirar en el workflow es cómo una de usar y tirar se
+vuelve costumbre.
+
+**`STRIPE_SECRET_KEY` va vacía**, a propósito. El código se niega a abrir el
+pago sin clave en vez de inventarse una, y el build debe seguir demostrando eso.
+
+### Corre en todas las ramas
+
+No solo en `main`. Aquí se trabaja empujando a ramas de feature, y una
+comprobación que solo aparece cuando existe un pull request es una que llega
+después de haber construido encima del error. El precio es una ejecución
+duplicada en las ramas que sí abren PR.
+
+---
+
+## 75. Fase 8.2 — El flujo de reserva, en un navegador
+
+Nueve pruebas de punta a punta con Playwright, contra el API y la base
+**reales**. Nada se simula: cada fallo que esta suite existe para cazar vivía en
+una costura, y un API simulado no tiene costuras.
+
+### Qué afirma, y por qué esas cosas
+
+Cada aserción es sobre algo que se ha roto de verdad en este proyecto:
+
+| Prueba                                         | Lo que evita repetir                                         |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| El desglose suma el total                      | Un backfill lo descuadró en exactamente $30 (§35)            |
+| Un `total` enviado por el navegador se rechaza | `?total=1` compraba una semana (§21)                         |
+| El hold toma la semana y devolverla la libera  | Fechas cerradas media hora por un pago que no se abrió (§72) |
+| Dos huéspedes no compran la misma semana       | La restricción de exclusión (§29)                            |
+| El checkout enseña el total del servidor       | Decirle un precio y cobrarle otro                            |
+| Sin aceptar términos no se paga                | —                                                            |
+| Sin nombre no se continúa                      | El botón fuera del `<form>` se saltaba los `required` (§30)  |
+| Cada idioma bajo su locale                     | El rewrite de locale (§2)                                    |
+| Una sesión inexistente no fabrica una reserva  | La confirmación declaraba éxito desde `localStorage` (§30)   |
+
+### Dos tests míos afirmaban algo más débil que la realidad
+
+Fallaron, y al mirarlos el código era **más estricto** de lo que yo había
+supuesto:
+
+- Asumí que un `total` enviado por el navegador se ignoraría. El API rechaza la
+  petición entera con un 400 que nombra los campos. Ignorarlo también sería
+  seguro, pero quien manda un total ha entendido algo mal y merece que se lo
+  digan.
+- Asumí que el botón de pagar abría el diálogo sin más. Está deshabilitado
+  hasta aceptar los términos. Eso pasó de fallo a aserción propia.
+
+Los tests se corrigieron hacia arriba; el código no se tocó.
+
+### Se limpia con el propio código
+
+Un hold se suelta llamando a `/abandon` — exactamente lo que hace un huésped que
+se arrepiente. No hay endpoint de limpieza para tests: uno sería un agujero
+permanente para ahorrar una llamada que ya existe.
+
+Comprobado tras la ejecución, sobre la base real:
+
+```
+reservas dejadas por los E2E: 4
+  AB-GVEW26  CANCELLED  2027-09-17  El huésped volvió atrás desde el pago
+  AB-9KTWBF  CANCELLED  2027-09-27  El huésped volvió atrás desde el pago
+  ...
+ninguna bloquea fechas ✓
+```
+
+Reservan a **400 días vista** a propósito: la suite corre contra la misma base
+que el panel, y usar la semana que viene chocaría con lo que la anfitriona tenga
+de verdad y parecería una reserva real en su calendario.
+
+### Dónde se detiene
+
+En el traspaso a Stripe. Completar un pago significa manejar la página alojada
+de Stripe, que es su interfaz y no la nuestra. Lo que sí se comprueba es que el
+traspaso es real: una URL de sesión que pertenece a Stripe, para una reserva que
+existe.
+
+Y la suite es honesta **sin credenciales**: sin clave de Stripe el hold no puede
+abrir un pago, así que afirma el otro camino —que las fechas se sueltan— en vez
+de saltarse la prueba.
+
+### En CI
+
+Job propio con su Postgres. Solo Chromium: tres motores triplican los minutos
+para volver a comprobar el mismo comportamiento de servidor, y una diferencia de
+render no es para lo que está esta suite. El informe se sube como artefacto solo
+cuando algo falla.
+
+```
+9 passed (21.2s)
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308 unitarios)
+```
+
+---
+
+## 76. Fase 8.3 — SEO técnico y accesibilidad
+
+No había nada de SEO técnico: ni `robots.txt`, ni `sitemap.xml`, ni canonical,
+ni hreflang, ni datos estructurados. En un sitio de **cinco idiomas** eso último
+es lo que más cuesta: sin `alternates.languages`, un buscador ve cinco páginas
+compitiendo por las mismas palabras en vez de una página en cinco idiomas.
+
+### Lo añadido
+
+- **`robots.ts`** — `/admin` fuera del índice. No es lo que lo protege (eso son
+  el middleware y los guards); lo que evita es que la pantalla de login del
+  panel salga al buscar la casa. `/my-booking` y `/confirmation` también,
+  porque esas URLs llevan una referencia de reserva.
+- **`sitemap.ts`** — una casa, cinco idiomas, con `x-default`. El checkout no
+  está: es un paso de una transacción, y pedirle a un crawler que lo indexe es
+  pedirle que indexe un carrito.
+- **`metadataBase`** — sin él, una imagen de Open Graph es una ruta, y el
+  servidor que renderiza un enlace compartido no tiene página contra la que
+  resolverla. La vista previa salía en blanco.
+- **Canonical y hreflang** en cada locale, y **fuera del `if` del CMS**: antes,
+  un API caído significaba una página sin canonical, que es invitar al buscador
+  a elegir uno por su cuenta.
+- **`VacationRental` en JSON-LD** con dirección, capacidad, dormitorios, baños y
+  horarios reales. Sin `aggregateRating` ni `review`: un rating que nadie dejó
+  es de las cosas por las que a un listado le cae una penalización manual.
+
+### Accesibilidad: un `??` que dejaba nueve botones sin nombre
+
+La auditoría dio un solo fallo real, y su causa era pequeña:
+
+```ts
+alt={photo.caption ?? propertyName}
+```
+
+`??` solo captura `null` y `undefined`. **Nueve de las 46 fotos** tienen
+`caption: ''`, y una cadena vacía no es null — así que esas nueve renderizaban
+`alt=""` y el botón que las envuelve se quedaba sin nombre accesible. Un lector
+de pantalla anunciaba "button" y nada más.
+
+También el botón de cerrar la galería, que era un icono sin texto.
+
+### Un test mío que reportaba cinco falsos positivos
+
+La primera versión comprobaba a mano el texto, el `aria-label` y el `title`.
+Un `<img alt="…">` dentro de un botón **sí** le da nombre a ese botón, y ninguna
+comprobación hecha a mano sabe eso. Ahora usa `ariaSnapshot()`, que es el
+cálculo del propio navegador.
+
+```
+- button "Cambiar idioma": ES
+- button "Ver todas las fotos"
+- button                        <- el único de verdad sin nombre
+```
+
+### Comprobado sirviendo, no leyendo el código
+
+```
+robots.txt   → Disallow: /admin, /my-booking, /confirmation + Sitemap:
+sitemap.xml  → 5 locales + hreflang x-default
+/es          → canonical + 6 alternates
+JSON-LD      → VacationRental · St. Petersburg, Florida · 8 huéspedes
+                3 dorm / 2 baños · 16:00–10:00 · desde $300
+                ¿inventa rating? False
+```
+
+Siete pruebas nuevas en `e2e/seo-a11y.spec.ts` vigilan todo esto: son las
+partes de una página que nadie mira, y por eso nada las caza salvo un test que
+vaya a buscarlas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308 unitarios)
+e2e SEO/a11y: 6 de 7 ✅
+```
+
+### Comprobado con Postgres arriba
+
+El usuario levantó la base y la suite entera pasa:
+
+```
+16 passed (1.0m)
+```
+
+Las nueve del flujo de reserva y las siete de SEO y accesibilidad, incluida la
+de datos estructurados que faltaba. Y sin residuo:
+
+```
+reservas de los E2E: 6   activas: 0   ninguna bloquea fechas ✓
+reservas reales confirmadas: 7        intactas
+```
+
+---
+
+## 77. Fase 8.4 — Producción
+
+Una imagen por app, un compose para una sola máquina, y `docs/deployment.md`.
+
+### La web: 78 MB en vez de más de un giga
+
+`output: 'standalone'` hace que Next rastree los archivos que el servidor
+realmente alcanza y los copie. En un monorepo de pnpm hace falta además
+`outputFileTracingRoot`, o Next rastrea desde `apps/web` y se deja las
+dependencias izadas a la raíz.
+
+No pude construir la imagen —no hay Docker en esta máquina— así que probé **el
+comando exacto** que ejecuta el Dockerfile:
+
+```
+node apps/web/server.js   →  ✓ Ready in 90ms
+/es → 200   /robots.txt → 200   /sitemap.xml → 200
+```
+
+### El API no arranca desde `dist`, y eso decidió el diseño
+
+Comprobado, no supuesto:
+
+```
+$ node dist/main.js
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module
+  .../packages/shared/src/constants
+  imported from .../packages/shared/src/index.ts
+```
+
+Los paquetes de `packages/` publican **TypeScript sin compilar**
+(`"main": "./src/index.ts"`, sin script de build), así que el `dist` del API
+pide un `.ts` que Node no sabe cargar.
+
+La imagen corre con `ts-node --transpile-only`: exactamente lo que ya hacen
+`pnpm start` y el job de E2E del CI. No es elegante y está dicho en el
+documento. El arreglo correcto —dar un paso de compilación a esos paquetes y
+apuntar `main` a `dist`— toca a la vez cómo resuelven Next, Jest y el API, y
+merece hacerse solo, no de rebote dentro del despliegue.
+
+### Decisiones que el documento explica en vez de esconder
+
+- **Las migraciones no corren al arrancar.** Dos réplicas competirían por el
+  mismo bloqueo, y una migración que falla en el arranque deja un bucle de
+  reinicios en lugar de un error legible. Van como su propio paso.
+- **`NEXT_PUBLIC_API_URL` se congela al construir.** Va compilada en el bundle
+  del navegador, así que cambiarla es reconstruir la imagen. Por eso es un
+  `build arg` y no una variable del servicio — y por eso está escrito, en vez
+  de descubrirse en producción.
+- **Postgres no publica puerto.** El API lo alcanza por la red del compose; un
+  puerto en el host es un puerto que internet puede probar.
+- **Las salud comprueban algo real.** El API responde sano solo cuando puede
+  **leer la propiedad**: uno que contesta pero no llega a la base no sirve, y
+  un orquestador no debe mandarle el primer huésped.
+- **Ningún valor por defecto para un secreto.** `${JWT_SECRET:?set JWT_SECRET}`
+  falla al levantar en lugar de arrancar con algo que el repositorio conoce.
+
+### Una trampa que habría costado una tarde
+
+Sin `BLOB_READ_WRITE_TOKEN`, `StorageService` escribe en
+`apps/web/public/uploads` — que en este despliegue es el disco del contenedor
+del **API**, no el de la web. La imagen se guarda y el sitio no la encuentra.
+Documentado con sus dos salidas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308)   pnpm format:check ✅
+```
+
+---
+
+## 78. Los paquetes compartidos ya compilan
+
+La deuda que quedaba de §77: el API arrancaba con `ts-node` porque
+`packages/shared` y `packages/types` publicaban TypeScript sin compilar, así que
+`node dist/main.js` moría en `Cannot find module .../packages/shared/src/constants`.
+
+### Por qué era delicado
+
+Cinco cosas resuelven esos paquetes y cada una espera algo distinto: el API en
+producción quiere JavaScript, el API en desarrollo quiere el fuente para que un
+cambio se vea sin recompilar, Next quiere una cosa en `dev` y otra en `build`,
+Jest los mapea al fuente por su cuenta, y `tsc` quiere declaraciones.
+
+Apuntar `main` a `dist` y ya está habría roto lo segundo: editar
+`packages/shared/src/pricing.ts` dejaría de llegar al servidor de desarrollo
+hasta recompilar a mano — y nadie se acuerda de recompilar a mano.
+
+### La solución: una condición en `exports`
+
+```json
+"exports": {
+  ".": {
+    "development": "./src/index.ts",
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  }
+}
+```
+
+Node toma la primera condición que entiende. Comprobado, no supuesto:
+
+```
+sin condición   → packages/shared/dist/index.js
+--conditions=development → packages/shared/src/index.ts
+```
+
+El `dev` del API pasa esa condición; Next la activa por su cuenta en
+desarrollo y no en `build`. Turbo garantiza el orden con `dependsOn: ["^build"]`,
+que ya estaba para build, lint, typecheck y test — solo hubo que añadirlo a
+`dev`.
+
+### Comprobado, paso a paso
+
+```
+node dist/main.js  →  Nest started  ·  /properties/areia-bela → 200
+```
+
+Y el desarrollo en vivo, cambiando `HOLD_TTL_MINUTES` de 30 a 31 en el fuente
+con el servidor corriendo: `node --watch` reinició (dos arranques en el log)
+mientras `dist` seguía diciendo 30. El cambio de prueba se revirtió.
+
+```
+pnpm typecheck ✅ (6 tareas)   pnpm lint ✅ (0 errores)
+pnpm test ✅ (308)             pnpm build ✅ (4 tareas)
+e2e contra el API COMPILADO: 16 passed (49.8s)
+```
+
+Esa última línea es la que cierra el asunto: la suite entera pasa contra
+`node dist/main.js`, no contra el servidor de desarrollo.
+
+### Lo que gana la imagen
+
+El Dockerfile del API pasa de `pnpm start` con ts-node a `node dist/main.js`.
+Sin toolchain de TypeScript dentro, y sin gestor de paquetes en el árbol de
+procesos: una cosa menos entre una señal y la aplicación que tiene que
+atenderla.
+
+### Sigue diferido
+
+- **El `dist` del API incluye los `.spec.js`.** `nest build` compila también los
+  tests. Sobra peso, no rompe nada.

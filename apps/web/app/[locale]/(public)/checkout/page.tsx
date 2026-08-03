@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Textarea } from '@areia-bela/ui/textarea'
 import {
+  abandonHold,
   currency,
   fetchNightRates,
   fetchStayLimits,
@@ -50,6 +51,9 @@ function CheckoutForm() {
     () => parseQuoteRequestFromSearchParams(new URLSearchParams(searchParams.toString())),
     [searchParams],
   )
+  // Stripe sends the guest back here with the hold they walked away from.
+  const abandoned = searchParams.get('abandoned')
+
   const [quote, setQuote] = useState<BookingQuote | null>(null)
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -139,6 +143,21 @@ function CheckoutForm() {
     warned.current = true
     toast.error(copy.datesTakenToast, { description: copy.datesTaken, duration: 10_000 })
   }, [datesGone, copy])
+
+  // Above the early return: a hook cannot be skipped on one render and run on
+  // the next. Stripe sends the guest back here when they turn round, and the
+  // week goes on sale again the moment they land.
+  useEffect(() => {
+    if (!abandoned) return
+
+    // Fire and forget: the dates are already back as far as this page cares,
+    // and the URL is cleaned so a refresh does not ask twice.
+    void abandonHold(abandoned)
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('abandoned')
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }, [abandoned, router, searchParams])
 
   if (!quote) {
     return (

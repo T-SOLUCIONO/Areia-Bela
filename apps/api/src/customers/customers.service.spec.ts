@@ -4,11 +4,18 @@ import type { GuestAuthService } from '../guest/guest-auth.service'
 import type { PrismaService } from '../prisma/prisma.service'
 
 const booking = (over: Partial<Record<string, unknown>> = {}) => ({
+  id: 'b1',
   reference: 'AB-AAA111',
   checkIn: new Date('2026-09-01'),
   checkOut: new Date('2026-09-08'),
+  adults: 2,
+  children: 0,
   totalPrice: 2483,
+  status: 'CONFIRMED',
   paidAt: new Date('2026-08-01'),
+  // Always included by the query, so a fixture without it would be lying
+  // about the shape rather than testing the code.
+  refunds: [] as Array<{ amount: number }>,
   ...over,
 })
 
@@ -88,6 +95,46 @@ describe('CustomersService', () => {
     const [guest] = await service.list()
     expect(guest.stays).toBe(0)
     expect(guest.firstStay).toBeNull()
+  })
+
+  it('lists every stay, newest first, with what went back', async () => {
+    prisma.customer.findMany.mockResolvedValue([
+      customer({
+        bookings: [
+          booking({
+            reference: 'AB-OLD',
+            checkIn: new Date('2026-03-01'),
+            checkOut: new Date('2026-03-04'),
+          }),
+          booking({
+            reference: 'AB-NEW',
+            checkIn: new Date('2026-09-01'),
+            checkOut: new Date('2026-09-08'),
+            refunds: [{ amount: 500 }],
+          }),
+        ],
+      }),
+    ])
+
+    const [guest] = await service.list()
+
+    // Newest first: what someone opening a guest wants is the last visit.
+    expect(guest.stayHistory.map((stay) => stay.reference)).toEqual(['AB-NEW', 'AB-OLD'])
+    expect(guest.stayHistory[0].nights).toBe(7)
+    expect(guest.stayHistory[0].refunded).toBe(500)
+    expect(guest.stayHistory[1].refunded).toBe(0)
+  })
+
+  it('marks a stay nobody paid for', async () => {
+    prisma.customer.findMany.mockResolvedValue([
+      customer({ bookings: [booking({ paidAt: null, status: 'PENDING' })] }),
+    ])
+
+    const [guest] = await service.list()
+
+    expect(guest.stayHistory[0].paidAt).toBeNull()
+    // And it is not counted as money in.
+    expect(guest.totalSpent).toBe(0)
   })
 
   it('counts only money that arrived', async () => {

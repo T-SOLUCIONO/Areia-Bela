@@ -1,0 +1,73 @@
+# Production, on one machine.
+#
+# Enough to run the house on a small VPS. It is not a cluster: one API, one web,
+# one database. For a single property that is the honest shape — and the two
+# images work unchanged behind a managed Postgres or a platform that runs
+# containers, which is the path in docs/deployment.md.
+#
+# No secret has a default here. Every value comes from the environment, so a
+# missing one fails loudly at `docker compose up` instead of quietly booting
+# with something a repository knows.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Deliberately not published. The API reaches it over the compose network;
+    # a port on the host is a port the internet can try.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CORS_ORIGINS: ${PUBLIC_SITE_URL:?set PUBLIC_SITE_URL}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
+      # Optional. Each one the code already refuses to fake when absent: no
+      # Stripe key means checkout will not open rather than pretend, no Brevo
+      # key means the magic link is logged rather than silently dropped.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL:-}
+      DEEPL_API_KEY: ${DEEPL_API_KEY:-}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
+      BLOB_READ_WRITE_TOKEN: ${BLOB_READ_WRITE_TOKEN:-}
+    ports:
+      - '127.0.0.1:3001:3001'
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Compiled into the browser bundle, so these belong to the build and
+        # not to the runtime. Changing them means rebuilding the image.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3000:3000'
+
+volumes:
+  postgres_data:

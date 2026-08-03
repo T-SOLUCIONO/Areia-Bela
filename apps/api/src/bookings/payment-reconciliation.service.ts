@@ -44,6 +44,63 @@ export class PaymentReconciliationService implements OnApplicationBootstrap {
   /** On boot, because the likeliest gap is exactly while this was not running. */
   async onApplicationBootstrap(): Promise<void> {
     await this.reconcile()
+    await this.backfillPaymentIntents()
+  }
+
+  /**
+   * Puts a PaymentIntent on stays that were paid before we stored one.
+   *
+   * Two things need it. A refund goes against a PaymentIntent, so without it
+   * the money can only be sent after an extra round trip to Stripe. And the
+   * payments panel matches Stripe's ledger to bookings through exactly this
+   * id — with it missing, every historical charge shows up as an unattributed
+   * row with no guest name.
+   *
+   * Runs once per boot and does nothing on the second: the query only finds
+   * rows that are still missing it.
+   */
+  private async backfillPaymentIntents(): Promise<void> {
+    if (!this.configured) return
+
+    const missing = await this.prisma.booking.findMany({
+      where: {
+        paidAt: { not: null },
+        stripePaymentIntentId: null,
+        stripeSessionId: { not: null },
+      },
+      select: { id: true, reference: true, stripeSessionId: true },
+    })
+    if (missing.length === 0) return
+
+    let filled = 0
+    for (const booking of missing) {
+      try {
+        const session = await this.stripe.checkout.sessions.retrieve(booking.stripeSessionId!)
+        const intent =
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : session.payment_intent?.id
+        if (!intent) continue
+
+        await this.prisma.booking.update({
+          where: { id: booking.id },
+          data: { stripePaymentIntentId: intent },
+        })
+        filled += 1
+      } catch (error) {
+        // One unreadable session must not stop the rest. A booking that keeps
+        // failing here simply stays unmatched in the panel.
+        this.logger.warn(
+          `Could not backfill ${booking.reference}: ${
+            error instanceof Error ? error.message : 'unknown'
+          }`,
+        )
+      }
+    }
+
+    if (filled > 0) {
+      this.logger.log(`Backfilled the PaymentIntent on ${filled} paid booking(s)`)
+    }
   }
 
   @Cron(CronExpression.EVERY_10_MINUTES)
@@ -91,7 +148,14 @@ export class PaymentReconciliationService implements OnApplicationBootstrap {
         this.logger.warn(
           `Recovering ${waiting.get(bookingId)}: paid on Stripe but no webhook arrived`,
         )
-        await this.bookings.confirmPayment(bookingId, session.id, session.amount_total ?? 0)
+        await this.bookings.confirmPayment(
+          bookingId,
+          session.id,
+          session.amount_total ?? 0,
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : (session.payment_intent?.id ?? undefined),
+        )
         recovered += 1
       }
     } catch (error) {

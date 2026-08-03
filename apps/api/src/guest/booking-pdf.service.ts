@@ -2,7 +2,12 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Injectable, Logger } from '@nestjs/common'
 import PDFDocument from 'pdfkit'
-import { fullRefundDeadline, halfRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
+import {
+  fullRefundDeadline,
+  guestReadyAccessNotes,
+  halfRefundDeadline,
+  type CancellationPolicy,
+} from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import type { MyBooking } from './guest.service'
 
@@ -465,7 +470,9 @@ export class BookingPdfService {
 
     block(copy.policy, `${policyText}\n${copy.policyNote}`)
     block(copy.address, property?.address ?? '')
-    block(copy.access, property?.accessNotes ?? '')
+    // `block` skips an empty body, so a template simply leaves no section
+    // rather than printing a heading over a row of brackets.
+    block(copy.access, guestReadyAccessNotes(property?.accessNotes) ?? '')
     block(
       copy.trash,
       (property?.trashCollectionDays ?? [])

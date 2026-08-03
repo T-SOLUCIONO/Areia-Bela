@@ -41,6 +41,30 @@ export interface GuestConfirmation extends BookingNotice {
   checkOutTime: string
 }
 
+/** The guest's copy of a cancellation. Their language, like the confirmation. */
+export interface GuestCancellation extends BookingNotice {
+  locale: string
+  reason?: string
+  /** Whether there is money to give back, which changes what the mail promises. */
+  paid: boolean
+}
+
+/** A refund that has actually left, for the guest's own record. */
+export interface RefundNotice {
+  reference: string
+  guestName: string
+  guestEmail: string
+  locale: string
+  amount: number
+  /** What they paid, so the two figures can be compared without doing sums. */
+  total: number
+  note?: string
+  /** `reversal` comes back in days; anything else goes at the bank's pace. */
+  settlesAs?: string
+  /** The acquirer reference number, when Stripe has one to give. */
+  cardReference?: string
+}
+
 export interface MessageNotice {
   name: string
   email: string
@@ -128,7 +152,9 @@ export class NotificationsService {
 
   async bookingCancelled(booking: BookingNotice, reason?: string): Promise<void> {
     const lines = [
-      `${booking.guestName} canceló su reserva.`,
+      // Passive on purpose: this is sent from the panel, so the one cancelling
+      // is the host. Saying the guest did it was simply wrong.
+      `Se canceló la reserva de ${booking.guestName}.`,
       `${booking.checkIn} → ${booking.checkOut} (${booking.nights} ${booking.nights === 1 ? 'noche' : 'noches'})`,
       `Referencia: ${booking.reference}`,
       '',
@@ -186,6 +212,113 @@ export class NotificationsService {
         }`,
       )
     }
+  }
+
+  /**
+   * Tells the guest their stay is off.
+   *
+   * This did not exist: cancelling from the panel freed the nights, alerted the
+   * host and told the guest nothing at all. Someone would find out when they
+   * turned up.
+   *
+   * Not switchable, like the confirmation: the panel's notification toggles are
+   * about how much noise the host wants, not about whether a guest is told
+   * their holiday is cancelled.
+   */
+  async guestCancellation(notice: GuestCancellation): Promise<void> {
+    const copy = CANCEL_COPY[notice.locale] ?? CANCEL_COPY.en
+    const body = [
+      copy.greeting(notice.guestName.split(' ')[0]),
+      '',
+      copy.dates(notice.checkIn, notice.checkOut),
+      copy.reference(notice.reference),
+      ...(notice.reason ? ['', copy.reason(notice.reason)] : []),
+      '',
+      // Only promised when there is something to give back. A guest who never
+      // paid does not need to be told a refund is coming.
+      notice.paid ? copy.refundComing : copy.noPayment,
+      '',
+      copy.closing,
+    ].join('\n')
+
+    try {
+      await this.mail.send({
+        to: notice.guestEmail,
+        toName: notice.guestName,
+        subject: copy.subject(notice.reference),
+        text: body,
+        html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
+      })
+      this.logger.log(`Told the guest booking ${notice.reference} was cancelled`)
+    } catch (error) {
+      this.logger.error(
+        `Could not tell the guest about cancelling ${notice.reference}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+    }
+  }
+
+  /**
+   * Tells the guest money is on its way back.
+   *
+   * Not switchable, for the same reason the booking confirmation is not: a
+   * refund is a movement on their card, and a card movement without an
+   * explanation is the kind of thing that becomes a dispute.
+   *
+   * Sent only once Stripe has accepted the refund. Announcing one that then
+   * failed would be worse than saying nothing.
+   */
+  async refundIssued(notice: RefundNotice): Promise<void> {
+    const copy = REFUND_COPY[notice.locale] ?? REFUND_COPY.en
+    const body = [
+      copy.greeting(notice.guestName.split(' ')[0]),
+      '',
+      copy.amount(notice.amount, notice.total),
+      copy.reference(notice.reference),
+      ...(notice.note ? ['', notice.note] : []),
+      '',
+      notice.settlesAs === 'reversal' ? copy.timingReversal : copy.timingRefund,
+      // Only when Stripe actually handed one over. A trace number the bank
+      // cannot look up yet is worse than none.
+      ...(notice.cardReference ? ['', copy.arn(notice.cardReference)] : []),
+      '',
+      copy.closing,
+    ].join('\n')
+
+    try {
+      await this.mail.send({
+        to: notice.guestEmail,
+        toName: notice.guestName,
+        subject: copy.subject(notice.reference),
+        text: body,
+        html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
+      })
+      this.logger.log(`Told the guest about the refund on ${notice.reference}`)
+    } catch (error) {
+      // The money has already moved. A mail that did not send is not a reason
+      // to unwind it, and the panel shows the refund either way.
+      this.logger.error(
+        `Could not tell the guest about the refund on ${notice.reference}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+    }
+  }
+
+  /** The host's own copy: money left the account. */
+  async refundSent(notice: RefundNotice): Promise<void> {
+    await deliver(
+      await this.destinationsFor('cancellation'),
+      `Reembolso enviado · ${notice.reference}`,
+      [
+        `Se devolvieron $${notice.amount} a ${notice.guestName}.`,
+        `Referencia: ${notice.reference}`,
+        `Total de la reserva: $${notice.total}`,
+        ...(notice.note ? ['', `Nota: ${notice.note}`] : []),
+      ].join('\n'),
+      this.logger,
+    )
   }
 
   /**
@@ -287,6 +420,158 @@ export class NotificationsService {
  * Plain text on purpose: it has to survive every mail client, and a booking
  * reference is not improved by a template.
  */
+const CANCEL_COPY: Record<
+  string,
+  {
+    subject: (reference: string) => string
+    greeting: (name: string) => string
+    dates: (checkIn: string, checkOut: string) => string
+    reference: (reference: string) => string
+    reason: (reason: string) => string
+    refundComing: string
+    noPayment: string
+    closing: string
+  }
+> = {
+  es: {
+    subject: (reference) => `Tu reserva en Areia Bela se canceló · ${reference}`,
+    greeting: (name) => `Hola ${name}, tu reserva quedó cancelada.`,
+    dates: (checkIn, checkOut) => `Fechas: ${checkIn} → ${checkOut}`,
+    reference: (reference) => `Referencia: ${reference}`,
+    reason: (reason) => `Motivo: ${reason}`,
+    refundComing:
+      'Si pagaste, el reembolso se gestiona ahora y te llega un correo aparte con el importe exacto y el plazo.',
+    noPayment: 'No se te cobró nada por esta reserva.',
+    closing: 'Si esto no es lo que esperabas, responde a este correo y lo vemos.',
+  },
+  en: {
+    subject: (reference) => `Your booking at Areia Bela was cancelled · ${reference}`,
+    greeting: (name) => `Hi ${name}, your booking has been cancelled.`,
+    dates: (checkIn, checkOut) => `Dates: ${checkIn} → ${checkOut}`,
+    reference: (reference) => `Reference: ${reference}`,
+    reason: (reason) => `Reason: ${reason}`,
+    refundComing:
+      'If you paid, the refund is being handled now and a separate email will tell you the exact amount and how long it takes.',
+    noPayment: 'You were not charged for this booking.',
+    closing: 'If this is not what you expected, reply to this email and we will sort it out.',
+  },
+  pt: {
+    subject: (reference) => `Sua reserva na Areia Bela foi cancelada · ${reference}`,
+    greeting: (name) => `Olá ${name}, sua reserva foi cancelada.`,
+    dates: (checkIn, checkOut) => `Datas: ${checkIn} → ${checkOut}`,
+    reference: (reference) => `Referência: ${reference}`,
+    reason: (reason) => `Motivo: ${reason}`,
+    refundComing:
+      'Se você pagou, o reembolso está sendo processado e um e-mail à parte informará o valor exato e o prazo.',
+    noPayment: 'Nada foi cobrado por esta reserva.',
+    closing: 'Se não era isso que você esperava, responda a este e-mail e resolvemos.',
+  },
+  fr: {
+    subject: (reference) => `Votre réservation à Areia Bela est annulée · ${reference}`,
+    greeting: (name) => `Bonjour ${name}, votre réservation a été annulée.`,
+    dates: (checkIn, checkOut) => `Dates : ${checkIn} → ${checkOut}`,
+    reference: (reference) => `Référence : ${reference}`,
+    reason: (reason) => `Motif : ${reason}`,
+    refundComing:
+      'Si vous avez payé, le remboursement est en cours et un message séparé vous indiquera le montant exact et le délai.',
+    noPayment: 'Rien ne vous a été facturé pour cette réservation.',
+    closing: 'Si ce n’est pas ce que vous attendiez, répondez à ce message.',
+  },
+  de: {
+    subject: (reference) => `Ihre Buchung in Areia Bela wurde storniert · ${reference}`,
+    greeting: (name) => `Hallo ${name}, Ihre Buchung wurde storniert.`,
+    dates: (checkIn, checkOut) => `Daten: ${checkIn} → ${checkOut}`,
+    reference: (reference) => `Referenz: ${reference}`,
+    reason: (reason) => `Grund: ${reason}`,
+    refundComing:
+      'Falls Sie bezahlt haben, wird die Rückerstattung jetzt bearbeitet; eine separate E-Mail nennt den genauen Betrag und die Dauer.',
+    noPayment: 'Für diese Buchung wurde Ihnen nichts berechnet.',
+    closing: 'Wenn das nicht Ihren Erwartungen entspricht, antworten Sie einfach auf diese E-Mail.',
+  },
+}
+
+const REFUND_COPY: Record<
+  string,
+  {
+    subject: (reference: string) => string
+    greeting: (name: string) => string
+    amount: (amount: number, total: number) => string
+    reference: (reference: string) => string
+    /**
+     * Two different waits, and Stripe knows which one applies. A charge that
+     * had not settled yet is reversed and comes back in days; one that had is
+     * a real refund and goes at the bank's pace.
+     */
+    timingReversal: string
+    timingRefund: string
+    arn: (reference: string) => string
+    closing: string
+  }
+> = {
+  es: {
+    subject: (reference) => `Reembolso de tu reserva · ${reference}`,
+    greeting: (name) => `Hola ${name}, tu reembolso está en camino.`,
+    amount: (amount, total) => `Importe devuelto: $${amount} de los $${total} que pagaste.`,
+    reference: (reference) => `Referencia: ${reference}`,
+    timingReversal:
+      'Como el cargo todavía no se había liquidado, se anula directamente: suele desaparecer de tu extracto en 1 a 3 días hábiles.',
+    timingRefund:
+      'El dinero vuelve al mismo método de pago que usaste. Suele tardar entre 5 y 10 días hábiles, y ese plazo lo pone tu banco, no nosotros.',
+    arn: (reference) => `Si tu banco no lo encuentra, dale este número de rastreo: ${reference}`,
+    closing: 'Si algo no cuadra, responde a este correo.',
+  },
+  en: {
+    subject: (reference) => `Refund for your booking · ${reference}`,
+    greeting: (name) => `Hi ${name}, your refund is on its way.`,
+    amount: (amount, total) => `Amount returned: $${amount} of the $${total} you paid.`,
+    reference: (reference) => `Reference: ${reference}`,
+    timingReversal:
+      'The charge had not settled yet, so it is being reversed outright: it usually drops off your statement in 1 to 3 business days.',
+    timingRefund:
+      'The money goes back to the payment method you used. It usually takes 5 to 10 business days, and that window is set by your bank, not by us.',
+    arn: (reference) => `If your bank cannot find it, give them this trace number: ${reference}`,
+    closing: 'If anything looks wrong, just reply to this email.',
+  },
+  pt: {
+    subject: (reference) => `Reembolso da sua reserva · ${reference}`,
+    greeting: (name) => `Olá ${name}, seu reembolso está a caminho.`,
+    amount: (amount, total) => `Valor devolvido: $${amount} dos $${total} que você pagou.`,
+    reference: (reference) => `Referência: ${reference}`,
+    timingReversal:
+      'Como a cobrança ainda não havia sido liquidada, ela é anulada direto: costuma sumir do seu extrato em 1 a 3 dias úteis.',
+    timingRefund:
+      'O dinheiro volta para o mesmo meio de pagamento que você usou. Costuma levar de 5 a 10 dias úteis, e esse prazo é do seu banco, não nosso.',
+    arn: (reference) => `Se o seu banco não encontrar, passe este número de rastreio: ${reference}`,
+    closing: 'Se algo não bater, responda a este e-mail.',
+  },
+  fr: {
+    subject: (reference) => `Remboursement de votre réservation · ${reference}`,
+    greeting: (name) => `Bonjour ${name}, votre remboursement est en route.`,
+    amount: (amount, total) => `Montant remboursé : ${amount} $ sur les ${total} $ payés.`,
+    reference: (reference) => `Référence : ${reference}`,
+    timingReversal:
+      'Le paiement n’était pas encore réglé, il est donc annulé directement : il disparaît en général de votre relevé sous 1 à 3 jours ouvrés.',
+    timingRefund:
+      'L’argent revient sur le moyen de paiement utilisé. Cela prend en général 5 à 10 jours ouvrés, un délai fixé par votre banque et non par nous.',
+    arn: (reference) =>
+      `Si votre banque ne le trouve pas, donnez-lui ce numéro de suivi : ${reference}`,
+    closing: 'Si quelque chose ne va pas, répondez à ce message.',
+  },
+  de: {
+    subject: (reference) => `Rückerstattung Ihrer Buchung · ${reference}`,
+    greeting: (name) => `Hallo ${name}, Ihre Rückerstattung ist unterwegs.`,
+    amount: (amount, total) => `Erstatteter Betrag: $${amount} von den gezahlten $${total}.`,
+    reference: (reference) => `Referenz: ${reference}`,
+    timingReversal:
+      'Die Abbuchung war noch nicht abgerechnet und wird direkt storniert: Sie verschwindet meist innerhalb von 1 bis 3 Werktagen von Ihrem Kontoauszug.',
+    timingRefund:
+      'Das Geld geht auf dasselbe Zahlungsmittel zurück. Das dauert in der Regel 5 bis 10 Werktage — diese Frist setzt Ihre Bank, nicht wir.',
+    arn: (reference) =>
+      `Falls Ihre Bank sie nicht findet, geben Sie diese Referenznummer an: ${reference}`,
+    closing: 'Falls etwas nicht stimmt, antworten Sie einfach auf diese E-Mail.',
+  },
+}
+
 const GUEST_COPY: Record<
   string,
   {

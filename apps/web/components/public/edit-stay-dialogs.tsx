@@ -75,7 +75,10 @@ export function EditDatesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+      {/* `overflow-x-hidden` as a belt to the calendar's braces: the grid now
+          fits, and if a future change makes it wide again the dialog clips it
+          instead of the whole page scrolling sideways. */}
+      <DialogContent className="max-h-[92vh] overflow-y-auto overflow-x-hidden sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">{copy.editDatesTitle}</DialogTitle>
         </DialogHeader>

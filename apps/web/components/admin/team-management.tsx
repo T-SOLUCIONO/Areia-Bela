@@ -21,7 +21,7 @@ import {
 import { Skeleton } from '@areia-bela/ui/skeleton'
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { useAdminSession } from '@/components/admin/admin-session-provider'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { InviteMemberDialog } from '@/components/admin/invite-member-dialog'
 import { fill } from '@/lib/admin-i18n'
 import { cn } from '@/lib/utils'
@@ -45,6 +45,7 @@ interface TeamMember {
 export function TeamManagement() {
   const session = useAdminSession()
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [pendingId, setPendingId] = useState<string | null>(null)
@@ -59,11 +60,11 @@ export function TeamManagement() {
     try {
       setMembers(await apiFetch<TeamMember[]>('/users'))
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.team.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.team.loadFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [t.team.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // setState here runs after an await, not synchronously in the effect body.

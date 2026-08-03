@@ -211,3 +211,52 @@ la cookie y el login no funcionará. Dos salidas:
 
 La decisión aún no está tomada porque el despliegue definitivo no está
 definido; queda documentada aquí para no descubrirla en producción.
+
+## Integración continua
+
+`.github/workflows/ci.yml` corre en cada push y en cada pull request. No
+necesita ningún secreto configurado en GitHub:
+
+| Variable              | De dónde sale en CI                                                                                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | Apunta al Postgres del propio job. Solo el job de migraciones se conecta de verdad; los tests usan mocks.                                                                                                                                         |
+| `STRIPE_SECRET_KEY`   | Vacía a propósito. El código se niega a abrir el pago sin clave en vez de inventarse una, y eso es justo lo que debe seguir haciendo.                                                                                                             |
+| `ADMIN_SEED_PASSWORD` | Se genera con `openssl rand` dentro del paso y muere con el runner. El seed se niega a inventar una contraseña de admin (y debe seguir negándose), pero fijar una de usar y tirar en el workflow es cómo una de usar y tirar se vuelve costumbre. |
+
+El job de migraciones va con `continue-on-error`: aplicar el historial completo
+sobre una base vacía es información valiosa —una migración que no aplica desde
+cero tampoco aplicará en producción— pero no debe frenar un commit de
+documentación.
+
+## Tests end-to-end
+
+`apps/web/e2e/` corre con Playwright contra el API y la base **reales**. Nada se
+simula: los fallos que esta suite existe para cazar vivían en las costuras, y un
+API simulado no tiene costuras.
+
+```bash
+# Con Postgres, el API (3001) y la web (3000) levantados:
+pnpm --filter @areia-bela/web test:e2e
+pnpm --filter @areia-bela/web test:e2e:ui   # con inspector
+```
+
+| Variable        | Para qué                                                                         |
+| --------------- | -------------------------------------------------------------------------------- |
+| `E2E_BASE_URL`  | Dónde escucha la web. Por defecto `http://localhost:3000`.                       |
+| `E2E_API_URL`   | Dónde escucha el API. Por defecto `http://localhost:3001`.                       |
+| `E2E_NO_SERVER` | Definida, Playwright no levanta la web él mismo — para cuando ya está corriendo. |
+
+Dos cosas que la suite hace a propósito:
+
+- **Reserva a 400 días vista.** Corre contra la misma base que el panel, así que
+  usar la semana que viene chocaría con lo que la anfitriona tenga de verdad y,
+  peor, parecería una reserva real en su calendario.
+- **Se limpia sola con el propio código.** Un hold se suelta llamando a
+  `/abandon`, que es exactamente lo que hace un huésped que se arrepiente. No
+  hay endpoint de limpieza para tests: uno sería un agujero permanente para
+  ahorrar una llamada que ya existe.
+
+Se detiene en el traspaso a Stripe. Completar un pago significa manejar la
+página de Stripe, que es su interfaz y no la nuestra. Lo que sí se comprueba es
+que el traspaso es real: una URL de sesión que pertenece a Stripe, para una
+reserva que existe.

@@ -51,7 +51,14 @@ export class StripeWebhookService {
           return
         }
         // amount_total comes from the signed payload, not from the browser.
-        await this.bookings.confirmPayment(bookingId, session.id, session.amount_total ?? 0)
+        await this.bookings.confirmPayment(
+          bookingId,
+          session.id,
+          session.amount_total ?? 0,
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : (session.payment_intent?.id ?? undefined),
+        )
         break
       }
 

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common'
 import type { Booking, BookingStatus, Customer, Prisma } from '@prisma/client'
 import {
+  PANEL_HOLD_TTL_MINUTES,
   checkStayLength,
   generateReference,
   HOLD_TTL_MINUTES,
@@ -17,6 +18,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
+import { CreateManualBookingDto } from './dto/manual-booking.dto'
 import { PaymentsService } from './payments.service'
 import { GuestService, type MyBooking } from '../guest/guest.service'
 
@@ -33,6 +35,15 @@ export interface HoldResult {
   quote: QuoteBreakdown
   /** Where to send the guest to pay. */
   checkoutUrl: string
+}
+
+/** A stay the host typed in. Null `checkoutUrl` means the money is already in. */
+export interface ManualBookingResult {
+  bookingId: string
+  reference: string
+  quote: QuoteBreakdown
+  checkoutUrl: string | null
+  expiresAt: string | null
 }
 
 type BookingWithGuest = Booking & { customer: Customer; extras: Array<{ extra: { name: string } }> }
@@ -79,7 +90,13 @@ export class BookingsService {
 
     // The calendar already stops a guest picking two nights when four are
     // required, but the calendar is a browser. This is the authority.
-    const lengthProblem = checkStayLength(quote.nights, property)
+    //
+    // The minimum comes from the quote: it knows which season the arrival date
+    // falls in, and a peak week can ask for more nights than the house does.
+    const lengthProblem = checkStayLength(quote.nights, {
+      minNights: quote.minNights,
+      maxNights: property.maxNights,
+    })
     if (lengthProblem) {
       throw new BadRequestException(
         lengthProblem.kind === 'tooShort'
@@ -122,6 +139,197 @@ export class BookingsService {
     // Unreachable in practice: six characters out of 31 collide about once in
     // 887 million, and five draws in a row is not a thing that happens.
     throw new ConflictException('Could not allocate a booking reference')
+  }
+
+  /**
+   * A stay taken over the phone.
+   *
+   * The same price, the same exclusion constraint, the same customer row as a
+   * booking made on the site — only the way the money arrives is different. The
+   * host still never sends a total: this prices the stay from the dates and the
+   * party, exactly as the public quote does.
+   *
+   * The length limits are deliberately **not** enforced. They exist to stop a
+   * stranger booking a single night over Christmas; the person on the phone is
+   * the one who set them, and refusing her own exception would be the software
+   * arguing with its owner.
+   */
+  async createManual(
+    slug: string,
+    dto: CreateManualBookingDto,
+    origin: string,
+  ): Promise<ManualBookingResult> {
+    const quote = await this.properties.getQuote(slug, {
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      guests: dto.guests,
+      extraIds: dto.extraIds,
+      extraUnits: dto.extraUnits,
+    })
+
+    const property = await this.prisma.property.findUnique({
+      where: { slug },
+      select: { id: true, checkInTime: true, checkOutTime: true },
+    })
+    if (!property) throw new NotFoundException(`Property "${slug}" not found`)
+
+    // A blocked date is not a booking, so the constraint knows nothing about
+    // it. The host can still block first and book after — this only refuses
+    // the collision, not the intent.
+    const blocked = await this.prisma.blockedDate.findFirst({
+      where: {
+        propertyId: property.id,
+        startDate: { lt: new Date(dto.checkOut) },
+        endDate: { gt: new Date(dto.checkIn) },
+      },
+    })
+    if (blocked) {
+      throw new ConflictException('Those dates are blocked. Free them first.')
+    }
+
+    const collected = dto.paymentMethod !== undefined
+    // Paid in cash holds for ever; a payment link holds for a day, because the
+    // guest has to find the email and their card after hanging up.
+    const expiresAt = collected ? null : new Date(Date.now() + PANEL_HOLD_TTL_MINUTES * 60_000)
+
+    for (let attempt = 0; attempt < REFERENCE_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.insertManual(property, dto, quote, expiresAt, origin)
+      } catch (error) {
+        if (this.isOverlap(error)) {
+          throw new ConflictException('Those dates are already taken')
+        }
+        if (this.isReferenceCollision(error) && attempt < REFERENCE_ATTEMPTS - 1) continue
+        throw error
+      }
+    }
+    throw new ConflictException('Could not allocate a booking reference')
+  }
+
+  private async insertManual(
+    property: { id: string; checkInTime: string; checkOutTime: string },
+    dto: CreateManualBookingDto,
+    quote: QuoteBreakdown,
+    expiresAt: Date | null,
+    origin: string,
+  ): Promise<ManualBookingResult> {
+    const reference = generateReference()
+    const collected = dto.paymentMethod !== undefined
+
+    const booking = await this.prisma.$transaction(async (tx) => {
+      // Same sweep as a website hold: the constraint cannot call now(), so
+      // expired holds still occupy their dates until something cancels them.
+      await tx.booking.updateMany({
+        where: { status: 'PENDING', expiresAt: { lt: new Date() } },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancellationReason: 'El plazo de pago venció',
+        },
+      })
+
+      const customer = await tx.customer.upsert({
+        where: { email: dto.guest.email },
+        update: {
+          firstName: dto.guest.firstName,
+          lastName: dto.guest.lastName,
+          phone: dto.guest.phone,
+          country: dto.guest.country,
+        },
+        create: {
+          firstName: dto.guest.firstName,
+          lastName: dto.guest.lastName,
+          email: dto.guest.email,
+          phone: dto.guest.phone,
+          country: dto.guest.country,
+        },
+      })
+
+      return tx.booking.create({
+        data: {
+          propertyId: property.id,
+          customerId: customer.id,
+          reference,
+          checkIn: new Date(dto.checkIn),
+          checkOut: new Date(dto.checkOut),
+          adults: dto.guests.adults,
+          children: dto.guests.children,
+          infants: dto.guests.infants,
+          pets: dto.guests.pets ?? 0,
+          source: 'PANEL',
+          // Cash in hand is a confirmed stay, not a hold waiting on Stripe.
+          status: collected ? 'CONFIRMED' : 'PENDING',
+          paidAt: collected ? new Date() : null,
+          paymentMethod: dto.paymentMethod ?? null,
+          totalPrice: quote.total,
+          nightsSubtotal: quote.subtotal,
+          weeklyDiscount: quote.weeklyDiscount,
+          extrasTotal: quote.extrasTotal,
+          additionalGuestFee: quote.additionalGuestFee,
+          cleaningFee: quote.cleaningFee,
+          serviceFee: quote.serviceFee,
+          taxes: quote.taxes,
+          expiresAt,
+          specialRequests: dto.specialRequests,
+          locale: dto.locale ?? 'es',
+          extras: {
+            create: quote.extras.map((extra) => ({
+              extraId: extra.id,
+              quantity: extra.quantity,
+            })),
+          },
+        },
+        include: { customer: true, extras: { include: { extra: true } } },
+      })
+    })
+
+    const notice = this.noticeFor(booking)
+
+    if (collected) {
+      // Already paid, so the guest gets the same confirmation a website
+      // booking would send them. Nothing about how it was paid changes what
+      // they need to know.
+      await this.notifications.guestConfirmation({
+        ...notice,
+        locale: booking.locale,
+        checkInTime: property.checkInTime,
+        checkOutTime: property.checkOutTime,
+      })
+      return { bookingId: booking.id, reference, quote, checkoutUrl: null, expiresAt: null }
+    }
+
+    // Same reasoning as a website hold: a link that could not be created is a
+    // day of the calendar closed for nothing.
+    let checkoutUrl: string
+    try {
+      const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
+      checkoutUrl = await this.payments.checkoutUrlFor({
+        bookingId: booking.id,
+        reference,
+        email: dto.guest.email,
+        stripeCustomerId: stripeCustomerId ?? undefined,
+        checkIn: dto.checkIn,
+        checkOut: dto.checkOut,
+        nights: quote.nights,
+        total: quote.total,
+        guests: dto.guests.adults + dto.guests.children,
+        origin,
+        ttlMinutes: PANEL_HOLD_TTL_MINUTES,
+      })
+    } catch (error) {
+      await this.discardHold(booking.id, 'No se pudo abrir el pago')
+      throw error
+    }
+
+    await this.prisma.booking.update({ where: { id: booking.id }, data: { checkoutUrl } })
+
+    return {
+      bookingId: booking.id,
+      reference,
+      quote,
+      checkoutUrl,
+      expiresAt: expiresAt?.toISOString() ?? null,
+    }
   }
 
   private async createHold(
@@ -198,23 +406,39 @@ export class BookingsService {
             })),
           },
         },
+        // The guest comes back with it: the next step needs their Stripe
+        // customer, and a second query for a row we just wrote is waste.
+        include: { customer: true },
       })
     })
 
     // Stripe last, and outside the transaction: it is a network call to
     // someone else's service, and holding a database transaction open across
     // it would be a lock on the whole calendar for as long as Stripe takes.
-    const checkoutUrl = await this.payments.checkoutUrlFor({
-      bookingId: booking.id,
-      reference: booking.reference,
-      email: dto.guest.email,
-      checkIn: dto.checkIn,
-      checkOut: dto.checkOut,
-      nights: quote.nights,
-      total: quote.total,
-      guests: dto.guests.adults + dto.guests.children,
-      origin,
-    })
+    //
+    // But the row is already committed by now, so a Stripe that refuses would
+    // leave the week closed for half an hour over a payment page nobody ever
+    // saw. The hold only earns its dates once there is somewhere to pay.
+    let checkoutUrl: string
+    try {
+      const stripeCustomerId = await this.stripeCustomerFor(booking.customer)
+
+      checkoutUrl = await this.payments.checkoutUrlFor({
+        bookingId: booking.id,
+        reference: booking.reference,
+        email: dto.guest.email,
+        stripeCustomerId: stripeCustomerId ?? undefined,
+        checkIn: dto.checkIn,
+        checkOut: dto.checkOut,
+        nights: quote.nights,
+        total: quote.total,
+        guests: dto.guests.adults + dto.guests.children,
+        origin,
+      })
+    } catch (error) {
+      await this.discardHold(booking.id, 'No se pudo abrir el pago')
+      throw error
+    }
 
     return {
       bookingId: booking.id,
@@ -226,12 +450,90 @@ export class BookingsService {
   }
 
   /**
+   * The one Stripe customer this guest owns, made on their first payment.
+   *
+   * Kept on our side of the line because Stripe will not do it: it never
+   * deduplicates by email, so left to itself a guest with three stays becomes
+   * three customer records and a Dashboard-only "guest" grouping on top. The
+   * id lives on our Customer row, so the second booking finds the first one's
+   * customer instead of minting another.
+   */
+  private async stripeCustomerFor(customer: Customer): Promise<string | null> {
+    if (customer.stripeCustomerId) return customer.stripeCustomerId
+
+    const created = await this.payments.ensureCustomer({
+      email: customer.email,
+      name: `${customer.firstName} ${customer.lastName}`,
+      phone: customer.phone,
+    })
+    if (!created) return null
+
+    await this.prisma.customer.update({
+      where: { id: customer.id },
+      data: { stripeCustomerId: created },
+    })
+    this.logger.log(`Created the Stripe customer for ${customer.email}`)
+    return created
+  }
+
+  /**
+   * Gives the dates straight back.
+   *
+   * For a hold that never became payable — Stripe refused, or the guest turned
+   * round at the payment page. Nothing is announced: the guest is looking at
+   * the error, or at the calendar they just came back to, and an email saying
+   * their booking was cancelled would be news about something that never
+   * existed.
+   */
+  private async discardHold(bookingId: string, reason: string): Promise<void> {
+    try {
+      await this.prisma.booking.updateMany({
+        // `updateMany` with the guard in the filter, so a hold that got paid
+        // in the meantime cannot be swept by a late failure.
+        where: { id: bookingId, status: 'PENDING', paidAt: null },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancellationReason: reason,
+          expiresAt: null,
+          checkoutUrl: null,
+        },
+      })
+      this.logger.log(`Discarded hold ${bookingId}: ${reason}`)
+    } catch (error) {
+      // Never masks the original failure: the caller is already throwing, and
+      // the sweep will free these dates within the half hour anyway.
+      this.logger.error(
+        `Could not discard hold ${bookingId}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      )
+    }
+  }
+
+  /**
+   * The guest turned back at the payment page.
+   *
+   * Public, and safe to be: it needs the booking's id, only touches a hold
+   * that is still unpaid, and the worst a guessed id achieves is freeing dates
+   * that were going to be freed within the half hour regardless.
+   */
+  async abandonHold(bookingId: string): Promise<void> {
+    await this.discardHold(bookingId, 'El huésped volvió atrás desde el pago')
+  }
+
+  /**
    * The money arrived. Called only from the verified Stripe webhook.
    *
    * Idempotent, because Stripe retries a webhook it did not get a 2xx for and
    * will happily deliver the same event twice.
    */
-  async confirmPayment(bookingId: string, sessionId: string, amountPaid: number): Promise<void> {
+  async confirmPayment(
+    bookingId: string,
+    sessionId: string,
+    amountPaid: number,
+    paymentIntentId?: string,
+  ): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -277,6 +579,9 @@ export class BookingsService {
         data: {
           status: 'CONFIRMED',
           stripeSessionId: sessionId,
+          // What a refund will be issued against, months from now. Stored at
+          // the one moment Stripe is definitely telling us about this charge.
+          stripePaymentIntentId: paymentIntentId ?? undefined,
           paidAt: new Date(),
           // A confirmed stay does not expire. Leaving this set would make the
           // sweep in hold() cancel a booking somebody paid for.
@@ -383,7 +688,12 @@ export class BookingsService {
       const status = await this.payments.sessionStatus(sessionId)
       if (status?.paid && status.bookingId) {
         this.logger.warn(`Confirming ${sessionId} on return: no webhook had arrived`)
-        await this.confirmPayment(status.bookingId, sessionId, status.amountTotal)
+        await this.confirmPayment(
+          status.bookingId,
+          sessionId,
+          status.amountTotal,
+          status.paymentIntentId,
+        )
 
         booking = await this.prisma.booking.findUnique({
           where: { stripeSessionId: sessionId },
@@ -418,7 +728,13 @@ export class BookingsService {
       pets: number
       total: number
       status: BookingStatus
+      /** WEBSITE or PANEL. A phone booking never shows in Stripe's ledger. */
+      source: string
       expiresAt: string | null
+      /** Null means never paid, whatever the status says. */
+      paidAt: string | null
+      /** What has already gone back, so the row can say it without a second call. */
+      refunded: number
       guestName: string
       guestEmail: string
       guestPhone: string
@@ -432,7 +748,12 @@ export class BookingsService {
       where: {
         NOT: { status: 'PENDING', expiresAt: { lt: new Date() } },
       },
-      include: { customer: true, extras: { include: { extra: true } } },
+      include: {
+        customer: true,
+        extras: { include: { extra: true } },
+        // A failed refund returned nothing, so it is not money that left.
+        refunds: { where: { status: { not: 'FAILED' } }, select: { amount: true } },
+      },
       orderBy: { checkIn: 'asc' },
     })
 
@@ -446,7 +767,10 @@ export class BookingsService {
       pets: booking.pets,
       total: Number(booking.totalPrice),
       status: booking.status,
+      source: booking.source,
       expiresAt: booking.expiresAt?.toISOString() ?? null,
+      paidAt: booking.paidAt?.toISOString() ?? null,
+      refunded: booking.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
       guestName: `${booking.customer.firstName} ${booking.customer.lastName}`,
       guestEmail: booking.customer.email,
       guestPhone: booking.customer.phone,
@@ -475,9 +799,20 @@ export class BookingsService {
       },
     })
 
-    await this.notifications.bookingCancelled(this.noticeFor(booking), reason)
-    // Refunds are not automated: money going back out is a decision, not a
-    // side effect of a click. Declared in docs/changelog.md.
+    const notice = this.noticeFor(booking)
+    await this.notifications.bookingCancelled(notice, reason)
+    // The guest first heard about this by turning up. Now they are told, in
+    // their own language, and told whether money is coming back.
+    await this.notifications.guestCancellation({
+      ...notice,
+      locale: booking.locale,
+      reason,
+      // Truthiness, not `!== null`: an absent field is not the same as a null
+      // one, and only one of the two means "they paid".
+      paid: Boolean(booking.paidAt),
+    })
+    // The refund itself is still a decision, not a side effect of this click:
+    // the panel offers it next, with the policy's figure already worked out.
   }
 
   private nightsOf(booking: { checkIn: Date; checkOut: Date }): number {

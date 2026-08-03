@@ -4,6 +4,22 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto'
 import { GuestAuthService } from '../guest/guest-auth.service'
 
+/** One stay, as the guest's own history shows it. */
+export interface GuestStay {
+  id: string
+  reference: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  guests: number
+  total: number
+  status: string
+  /** Null on a hold that was never paid. */
+  paidAt: string | null
+  /** What has gone back on this stay, so a refunded week does not read as revenue. */
+  refunded: number
+}
+
 export interface GuestSummary {
   id: string
   firstName: string
@@ -20,6 +36,15 @@ export interface GuestSummary {
   lastStay: string | null
   /** Their next arrival, when there is one. */
   upcoming: { reference: string; checkIn: string; checkOut: string } | null
+  /**
+   * Every stay, newest first.
+   *
+   * The aggregates above answer "how much" and the host still had to go to
+   * Reservations and search to answer "which ones". These rows were already
+   * loaded here to compute those totals, so sending them costs one more field
+   * rather than one more request.
+   */
+  stayHistory: GuestStay[]
   notes: string | null
 }
 
@@ -54,6 +79,10 @@ export class CustomersService {
             NOT: { status: 'PENDING', expiresAt: { lt: new Date() } },
           },
           orderBy: { checkIn: 'asc' },
+          include: {
+            // A failed refund returned nothing, so it is not money that left.
+            refunds: { where: { status: { not: 'FAILED' } }, select: { amount: true } },
+          },
         },
       },
     })
@@ -98,6 +127,22 @@ export class CustomersService {
                 checkOut: iso(next.checkOut),
               }
             : null,
+          // Newest first: what someone opening a guest wants is the last time
+          // they were here, not the first.
+          stayHistory: [...customer.bookings].reverse().map((booking) => ({
+            id: booking.id,
+            reference: booking.reference,
+            checkIn: iso(booking.checkIn),
+            checkOut: iso(booking.checkOut),
+            nights: Math.round(
+              (booking.checkOut.getTime() - booking.checkIn.getTime()) / 86_400_000,
+            ),
+            guests: booking.adults + booking.children,
+            total: Number(booking.totalPrice),
+            status: booking.status,
+            paidAt: booking.paidAt?.toISOString() ?? null,
+            refunded: booking.refunds.reduce((sum, refund) => sum + Number(refund.amount), 0),
+          })),
           notes: customer.notes,
         }
       })

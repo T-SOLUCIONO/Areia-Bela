@@ -22,12 +22,13 @@ import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Switch } from '@areia-bela/ui/switch'
 import { ApiError } from '@/lib/api-client'
 import { cms, type GalleryImage } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
 import { cn } from '@/lib/utils'
 
 export function GalleryManager() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [images, setImages] = useState<GalleryImage[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -40,11 +41,11 @@ export function GalleryManager() {
     try {
       setImages(await cms.gallery())
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.content.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.content.loadFailed)
     } finally {
       setIsLoading(false)
     }
-  }, [t.content.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -16,6 +16,14 @@ export interface PriceRuleInput {
   /** ISO dates. Null on the recurring WEEKEND rule, which has no range. */
   startDate?: string | null
   endDate?: string | null
+  /**
+   * How many nights a stay starting in this season must be.
+   *
+   * Null means the season sets no floor of its own and the house's applies.
+   * Peak weeks are the reason this exists: a single night over Christmas costs
+   * the host the whole week.
+   */
+  minNights?: number | null
 }
 
 export interface ExtraInput {
@@ -104,6 +112,8 @@ export interface QuoteNightLine {
 
 export interface QuoteBreakdown {
   nights: number
+  /** What these particular dates require, which the house-wide figure may not say. */
+  minNights: number
   /** The average, for the "$X × N nights" line. Rates can differ per night. */
   pricePerNight: number
   /** Every night with the rate that applied, so a total is always explainable. */
@@ -148,26 +158,57 @@ const within = (date: string, start?: string | null, end?: string | null) =>
   Boolean(start && end && date >= start.slice(0, 10) && date <= end.slice(0, 10))
 
 /**
- * The rate for one night.
+ * Which rule governs one night.
  *
  * A dated HIGH rule wins over the recurring WEEKEND one: a weekend inside peak
  * season should be charged at the peak rate, not the weekend rate. LOW is the
  * base and applies whenever nothing else does.
  */
+export function ruleForNight(
+  date: string,
+  rules: PriceRuleInput[],
+): { rule: PriceRuleInput | undefined; season: SeasonType } {
+  const high = rules.find(
+    (rule) => rule.type === 'HIGH' && within(date, rule.startDate, rule.endDate),
+  )
+  if (high) return { rule: high, season: 'HIGH' }
+
+  const weekend = rules.find((rule) => rule.type === 'WEEKEND')
+  if (weekend && isWeekend(date)) return { rule: weekend, season: 'WEEKEND' }
+
+  return { rule: rules.find((rule) => rule.type === 'LOW'), season: 'LOW' }
+}
+
+/** The rate for one night. */
 export function rateForNight(
   date: string,
   rules: PriceRuleInput[],
 ): { rate: number; season: SeasonType } {
-  const high = rules.find(
-    (rule) => rule.type === 'HIGH' && within(date, rule.startDate, rule.endDate),
-  )
-  if (high) return { rate: high.nightlyRate, season: 'HIGH' }
+  const { rule, season } = ruleForNight(date, rules)
+  return { rate: rule?.nightlyRate ?? 0, season }
+}
 
-  const weekend = rules.find((rule) => rule.type === 'WEEKEND')
-  if (weekend && isWeekend(date)) return { rate: weekend.nightlyRate, season: 'WEEKEND' }
-
-  const low = rules.find((rule) => rule.type === 'LOW')
-  return { rate: low?.nightlyRate ?? 0, season: 'LOW' }
+/**
+ * The shortest stay allowed for these dates.
+ *
+ * Decided by the **arrival date**, not by every night the stay touches. That is
+ * what guests already understand from booking elsewhere, and it is the version
+ * that can be explained on a calendar: "arriving this week means at least five
+ * nights". Taking the strictest rule the stay grazes would mean a February
+ * booking that ends on the first day of peak season suddenly needs a week, for
+ * a reason nobody could see when they picked the dates.
+ *
+ * The cost of that choice is real and worth naming: someone arriving the night
+ * before a peak week gets the low-season minimum for a stay that is mostly peak.
+ */
+export function minNightsFor(
+  checkIn: string,
+  pricing: Pick<PropertyPricingInput, 'priceRules' | 'minNights'>,
+): number {
+  const { rule } = ruleForNight(checkIn, pricing.priceRules)
+  // The house's own floor is never undercut by a season: a season can only ask
+  // for more nights, never fewer.
+  return Math.max(pricing.minNights, rule?.minNights ?? 0)
 }
 
 /**
@@ -252,6 +293,7 @@ export function computeQuote(input: ComputeQuoteInput): QuoteBreakdown {
 
   return {
     nights: nights.length,
+    minNights: minNightsFor(input.checkIn, pricing),
     pricePerNight: nights.length > 0 ? Math.round(subtotal / nights.length) : 0,
     nightly,
     extras,

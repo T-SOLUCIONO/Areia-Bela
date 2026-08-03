@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react'
 import { format, isBefore, parseISO, startOfToday } from 'date-fns'
 import { enUS, es as esLocale } from 'date-fns/locale'
-import { CalendarDays, ClipboardList, Loader2, Mail, PawPrint, Phone, Users } from 'lucide-react'
+import {
+  CalendarDays,
+  ClipboardList,
+  Loader2,
+  Mail,
+  PawPrint,
+  Phone,
+  Plus,
+  Users,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent } from '@areia-bela/ui/card'
@@ -21,6 +30,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@a
 import { apiFetch } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
+import { RefundDialog } from '@/components/admin/refund-dialog'
+import { NewBookingDialog } from '@/components/admin/new-booking-dialog'
+import { Pagination, usePagination } from '@/components/admin/pagination'
 import { cn } from '@/lib/utils'
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN' | 'CHECKED_OUT'
@@ -35,7 +47,10 @@ interface Reservation {
   pets: number
   total: number
   status: BookingStatus
+  source: 'WEBSITE' | 'PANEL'
   expiresAt: string | null
+  paidAt: string | null
+  refunded: number
   guestName: string
   guestEmail: string
   guestPhone: string
@@ -61,6 +76,8 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [cancelling, setCancelling] = useState<Reservation | null>(null)
+  const [refunding, setRefunding] = useState<Reservation | null>(null)
+  const [creating, setCreating] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -78,6 +95,16 @@ export default function ReservationsPage() {
   useEffect(() => {
     void load()
   }, [])
+
+  // Above every early return: a hook cannot be skipped on one render and run
+  // on the next.
+  //
+  // Only the past is paged. What is coming is what the host acts on, and it is
+  // bounded by how far ahead one house can be booked; the history is not.
+  const today = startOfToday()
+  const pagedPast = usePagination(
+    (reservations ?? []).filter((row) => isBefore(parseISO(row.checkOut), today)),
+  )
 
   const statusLabel = (status: BookingStatus) =>
     ({
@@ -97,9 +124,14 @@ export default function ReservationsPage() {
         body: JSON.stringify({ reason: reason.trim() || undefined }),
       })
       toast.success(copy.cancelled_ok)
+      // Straight into the refund, while the host is still thinking about this
+      // booking. Cancelling a paid stay and settling the money are one decision
+      // made in two steps, not two errands.
+      const paid = cancelling.paidAt !== null && cancelling.refunded < cancelling.total
       setCancelling(null)
       setReason('')
       await load()
+      if (paid) setRefunding(cancelling)
     } catch {
       toast.error(copy.cancelFailed)
     } finally {
@@ -142,7 +174,6 @@ export default function ReservationsPage() {
     )
   }
 
-  const today = startOfToday()
   const upcoming = reservations.filter((row) => !isBefore(parseISO(row.checkOut), today))
   const past = reservations.filter((row) => isBefore(parseISO(row.checkOut), today))
 
@@ -162,6 +193,13 @@ export default function ReservationsPage() {
             >
               {statusLabel(row.status)}
             </span>
+            {/* A stay taken by phone will never appear in Stripe's ledger,
+                  so the payments screen would look like it lost the money. */}
+            {row.source === 'PANEL' && (
+              <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground ring-1 ring-inset ring-border">
+                {copy.sourcePANEL}
+              </span>
+            )}
             {row.status === 'PENDING' && row.expiresAt && (
               <span className="text-xs text-muted-foreground">
                 {fill(copy.holdExpires, { time: format(parseISO(row.expiresAt), 'HH:mm') })}
@@ -232,18 +270,32 @@ export default function ReservationsPage() {
 
         <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
           <p className="text-xl font-semibold text-foreground">${row.total.toLocaleString()}</p>
-          {row.status !== 'CANCELLED' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCancelling(row)
-                setReason('')
-              }}
-            >
-              {copy.cancel}
-            </Button>
+          {row.refunded > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {copy.refundAlready}: ${row.refunded.toLocaleString()}
+            </p>
           )}
+          <div className="flex gap-2">
+            {/* Refundable whatever the status: the case that most needs this is
+                a stay already cancelled with the money still taken. */}
+            {row.paidAt !== null && row.refunded < row.total && (
+              <Button variant="outline" size="sm" onClick={() => setRefunding(row)}>
+                {copy.refund}
+              </Button>
+            )}
+            {row.status !== 'CANCELLED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCancelling(row)
+                  setReason('')
+                }}
+              >
+                {copy.cancel}
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -251,9 +303,15 @@ export default function ReservationsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-serif text-2xl text-foreground">{copy.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-2xl text-foreground">{copy.title}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
+        </div>
+        <Button variant="brand" onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4" />
+          {copy.newBooking}
+        </Button>
       </div>
 
       {upcoming.length > 0 && (
@@ -270,7 +328,15 @@ export default function ReservationsPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {copy.past} · {past.length}
           </h2>
-          {past.map(renderRow)}
+          {pagedPast.visible.map(renderRow)}
+          <Pagination
+            page={pagedPast.page}
+            pages={pagedPast.pages}
+            onPage={pagedPast.setPage}
+            firstShown={pagedPast.firstShown}
+            lastShown={pagedPast.lastShown}
+            total={pagedPast.total}
+          />
         </section>
       )}
 
@@ -303,6 +369,16 @@ export default function ReservationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <NewBookingDialog open={creating} onOpenChange={setCreating} onCreated={() => void load()} />
+
+      <RefundDialog
+        bookingId={refunding?.id ?? null}
+        reference={refunding?.reference ?? ''}
+        open={refunding !== null}
+        onOpenChange={(open) => !open && setRefunding(null)}
+        onRefunded={() => void load()}
+      />
     </div>
   )
 }

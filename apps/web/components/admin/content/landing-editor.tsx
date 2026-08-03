@@ -16,7 +16,7 @@ import {
   type ContentSection,
   type ContentSectionKey,
 } from '@/lib/cms-client'
-import { useAdminCopy } from '@/components/admin/admin-language-provider'
+import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { ImageField } from '@/components/admin/content/image-field'
 import { ItemsEditor } from '@/components/admin/content/items-editor'
@@ -108,6 +108,7 @@ const ORDER: ContentSectionKey[] = [
 
 export function LandingEditor() {
   const t = useAdminCopy()
+  const copyRef = useAdminCopyRef()
   const [sections, setSections] = useState<ContentSection[] | null>(null)
   const [selected, setSelected] = useState<ContentSectionKey>('HERO')
   const [draft, setDraft] = useState<ContentSection | null>(null)
@@ -117,10 +118,10 @@ export function LandingEditor() {
     try {
       setSections(await landing.sections())
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.content.loadFailed)
+      toast.error(err instanceof ApiError ? err.message : copyRef.current.content.loadFailed)
       setSections([])
     }
-  }, [t.content.loadFailed])
+  }, [copyRef])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
