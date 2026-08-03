@@ -21,3 +21,10 @@ apps/web/public/uploads/
 # it produced a permanent diff that broke lint-staged. `tsc --noEmit` passes
 # without it, and `next build` recreates it.
 apps/web/next-env.d.ts
+
+# Playwright output. Traces and screenshots are written on a failure and are
+# only useful to whoever saw that failure.
+playwright-report/
+test-results/
+blob-report/
+.playwright/

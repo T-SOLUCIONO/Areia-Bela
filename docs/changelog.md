@@ -4826,3 +4826,85 @@ No solo en `main`. Aquí se trabaja empujando a ramas de feature, y una
 comprobación que solo aparece cuando existe un pull request es una que llega
 después de haber construido encima del error. El precio es una ejecución
 duplicada en las ramas que sí abren PR.
+
+---
+
+## 75. Fase 8.2 — El flujo de reserva, en un navegador
+
+Nueve pruebas de punta a punta con Playwright, contra el API y la base
+**reales**. Nada se simula: cada fallo que esta suite existe para cazar vivía en
+una costura, y un API simulado no tiene costuras.
+
+### Qué afirma, y por qué esas cosas
+
+Cada aserción es sobre algo que se ha roto de verdad en este proyecto:
+
+| Prueba                                         | Lo que evita repetir                                         |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| El desglose suma el total                      | Un backfill lo descuadró en exactamente $30 (§35)            |
+| Un `total` enviado por el navegador se rechaza | `?total=1` compraba una semana (§21)                         |
+| El hold toma la semana y devolverla la libera  | Fechas cerradas media hora por un pago que no se abrió (§72) |
+| Dos huéspedes no compran la misma semana       | La restricción de exclusión (§29)                            |
+| El checkout enseña el total del servidor       | Decirle un precio y cobrarle otro                            |
+| Sin aceptar términos no se paga                | —                                                            |
+| Sin nombre no se continúa                      | El botón fuera del `<form>` se saltaba los `required` (§30)  |
+| Cada idioma bajo su locale                     | El rewrite de locale (§2)                                    |
+| Una sesión inexistente no fabrica una reserva  | La confirmación declaraba éxito desde `localStorage` (§30)   |
+
+### Dos tests míos afirmaban algo más débil que la realidad
+
+Fallaron, y al mirarlos el código era **más estricto** de lo que yo había
+supuesto:
+
+- Asumí que un `total` enviado por el navegador se ignoraría. El API rechaza la
+  petición entera con un 400 que nombra los campos. Ignorarlo también sería
+  seguro, pero quien manda un total ha entendido algo mal y merece que se lo
+  digan.
+- Asumí que el botón de pagar abría el diálogo sin más. Está deshabilitado
+  hasta aceptar los términos. Eso pasó de fallo a aserción propia.
+
+Los tests se corrigieron hacia arriba; el código no se tocó.
+
+### Se limpia con el propio código
+
+Un hold se suelta llamando a `/abandon` — exactamente lo que hace un huésped que
+se arrepiente. No hay endpoint de limpieza para tests: uno sería un agujero
+permanente para ahorrar una llamada que ya existe.
+
+Comprobado tras la ejecución, sobre la base real:
+
+```
+reservas dejadas por los E2E: 4
+  AB-GVEW26  CANCELLED  2027-09-17  El huésped volvió atrás desde el pago
+  AB-9KTWBF  CANCELLED  2027-09-27  El huésped volvió atrás desde el pago
+  ...
+ninguna bloquea fechas ✓
+```
+
+Reservan a **400 días vista** a propósito: la suite corre contra la misma base
+que el panel, y usar la semana que viene chocaría con lo que la anfitriona tenga
+de verdad y parecería una reserva real en su calendario.
+
+### Dónde se detiene
+
+En el traspaso a Stripe. Completar un pago significa manejar la página alojada
+de Stripe, que es su interfaz y no la nuestra. Lo que sí se comprueba es que el
+traspaso es real: una URL de sesión que pertenece a Stripe, para una reserva que
+existe.
+
+Y la suite es honesta **sin credenciales**: sin clave de Stripe el hold no puede
+abrir un pago, así que afirma el otro camino —que las fechas se sueltan— en vez
+de saltarse la prueba.
+
+### En CI
+
+Job propio con su Postgres. Solo Chromium: tres motores triplican los minutos
+para volver a comprobar el mismo comportamiento de servidor, y una diferencia de
+render no es para lo que está esta suite. El informe se sube como artefacto solo
+cuando algo falla.
+
+```
+9 passed (21.2s)
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308 unitarios)
+```
