@@ -1,0 +1,28 @@
+# Everything a build should produce rather than receive.
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.turbo
+**/.turbo
+
+# Secrets never enter an image. They are passed at run time.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+.git
+.github
+.claude
+.agents
+playwright-report
+test-results
+blob-report
+apps/web/public/uploads
+docs
+*.md
+!README.md

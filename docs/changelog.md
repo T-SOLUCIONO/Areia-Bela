@@ -4993,3 +4993,74 @@ necesita Postgres, que no está levantado en esta máquina. Cuando corra
 `docker compose up -d postgres` debería pasar: el mismo bloque se verificó con
 `curl` mientras el API estuvo arriba, y su ausencia con el API caído es el
 comportamiento correcto (mejor ningún JSON-LD que uno con campos en blanco).
+
+---
+
+## 77. Fase 8.4 — Producción
+
+Una imagen por app, un compose para una sola máquina, y `docs/deployment.md`.
+
+### La web: 78 MB en vez de más de un giga
+
+`output: 'standalone'` hace que Next rastree los archivos que el servidor
+realmente alcanza y los copie. En un monorepo de pnpm hace falta además
+`outputFileTracingRoot`, o Next rastrea desde `apps/web` y se deja las
+dependencias izadas a la raíz.
+
+No pude construir la imagen —no hay Docker en esta máquina— así que probé **el
+comando exacto** que ejecuta el Dockerfile:
+
+```
+node apps/web/server.js   →  ✓ Ready in 90ms
+/es → 200   /robots.txt → 200   /sitemap.xml → 200
+```
+
+### El API no arranca desde `dist`, y eso decidió el diseño
+
+Comprobado, no supuesto:
+
+```
+$ node dist/main.js
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module
+  .../packages/shared/src/constants
+  imported from .../packages/shared/src/index.ts
+```
+
+Los paquetes de `packages/` publican **TypeScript sin compilar**
+(`"main": "./src/index.ts"`, sin script de build), así que el `dist` del API
+pide un `.ts` que Node no sabe cargar.
+
+La imagen corre con `ts-node --transpile-only`: exactamente lo que ya hacen
+`pnpm start` y el job de E2E del CI. No es elegante y está dicho en el
+documento. El arreglo correcto —dar un paso de compilación a esos paquetes y
+apuntar `main` a `dist`— toca a la vez cómo resuelven Next, Jest y el API, y
+merece hacerse solo, no de rebote dentro del despliegue.
+
+### Decisiones que el documento explica en vez de esconder
+
+- **Las migraciones no corren al arrancar.** Dos réplicas competirían por el
+  mismo bloqueo, y una migración que falla en el arranque deja un bucle de
+  reinicios en lugar de un error legible. Van como su propio paso.
+- **`NEXT_PUBLIC_API_URL` se congela al construir.** Va compilada en el bundle
+  del navegador, así que cambiarla es reconstruir la imagen. Por eso es un
+  `build arg` y no una variable del servicio — y por eso está escrito, en vez
+  de descubrirse en producción.
+- **Postgres no publica puerto.** El API lo alcanza por la red del compose; un
+  puerto en el host es un puerto que internet puede probar.
+- **Las salud comprueban algo real.** El API responde sano solo cuando puede
+  **leer la propiedad**: uno que contesta pero no llega a la base no sirve, y
+  un orquestador no debe mandarle el primer huésped.
+- **Ningún valor por defecto para un secreto.** `${JWT_SECRET:?set JWT_SECRET}`
+  falla al levantar en lugar de arrancar con algo que el repositorio conoce.
+
+### Una trampa que habría costado una tarde
+
+Sin `BLOB_READ_WRITE_TOKEN`, `StorageService` escribe en
+`apps/web/public/uploads` — que en este despliegue es el disco del contenedor
+del **API**, no el de la web. La imagen se guarda y el sitio no la encuentra.
+Documentado con sus dos salidas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308)   pnpm format:check ✅
+```

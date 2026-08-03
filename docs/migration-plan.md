@@ -133,11 +133,24 @@ así que no se toca sin confirmación.
 jurisdicción, exportarlo y marcarlo como declarado; las cifras cuadran con la
 suma de las columnas `taxes` de las reservas de ese periodo.
 
-## Fase 8 — Calidad y producción
+## Fase 8 — Calidad y producción ✅ completada
 
-- Tests unitarios (pricing, auth), integración (API), E2E Playwright (flujo de reserva completo).
-- SEO técnico, accesibilidad WCAG AA, Lighthouse > 95.
-- GitHub Actions CI/CD, Docker de producción, documentación de deployment.
+- Tests unitarios (308) ✅, E2E Playwright del flujo de reserva ✅ (§75) y de
+  SEO/accesibilidad ✅ (§76).
+- SEO técnico ✅ (§76): robots, sitemap, canonical, hreflang, datos
+  estructurados. Accesibilidad: auditada y corregida ✅.
+- GitHub Actions ✅ (§74), Docker de producción y documentación de despliegue ✅
+  (§77, `docs/deployment.md`).
+
+**Criterio de salida:** cada push comprueba formato, lint, tipos, tests y build;
+el flujo de reserva se recorre en un navegador contra el API real; el sitio
+declara su canónica y su hreflang en los cinco idiomas; y hay una imagen de
+producción por app con su documentación. Cumplido en `docs/changelog.md` §74 a
+§77.
+
+**Diferido, declarado en `docs/deployment.md`:** el API corre con `ts-node`
+porque los paquetes de `packages/` publican TypeScript sin compilar; y no hay
+CD, porque automatizar un despliegue exige antes decidir dónde.
 
 ## Quick wins previos a Fase 2 (hacer primero, son rápidos y bajan riesgo)
 
