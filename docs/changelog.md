@@ -4986,13 +4986,21 @@ pnpm typecheck ✅   pnpm test ✅ (308 unitarios)
 e2e SEO/a11y: 6 de 7 ✅
 ```
 
-### Lo que queda por comprobar
+### Comprobado con Postgres arriba
 
-La séptima prueba —la de los datos estructurados— necesita el API, y el API
-necesita Postgres, que no está levantado en esta máquina. Cuando corra
-`docker compose up -d postgres` debería pasar: el mismo bloque se verificó con
-`curl` mientras el API estuvo arriba, y su ausencia con el API caído es el
-comportamiento correcto (mejor ningún JSON-LD que uno con campos en blanco).
+El usuario levantó la base y la suite entera pasa:
+
+```
+16 passed (1.0m)
+```
+
+Las nueve del flujo de reserva y las siete de SEO y accesibilidad, incluida la
+de datos estructurados que faltaba. Y sin residuo:
+
+```
+reservas de los E2E: 6   activas: 0   ninguna bloquea fechas ✓
+reservas reales confirmadas: 7        intactas
+```
 
 ---
 
