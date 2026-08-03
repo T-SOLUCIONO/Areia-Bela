@@ -153,3 +153,145 @@ antes que el API, la web, los tests y el typecheck.
 - **Sin CD.** El CI comprueba; desplegar sigue siendo manual. Automatizarlo
   antes de tener un dominio y un servidor definidos sería automatizar una
   decisión que no está tomada.
+
+## Google Cloud
+
+Cuatro servicios: **Cloud SQL** (Postgres), **Artifact Registry** (las imágenes),
+**Cloud Run** (los dos contenedores) y **Secret Manager**.
+
+### Tres cosas de este proyecto que Cloud Run rompe si nadie las mira
+
+Antes de los comandos, porque son decisiones y no pasos.
+
+**1. La reconciliación de pagos deja de correr si el servicio baja a cero.**
+
+`PaymentReconciliationService` lleva un `@Cron(EVERY_10_MINUTES)` que busca
+pagos cuyo webhook se perdió. Es la red de seguridad de §41 —la que salvó una
+reserva pagada que se quedó en `PENDING`— y un contenedor dormido no ejecuta
+nada.
+
+Dos salidas:
+
+- `--min-instances=1`. La instancia nunca duerme y el cron corre. Cuesta tener
+  una instancia encendida siempre.
+- Bajar a cero y que **Cloud Scheduler** dispare la reconciliación por HTTP.
+  Hoy no se puede: es un método `@Cron`, no una ruta. Haría falta un endpoint
+  protegido que la llame.
+
+La primera es la que funciona sin tocar código.
+
+**2. Las fotos que suba la anfitriona desaparecen en cada despliegue.**
+
+`StorageService` guarda en Vercel Blob si hay `BLOB_READ_WRITE_TOKEN`, y si no,
+en disco local. El disco de Cloud Run es efímero: se borra al reiniciar.
+
+- Lo que funciona hoy sin tocar código: usar **Vercel Blob** igualmente. Es una
+  API HTTP, da igual desde dónde se llame.
+- Lo natural en GCP sería **Cloud Storage**, pero `StorageService` no lo
+  soporta. Es un adaptador que hay que escribir.
+
+**3. Las cookies de sesión entre dos dominios distintos.**
+
+Cloud Run da a cada servicio un dominio propio (`...run.app`), y entre dos
+dominios sin padre común `SameSite=Lax` no manda la cookie: el panel no deja
+iniciar sesión. Ya está descrito en `docs/env.md`.
+
+La salida limpia es un dominio propio con ambos bajo el mismo padre:
+`areiabela.com` y `api.areiabela.com`. Se mapean en Cloud Run y `Lax` vuelve a
+funcionar.
+
+### La base de datos
+
+```bash
+gcloud sql instances create areia-bela \
+  --database-version=POSTGRES_16 --tier=db-f1-micro --region=us-east1
+gcloud sql databases create areia_bela --instance=areia-bela
+gcloud sql users create areia --instance=areia-bela --password=...
+```
+
+La restricción de exclusión que impide que dos huéspedes compren la misma
+semana necesita `btree_gist`. Cloud SQL la trae; la migración hace
+`CREATE EXTENSION`, y para eso el usuario debe pertenecer a
+`cloudsqlsuperuser` — el usuario que crea `gcloud sql users create` ya lo está.
+
+Cloud Run se conecta por socket unix, así que la URL lleva `host`:
+
+```
+DATABASE_URL=postgresql://areia:CLAVE@localhost/areia_bela?host=/cloudsql/PROYECTO:us-east1:areia-bela
+```
+
+### Los secretos
+
+Nunca como variables en claro del servicio:
+
+```bash
+printf '%s' "$(openssl rand -base64 48)" | gcloud secrets create jwt-secret --data-file=-
+printf '%s' 'sk_live_...' | gcloud secrets create stripe-secret-key --data-file=-
+```
+
+Se montan con `--set-secrets JWT_SECRET=jwt-secret:latest`.
+
+### Subir las imágenes
+
+```bash
+gcloud artifacts repositories create areia-bela --repository-format=docker --location=us-east1
+gcloud auth configure-docker us-east1-docker.pkg.dev
+
+REG=us-east1-docker.pkg.dev/PROYECTO/areia-bela
+docker build -f apps/api/Dockerfile -t $REG/api:1 .
+docker push $REG/api:1
+```
+
+### El orden importa: primero el API
+
+`NEXT_PUBLIC_API_URL` se compila **dentro del bundle del navegador**, así que
+hay que conocer la URL del API antes de construir la imagen de la web. En el
+primer despliegue eso es un huevo y una gallina: se despliega el API, se lee su
+URL, y con ella se construye la web.
+
+```bash
+gcloud run deploy areia-bela-api --image $REG/api:1 --region us-east1 \
+  --add-cloudsql-instances PROYECTO:us-east1:areia-bela \
+  --set-secrets JWT_SECRET=jwt-secret:latest,STRIPE_SECRET_KEY=stripe-secret-key:latest \
+  --set-env-vars "DATABASE_URL=...,CORS_ORIGINS=https://areiabela.com,PUBLIC_SITE_URL=https://areiabela.com" \
+  --min-instances=1 --port 3001 --allow-unauthenticated
+
+API_URL=$(gcloud run services describe areia-bela-api --region us-east1 --format='value(status.url)')
+
+docker build -f apps/web/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL="$API_URL" \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://areiabela.com \
+  -t $REG/web:1 .
+docker push $REG/web:1
+
+gcloud run deploy areia-bela-web --image $REG/web:1 --region us-east1 \
+  --port 3000 --allow-unauthenticated
+```
+
+Con dominio propio hay que reconstruir la web una vez más apuntando a
+`https://api.areiabela.com`, y por eso conviene mapear los dominios antes de
+dar la dirección a nadie.
+
+### Migraciones y semilla, una sola vez
+
+Cloud Run no ejecuta comandos sueltos. Se usa un **Cloud Run Job** con la misma
+imagen:
+
+```bash
+gcloud run jobs create areia-bela-migrate --image $REG/api:1 --region us-east1 \
+  --add-cloudsql-instances PROYECTO:us-east1:areia-bela \
+  --set-env-vars "DATABASE_URL=..." \
+  --command pnpm --args prisma:deploy
+
+gcloud run jobs execute areia-bela-migrate --region us-east1
+```
+
+Lo mismo para `seed` (con `ADMIN_SEED_PASSWORD`) y `seed:taxes`.
+
+### Qué falta comprobar tras el primer despliegue
+
+1. `https://.../properties/areia-bela` responde 200 — el API llega a la base.
+2. El panel deja iniciar sesión — las cookies cruzan entre los dos dominios.
+3. Una reserva de prueba llega hasta Stripe y vuelve confirmada.
+4. Subir una foto desde `/admin/content` y **volver a verla tras un
+   despliegue** — si desaparece, es el punto 2 de arriba.
