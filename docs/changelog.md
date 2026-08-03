@@ -4767,3 +4767,62 @@ pnpm typecheck ✅   pnpm test ✅ (308 tests, 10 nuevos)
   `dashboard.stripe.com/settings/payouts`. Las transferencias están en diarias
   con 2 días de retraso.
 - **`accessNotes`:** se queda como plantilla, ya sin riesgo para el huésped.
+
+---
+
+## 74. Fase 8.1 — CI
+
+Hasta ahora `lint`, `typecheck`, `test` y `build` solo corrían porque alguien
+los lanzaba a mano. Los cuatro han cazado algo real en esta sesión: `typecheck`
+un `Decimal` de Prisma pasado a `.toFixed()`, `lint` hooks colocados después de
+un `return` temprano, y los tests un `!== null` que debía ser una comprobación
+de veracidad. No son ceremonia.
+
+### Dos jobs
+
+**`check`** hace lo que se hacía a mano, ordenado de más barato a más caro: un
+desliz de formato falla en segundos en vez de después de un build de Next.
+
+**`migrations`** levanta un Postgres limpio y aplica **todo el historial desde
+cero**. Nadie lo había hecho nunca. Va con `continue-on-error`: una migración
+que no aplica sobre una base vacía tampoco aplicará en producción y merece
+saberse, pero no debe frenar un commit de documentación.
+
+### Probado en local antes de subirlo
+
+Base temporal, historial completo, seed dos veces:
+
+```
+All migrations have been successfully applied.
+conteos tras DOS pasadas: {"property":1,"extra":3,"priceRule":1,"user":1,"taxJurisdiction":3}
+idempotente ✓
+```
+
+Y la secuencia entera del workflow:
+
+```
+format:check ok   lint ok   typecheck ok   test ok   build ok
+```
+
+### Tres cosas que aparecieron al montarlo
+
+**`format:check` fallaba desde antes**, por comillas en `docker-compose.yml`.
+Añadirlo al CI sin arreglarlo habría hecho fallar la primera ejecución por algo
+que no tenía que ver con el cambio.
+
+**El seed aborta sin `ADMIN_SEED_PASSWORD`**, y hace bien: ningún entorno debe
+acabar con un admin de contraseña por defecto. Pero eso significaba que mi
+primera prueba de idempotencia no probaba nada — el seed moría a mitad. En CI
+la contraseña se genera con `openssl rand` dentro del paso y muere con el
+runner. Fijar una de usar y tirar en el workflow es cómo una de usar y tirar se
+vuelve costumbre.
+
+**`STRIPE_SECRET_KEY` va vacía**, a propósito. El código se niega a abrir el
+pago sin clave en vez de inventarse una, y el build debe seguir demostrando eso.
+
+### Corre en todas las ramas
+
+No solo en `main`. Aquí se trabaja empujando a ramas de feature, y una
+comprobación que solo aparece cuando existe un pull request es una que llega
+después de haber construido encima del error. El precio es una ejecución
+duplicada en las ramas que sí abren PR.

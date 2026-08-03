@@ -211,3 +211,19 @@ la cookie y el login no funcionará. Dos salidas:
 
 La decisión aún no está tomada porque el despliegue definitivo no está
 definido; queda documentada aquí para no descubrirla en producción.
+
+## Integración continua
+
+`.github/workflows/ci.yml` corre en cada push y en cada pull request. No
+necesita ningún secreto configurado en GitHub:
+
+| Variable              | De dónde sale en CI                                                                                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | Apunta al Postgres del propio job. Solo el job de migraciones se conecta de verdad; los tests usan mocks.                                                                                                                                         |
+| `STRIPE_SECRET_KEY`   | Vacía a propósito. El código se niega a abrir el pago sin clave en vez de inventarse una, y eso es justo lo que debe seguir haciendo.                                                                                                             |
+| `ADMIN_SEED_PASSWORD` | Se genera con `openssl rand` dentro del paso y muere con el runner. El seed se niega a inventar una contraseña de admin (y debe seguir negándose), pero fijar una de usar y tirar en el workflow es cómo una de usar y tirar se vuelve costumbre. |
+
+El job de migraciones va con `continue-on-error`: aplicar el historial completo
+sobre una base vacía es información valiosa —una migración que no aplica desde
+cero tampoco aplicará en producción— pero no debe frenar un commit de
+documentación.
