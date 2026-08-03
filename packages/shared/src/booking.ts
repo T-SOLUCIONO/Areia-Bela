@@ -43,3 +43,37 @@ export function generateReference(random: () => number = Math.random): string {
   }
   return `AB-${reference}`
 }
+
+/**
+ * Whether a text is still a template rather than an answer.
+ *
+ * `Property.accessNotes` ships as a skeleton with bracketed placeholders —
+ * `[código de la puerta]` — so the host fills in answers instead of deciding
+ * what to write about. Until she does, that text must not reach a guest: a
+ * booking that says "Puerta principal: [cómo se abre]" is worse than one that
+ * says nothing, because it looks like the house forgot rather than like the
+ * information is coming separately.
+ */
+export function hasUnfilledPlaceholders(text: string | null | undefined): boolean {
+  if (!text) return false
+  // Any bracketed run at all.
+  //
+  // A heuristic, and biased on purpose. Withholding notes that were actually
+  // finished costs the guest an email; showing them "Puerta principal: [cómo
+  // se abre]" costs them a door they cannot open. So prose that genuinely uses
+  // brackets — "[sic]" — trips this too, and the panel says exactly which
+  // brackets it found so the host can see why.
+  return /\[[^\][]{2,}\]/.test(text)
+}
+
+/** The bracketed runs, so the panel can name what is still missing. */
+export function unfilledPlaceholders(text: string | null | undefined): string[] {
+  if (!text) return []
+  return [...new Set(text.match(/\[[^\][]{2,}\]/g) ?? [])]
+}
+
+/** The notes, or null while they are still a template. */
+export function guestReadyAccessNotes(text: string | null | undefined): string | null {
+  if (!text || hasUnfilledPlaceholders(text)) return null
+  return text
+}

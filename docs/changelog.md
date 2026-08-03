@@ -4708,3 +4708,62 @@ POST /bookings/inventado/abandon → 204   (no revela si existe)
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (298 tests, 3 nuevos)
 ```
+
+---
+
+## 73. La plantilla de acceso no llega al huésped hasta estar rellena
+
+El usuario decide dejar `accessNotes` como plantilla y sustituirla más
+adelante. Razonable, pero tal cual estaba, **el huésped veía los corchetes**:
+
+```
+Puerta principal: [cómo se abre — código, caja de llaves, cerradura inteligente]
+Wi-Fi: red [nombre de la red], contraseña [contraseña]
+```
+
+Eso es peor que no decir nada. Un bloque vacío se lee como "esto llega por
+separado"; uno con corchetes se lee como que la casa se olvidó.
+
+Ahora el API no las expone mientras sigan siendo plantilla — ni en el área del
+huésped ni en el PDF, que ya se saltaba los bloques vacíos y por tanto no
+imprime ni el título.
+
+### La regla, y su sesgo
+
+Cualquier texto entre corchetes de dos o más caracteres cuenta como marcador.
+Es una heurística, y está inclinada a propósito: ocultar unas notas ya
+terminadas le cuesta al huésped un correo; enseñarle `[cómo se abre]` le cuesta
+una puerta que no puede abrir.
+
+El coste está asumido y pinado en un test: prosa que use corchetes de verdad
+—`[sic]`— también lo dispara. Por eso el panel **nombra** lo que encontró en
+lugar de limitarse a marcarlo: "faltan 14: [dirección completa…], [dónde
+aparcar…]". Marcar manda a buscar; nombrar manda al sitio.
+
+El aviso se recalcula al teclear, así que desaparece con el último corchete.
+
+### Comprobado sobre la propiedad real
+
+```
+la plantilla tiene 14 marcadores sin rellenar
+lo que ve el huésped hoy: NADA (bloque oculto)
+si se rellenaran:          se muestra
+```
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (308 tests, 10 nuevos)
+```
+
+### Pendientes del usuario, actualizados
+
+- **Rotar `STRIPE_SECRET_KEY`:** el usuario lo hará al pasar a producción, junto
+  con el resto de variables. Las actuales son `sk_test_`, que no mueven dinero
+  real. Lo que sí importa entonces: la clave `sk_live_` no puede llegar nunca al
+  repositorio.
+- **Cuenta bancaria en USD:** la cuenta está en `charges_enabled: false` y
+  `payouts_enabled: false` — es de test y sin activar, así que esto es una
+  pregunta de producción y va con lo anterior. Se configura en
+  `dashboard.stripe.com/settings/payouts`. Las transferencias están en diarias
+  con 2 días de retraso.
+- **`accessNotes`:** se queda como plantilla, ya sin riesgo para el huésped.

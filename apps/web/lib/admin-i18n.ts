@@ -443,6 +443,8 @@ export const adminCopy = {
       accessLabel: 'What every guest should know',
       accessHint:
         'Where to park, how the door works, anything they always ask. Shown on their booking and printed on the PDF. Leave it empty and the block does not appear.',
+      accessPlaceholders:
+        'Still a template, so guests are not shown it — a booking that reads "[cómo se abre]" looks like the house forgot. {count} left to fill: {list}',
       stayRulesTitle: 'Rules of the stay',
       stayRulesSubtitle: 'How short, how long, and when a long stay starts paying less.',
       minNights: 'Minimum nights',
@@ -1213,6 +1215,8 @@ export const adminCopy = {
       accessLabel: 'Lo que todo huésped debe saber',
       accessHint:
         'Dónde aparcar, cómo funciona la puerta, lo que siempre preguntan. Se muestra en su reserva y se imprime en el PDF. Si lo dejas vacío, el bloque no aparece.',
+      accessPlaceholders:
+        'Todavía es una plantilla, así que al huésped no se le muestra: una reserva que dice "[cómo se abre]" parece un olvido de la casa. Faltan {count}: {list}',
       stayRulesTitle: 'Reglas de la estadía',
       stayRulesSubtitle: 'Cuán corta, cuán larga, y desde cuándo una estadía larga paga menos.',
       minNights: 'Noches mínimas',

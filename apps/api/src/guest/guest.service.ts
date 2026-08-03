@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import type { BookingStatus, CancellationPolicy } from '@prisma/client'
+import { guestReadyAccessNotes } from '@areia-bela/shared'
 import { PrismaService } from '../prisma/prisma.service'
 import { UpdateMyDetailsDto } from './dto/guest-auth.dto'
 
@@ -130,7 +131,9 @@ export class GuestService {
       // cleared, and an expired one never reaches this list.
       checkoutUrl: booking.status === 'PENDING' ? booking.checkoutUrl : null,
       cancellationPolicy: booking.property.cancellationPolicy,
-      accessNotes: booking.property.accessNotes,
+      // Null while it is still the template: a guest reading
+      // "Puerta principal: [cómo se abre]" concludes the house forgot.
+      accessNotes: guestReadyAccessNotes(booking.property.accessNotes),
       houseRules,
       trashCollectionDays: booking.property.trashCollectionDays,
       address: booking.property.address,

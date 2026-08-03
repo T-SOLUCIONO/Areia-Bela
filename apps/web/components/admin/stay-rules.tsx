@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, Ruler } from 'lucide-react'
+import { AlertTriangle, Loader2, Ruler } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { Textarea } from '@areia-bela/ui/textarea'
+import { unfilledPlaceholders } from '@areia-bela/shared'
+import { fill } from '@/lib/admin-i18n'
 import { ApiError } from '@/lib/api-client'
 import { cms, type PropertySettings } from '@/lib/cms-client'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
@@ -41,6 +43,8 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
   })
   const [policy, setPolicy] = useState(property.cancellationPolicy)
   const [accessNotes, setAccessNotes] = useState(property.accessNotes ?? '')
+  // Recomputed as she types, so the warning disappears with the last bracket.
+  const pending = unfilledPlaceholders(accessNotes)
   const [busy, setBusy] = useState(false)
 
   const min = Number(draft.minNights)
@@ -197,6 +201,19 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="accessNotes">{copy.accessLabel}</Label>
+            {/* Named, not just flagged: "it has placeholders" sends the host
+                hunting, "these three are left" sends her to them. */}
+            {pending.length > 0 && (
+              <p className="flex items-start gap-2 rounded-[10px] bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-inset ring-amber-200">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {fill(copy.accessPlaceholders, {
+                    count: String(pending.length),
+                    list: pending.slice(0, 4).join(', ') + (pending.length > 4 ? '…' : ''),
+                  })}
+                </span>
+              </p>
+            )}
             <Textarea
               id="accessNotes"
               rows={3}
