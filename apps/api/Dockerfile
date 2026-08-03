@@ -1,12 +1,10 @@
 # The API.
 #
-# It runs through ts-node rather than from `dist`, and that is a constraint
-# rather than a preference: the workspace packages ship TypeScript source
-# (`"main": "./src/index.ts"`, no build step), so `node dist/main.js` fails on
-# `Cannot find module .../packages/shared/src/constants`. Compiling those
-# packages is the proper fix and is declared in docs/deployment.md; until then
-# this is what actually starts, and it is the same command `pnpm start` and the
-# CI end-to-end job already use.
+# Runs compiled, on plain Node. It used to need ts-node because the workspace
+# packages shipped TypeScript source with no build step, so `node dist/main.js`
+# died on `Cannot find module .../packages/shared/src/constants`. Those packages
+# now compile, and their `exports` map hands `dist` to Node and `src` to a dev
+# server — so the image carries no TypeScript toolchain at all.
 
 FROM node:22-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
@@ -45,6 +43,10 @@ COPY apps/api/ apps/api/
 # base image.
 RUN pnpm --filter @areia-bela/api exec prisma generate
 
+# The shared packages first — `node dist/main.js` requires them as JavaScript —
+# then the API itself. Turbo orders this through `dependsOn: ["^build"]`.
+RUN pnpm --filter @areia-bela/api... build
+
 # ---------------------------------------------------------------------------
 FROM base AS runtime
 
@@ -73,4 +75,7 @@ WORKDIR /repo/apps/api
 # Migrations are deliberately NOT run here. Two containers starting at once
 # would race, and a migration that fails at boot leaves a crash loop instead of
 # a clear error. `docs/deployment.md` runs them as their own step.
-CMD ["pnpm", "start"]
+#
+# Plain node, no package manager in the process tree: one less thing between a
+# signal and the app that has to handle it.
+CMD ["node", "dist/main.js"]

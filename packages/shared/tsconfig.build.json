@@ -1,0 +1,18 @@
+{
+  // Emits what Node can actually load.
+  //
+  // The base config targets a bundler (`"module": "esnext"`), which is right
+  // for the web app and useless to the API: it runs CommonJS, and `import` in
+  // an emitted `.js` is a syntax error there. So the build overrides the module
+  // system rather than the whole config.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

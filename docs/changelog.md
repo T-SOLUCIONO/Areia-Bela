@@ -5072,3 +5072,77 @@ Documentado con sus dos salidas.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (308)   pnpm format:check ✅
 ```
+
+---
+
+## 78. Los paquetes compartidos ya compilan
+
+La deuda que quedaba de §77: el API arrancaba con `ts-node` porque
+`packages/shared` y `packages/types` publicaban TypeScript sin compilar, así que
+`node dist/main.js` moría en `Cannot find module .../packages/shared/src/constants`.
+
+### Por qué era delicado
+
+Cinco cosas resuelven esos paquetes y cada una espera algo distinto: el API en
+producción quiere JavaScript, el API en desarrollo quiere el fuente para que un
+cambio se vea sin recompilar, Next quiere una cosa en `dev` y otra en `build`,
+Jest los mapea al fuente por su cuenta, y `tsc` quiere declaraciones.
+
+Apuntar `main` a `dist` y ya está habría roto lo segundo: editar
+`packages/shared/src/pricing.ts` dejaría de llegar al servidor de desarrollo
+hasta recompilar a mano — y nadie se acuerda de recompilar a mano.
+
+### La solución: una condición en `exports`
+
+```json
+"exports": {
+  ".": {
+    "development": "./src/index.ts",
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  }
+}
+```
+
+Node toma la primera condición que entiende. Comprobado, no supuesto:
+
+```
+sin condición   → packages/shared/dist/index.js
+--conditions=development → packages/shared/src/index.ts
+```
+
+El `dev` del API pasa esa condición; Next la activa por su cuenta en
+desarrollo y no en `build`. Turbo garantiza el orden con `dependsOn: ["^build"]`,
+que ya estaba para build, lint, typecheck y test — solo hubo que añadirlo a
+`dev`.
+
+### Comprobado, paso a paso
+
+```
+node dist/main.js  →  Nest started  ·  /properties/areia-bela → 200
+```
+
+Y el desarrollo en vivo, cambiando `HOLD_TTL_MINUTES` de 30 a 31 en el fuente
+con el servidor corriendo: `node --watch` reinició (dos arranques en el log)
+mientras `dist` seguía diciendo 30. El cambio de prueba se revirtió.
+
+```
+pnpm typecheck ✅ (6 tareas)   pnpm lint ✅ (0 errores)
+pnpm test ✅ (308)             pnpm build ✅ (4 tareas)
+e2e contra el API COMPILADO: 16 passed (49.8s)
+```
+
+Esa última línea es la que cierra el asunto: la suite entera pasa contra
+`node dist/main.js`, no contra el servidor de desarrollo.
+
+### Lo que gana la imagen
+
+El Dockerfile del API pasa de `pnpm start` con ts-node a `node dist/main.js`.
+Sin toolchain de TypeScript dentro, y sin gestor de paquetes en el árbol de
+procesos: una cosa menos entre una señal y la aplicación que tiene que
+atenderla.
+
+### Sigue diferido
+
+- **El `dist` del API incluye los `.spec.js`.** `nest build` compila también los
+  tests. Sobra peso, no rompe nada.

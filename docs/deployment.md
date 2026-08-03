@@ -112,22 +112,43 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
 Una copia que nadie ha restaurado nunca no es una copia. Conviene probar la
 restauración sobre una base vacía antes de necesitarla.
 
+## Cómo se resuelven los paquetes compartidos
+
+`packages/shared` y `packages/types` se compilan a `dist/` y declaran:
+
+```json
+"exports": {
+  ".": {
+    "development": "./src/index.ts",
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  }
+}
+```
+
+Node elige la primera condición que entiende, así que:
+
+| Quién                            | Qué carga         | Por qué                                     |
+| -------------------------------- | ----------------- | ------------------------------------------- |
+| `node dist/main.js` (producción) | `dist/index.js`   | Sin condición extra, cae en `default`.      |
+| `pnpm dev` del API               | `src/index.ts`    | Arranca con `--conditions=development`.     |
+| Next en desarrollo               | `src/index.ts`    | Webpack activa `development` por su cuenta. |
+| `next build`                     | `dist/index.js`   | En producción esa condición no está.        |
+| Jest                             | `src/index.ts`    | Su `moduleNameMapper` apunta al fuente.     |
+| `tsc`                            | `dist/index.d.ts` | Lee la condición `types`.                   |
+
+Editar un archivo compartido llega al servidor de desarrollo **sin recompilar**,
+que es lo que hace que el esquema sea usable: si hiciera falta un build manual,
+nadie se acordaría de hacerlo.
+
+Turbo garantiza el orden con `dependsOn: ["^build"]` — los paquetes se compilan
+antes que el API, la web, los tests y el typecheck.
+
 ## Diferido, y por qué
 
-- **El API corre con `ts-node --transpile-only`, no desde `dist`.** No es una
-  preferencia: los paquetes de `packages/` publican TypeScript sin compilar
-  (`"main": "./src/index.ts"`, sin script de build), así que `node dist/main.js`
-  muere con `Cannot find module .../packages/shared/src/constants`. Comprobado,
-  no supuesto.
-
-  El arreglo correcto es darles un paso de compilación y apuntar `main` a
-  `dist`. Toca cómo resuelven Next, Jest y el API a la vez, así que es un
-  cambio con su propio riesgo y merece hacerse solo, no de rebote en el
-  despliegue. Mientras tanto, la imagen arranca con el mismo comando que
-  `pnpm start` y que el job de E2E del CI.
-
-- **El `dist` del API incluye los `.spec.js`.** Irrelevante mientras se ejecute
-  desde el código fuente; a limpiar cuando se compile.
+- **El `dist` del API incluye los `.spec.js`.** `nest build` compila también los
+  tests. Sobra peso en la imagen, no rompe nada; se limpia excluyéndolos del
+  `tsconfig.build.json` del API.
 
 - **Sin CD.** El CI comprueba; desplegar sigue siendo manual. Automatizarlo
   antes de tener un dominio y un servidor definidos sería automatizar una
