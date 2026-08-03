@@ -260,3 +260,34 @@ Se detiene en el traspaso a Stripe. Completar un pago significa manejar la
 página de Stripe, que es su interfaz y no la nuestra. Lo que sí se comprueba es
 que el traspaso es real: una URL de sesión que pertenece a Stripe, para una
 reserva que existe.
+
+## `COOKIE_SAMESITE`
+
+| Valor                     | Cuándo                                                                |
+| ------------------------- | --------------------------------------------------------------------- |
+| sin definir (por defecto) | `SameSite=Lax`. La postura correcta.                                  |
+| `none`                    | El sitio y el API viven en dominios sin padre común. Fuerza `Secure`. |
+
+`Lax` es lo que hay que usar, y para eso el sitio y el API deben compartir
+dominio padre: `areiabela.com` y `api.areiabela.com`. Dos URLs `*.run.app` no lo
+comparten, y entonces el navegador no manda la cookie: el panel no deja iniciar
+sesión, sin ningún error visible.
+
+`none` existe para ese caso y **no es gratis**. Este API no tiene token CSRF;
+`Lax` venía haciendo ese trabajo, porque una petición desde otro sitio nunca
+llevaba la cookie. Con `none` eso deja de ser cierto, y lo que queda es:
+
+- **Lo que mueve dinero sigue a salvo.** Reembolsos, reservas y declaraciones
+  son JSON, y `application/json` no es una petición «simple»: el navegador
+  manda un preflight antes, y CORS responde con una lista en la que el atacante
+  no está.
+- **Los formularios ya no se parsean.** Un `<form>` de otro sitio se envía sin
+  preflight, así que `main.ts` apaga el parser de formularios de Nest. Nada aquí
+  consume uno, y un parser que nadie necesita es una puerta que nadie vigila.
+- **Las dos subidas de imagen siguen alcanzables.** `multipart/form-data`
+  tampoco lleva preflight. Es el único hueco que `none` deja abierto: exige un
+  admin ya identificado y lo peor que consigue es una imagen no deseada en la
+  galería. Se declara en vez de ocultarse.
+
+Por eso `none` es un intercambio razonable para un entorno de QA en dos dominios
+sueltos, y el valor equivocado para producción.

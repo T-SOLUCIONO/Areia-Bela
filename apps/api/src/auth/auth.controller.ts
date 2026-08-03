@@ -19,6 +19,7 @@ import {
   REFRESH_TOKEN_TTL_SECONDS,
 } from '@areia-bela/shared'
 import { AuthService, type IssuedTokens } from './auth.service'
+import { sessionCookieOptions } from './cookie-options'
 import { LoginDto } from './dto/login.dto'
 import { DisableTotpDto, TotpCodeDto, VerifyTotpDto } from './dto/totp.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
@@ -193,29 +194,23 @@ export class AuthController {
     }
   }
 
-  private get isProduction(): boolean {
-    return this.config.get<string>('NODE_ENV') === 'production'
-  }
-
   private setAuthCookies(res: Response, tokens: IssuedTokens): void {
-    // HttpOnly so JS can't read them (XSS), SameSite=lax so top-level
-    // navigations still carry them. Cross-site deployments need SameSite=none
-    // plus HTTPS — see docs/env.md.
-    res.cookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, {
-      httpOnly: true,
-      secure: this.isProduction,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000,
-    })
+    // Posture lives in one place, so the three cookies this system issues
+    // cannot drift apart. See cookie-options.ts for what SameSite is doing.
+    res.cookie(
+      ACCESS_TOKEN_COOKIE,
+      tokens.accessToken,
+      sessionCookieOptions(this.config, { path: '/', maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000 }),
+    )
 
-    res.cookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
-      httpOnly: true,
-      secure: this.isProduction,
-      sameSite: 'lax',
-      path: REFRESH_COOKIE_PATH,
-      maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
-    })
+    res.cookie(
+      REFRESH_TOKEN_COOKIE,
+      tokens.refreshToken,
+      sessionCookieOptions(this.config, {
+        path: REFRESH_COOKIE_PATH,
+        maxAge: REFRESH_TOKEN_TTL_SECONDS * 1000,
+      }),
+    )
   }
 
   private clearAuthCookies(res: Response): void {
