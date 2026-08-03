@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler'
 import type { Response } from 'express'
 import { GUEST_SESSION_COOKIE, GUEST_SESSION_TTL_SECONDS } from '@areia-bela/shared'
 import { Public } from '../auth/decorators/public.decorator'
+import { sessionCookieOptions } from '../auth/cookie-options'
 import { GuestAuthService } from './guest-auth.service'
 import { GuestService } from './guest.service'
 import { BookingPdfService } from './booking-pdf.service'
@@ -64,15 +65,13 @@ export class GuestController {
   async redeem(@Body() dto: RedeemLinkDto, @Res({ passthrough: true }) res: Response) {
     const identity = await this.guestAuth.redeem(dto.token)
 
-    res.cookie(GUEST_SESSION_COOKIE, this.guestAuth.signSession(identity), {
-      // Same posture as the staff cookies: unreadable from JS, and only sent
-      // over HTTPS once deployed.
-      httpOnly: true,
-      secure: this.config.get<string>('NODE_ENV') === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: GUEST_SESSION_TTL_SECONDS * 1000,
-    })
+    // The same posture as the staff cookies, from the same place: a guest
+    // session that behaved differently would be a second thing to reason about.
+    res.cookie(
+      GUEST_SESSION_COOKIE,
+      this.guestAuth.signSession(identity),
+      sessionCookieOptions(this.config, { path: '/', maxAge: GUEST_SESSION_TTL_SECONDS * 1000 }),
+    )
 
     return { name: identity.name, email: identity.email }
   }

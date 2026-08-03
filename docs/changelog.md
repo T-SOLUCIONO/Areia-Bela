@@ -5146,3 +5146,64 @@ atenderla.
 
 - **El `dist` del API incluye los `.spec.js`.** `nest build` compila también los
   tests. Sobra peso, no rompe nada.
+
+---
+
+## 79. Cookies entre dominios, sin regalar el CSRF
+
+Necesario para QA: en Cloud Run cada servicio recibe su propia URL `*.run.app`,
+y entre dos dominios sin padre común `SameSite=Lax` no manda la cookie. El panel
+no deja iniciar sesión y no dice por qué.
+
+### Lo que había que mirar antes de tocarlo
+
+Este API **no tiene token CSRF**. `SameSite=Lax` venía haciendo ese trabajo:
+una petición desde otro sitio nunca llevaba la cookie, así que nunca iba
+autenticada. Cambiarlo a `none` sin más no es un ajuste de configuración, es
+quitar la única defensa que había.
+
+Así que primero se comprobó qué queda protegiendo cada cosa:
+
+| Superficie                                 | Con `none`                                                                                                |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Reembolsos, reservas, declaraciones (JSON) | **A salvo.** `application/json` exige preflight, y CORS responde con una lista donde el atacante no está. |
+| Cuerpos de formulario                      | Eran un hueco: un `<form>` cruzado va sin preflight y Nest los parseaba por defecto.                      |
+| Las dos subidas de imagen (multipart)      | Siguen alcanzables. Declarado.                                                                            |
+
+### Lo hecho
+
+**`COOKIE_SAMESITE`**, por defecto `lax`. Un valor que no se reconozca —una
+errata— también cae en `lax`: una variable mal escrita no puede debilitar una
+cookie en silencio. Pedir `none` fuerza `Secure`, porque el navegador descarta
+`SameSite=None` sin él y el síntoma sería un login que no hace nada ni dice
+nada.
+
+**Se apaga el parser de formularios.** Nada aquí consume uno: todo es JSON y las
+dos subidas las maneja multer. Un parser que nadie necesita es una puerta que
+nadie vigila. Comprobado:
+
+```
+formulario cruzado  → HTTP 400
+el mismo dato JSON  → HTTP 201
+```
+
+**Los tres sitios que emitían cookies ahora comparten una función.** Antes
+coincidían por tener las mismas tres líneas copiadas, que es coincidir por
+suerte.
+
+### El cuerpo crudo del webhook, intacto
+
+Apagar los parsers de Nest podía llevarse por delante la verificación de firma
+de Stripe, que necesita los bytes exactos. Se reinstala `json()` con un `verify`
+que los guarda, y se comprobó que la queja es la correcta:
+
+```
+webhook con firma falsa → {"message":"Invalid signature"}
+```
+
+Se queja de la **firma**, no de un cuerpo vacío.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (314 tests, 6 nuevos)
+```
