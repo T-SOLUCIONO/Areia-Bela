@@ -5281,3 +5281,40 @@ anterior a este cambio, así que la variable sola no habría hecho nada.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (317 tests, 3 nuevos)
 ```
+
+## 81. El cierre de sesión que no cerraba nada
+
+Con el dominio ya funcionando, la comprobación del `Set-Cookie` del logout
+salió así:
+
+```
+set-cookie: areia_bela_access=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+```
+
+Sin `Domain`. Y una cookie se identifica por **nombre, dominio y ruta**: ese
+borrado eliminaba una cookie del host que ya no existía, mientras la real
+—la de `.areia.t-soluciono.com`, que puso la sección 80— seguía intacta en el
+navegador. El logout devolvía `204` y la sesión sobrevivía.
+
+Efecto acotado pero real: el refresh se revoca en servidor, así que la sesión
+no se podía renovar, pero el access token seguía autenticando **hasta 15
+minutos** tras pulsar «cerrar sesión». En un ordenador compartido eso importa.
+
+Lo introdujo la propia sección 80. Antes no había `Domain` en ningún lado y
+los tres `clearCookie` escritos a mano coincidían por defecto — la misma
+coincidencia por suerte que esa sección decía haber eliminado, sobreviviendo
+en los borrados porque solo se habían unificado las escrituras.
+
+Los tres pasan ahora por `sessionCookieOptions`, la función que los escribe.
+
+El test que lo cubre no comprueba un valor: recorre el árbol del API y exige
+que **ninguna** llamada a `clearCookie` se salte esa función, porque el error
+no vive dentro de ella sino en quien la ignora. Verificado en los dos
+sentidos: falla al revertir uno de los tres, pasa con el arreglo. Y cuenta
+cuántas llamadas inspeccionó, porque un escaneo que no encuentra nada pasaría
+por el motivo equivocado.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (318 tests, 1 nuevo)
+```

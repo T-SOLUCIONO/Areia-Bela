@@ -214,7 +214,14 @@ export class AuthController {
   }
 
   private clearAuthCookies(res: Response): void {
-    res.clearCookie(ACCESS_TOKEN_COOKIE, { path: '/' })
-    res.clearCookie(REFRESH_TOKEN_COOKIE, { path: REFRESH_COOKIE_PATH })
+    // Through the same function that wrote them, and not by hand: a cookie is
+    // identified by name **and domain and path**, so a clear that omits the
+    // domain deletes a different cookie than the one that exists — and the
+    // session survives the logout without a word.
+    res.clearCookie(ACCESS_TOKEN_COOKIE, sessionCookieOptions(this.config, { path: '/' }))
+    res.clearCookie(
+      REFRESH_TOKEN_COOKIE,
+      sessionCookieOptions(this.config, { path: REFRESH_COOKIE_PATH }),
+    )
   }
 }
