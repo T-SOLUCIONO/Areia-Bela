@@ -5370,3 +5370,56 @@ bueno siga devolviendo la URL.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (322 tests, 4 nuevos)
 ```
+
+## 83. Un log que decía haber enviado lo que no envió
+
+En el log de QA, con un segundo de diferencia cero:
+
+```
+WARN [MailService]         BREVO_API_KEY not set — email NOT sent. To: egiraldom@outlook.com
+LOG  [NotificationsService] Sent booking AB-NLFMMK confirmation to the guest
+```
+
+Dos entradas en el mismo milisegundo, y una de ellas falsa. Un log que afirma
+un trabajo que nadie hizo es peor que no tener log: es la línea en la que
+alguien va a confiar el día que busque por qué un huésped nunca recibió su
+reserva.
+
+### La causa era una firma, no cuatro mensajes
+
+`MailService.send` devolvía `void` en sus tres caminos —sin clave, rechazado
+por el proveedor y enviado—, así que ningún llamante podía distinguirlos.
+Los cuatro loguearon lo mismo porque no tenían con qué decidir otra cosa.
+
+Arreglar los mensajes uno a uno habría dejado el mismo agujero para el
+siguiente. `send` devuelve ahora si el correo salió, y con eso los cuatro
+avisos al huésped dicen lo que pasó.
+
+Sigue sin lanzar excepción, a propósito: que el proveedor acepte o no un
+mensaje no debe cambiar lo que responde un endpoint, o `/auth/forgot-password`
+se convierte en una forma de averiguar qué direcciones tienen cuenta.
+
+`NotificationChannel` tenía la misma forma y el mismo defecto — `deliver`
+registraba `Sent "…" over Email` para todo intento— así que la interfaz
+también devuelve ahora si entregó.
+
+### Y una variable que no leía nadie
+
+`docker-compose.prod.yml` pasaba `BREVO_SENDER_EMAIL` desde siempre. El código
+lee `EMAIL_FROM_ADDRESS`. Ponerla no hacía nada: el remitente caía al valor por
+defecto `no-reply@areiabela.com`, un dominio que el despliegue puede no
+controlar, y Brevo rechaza los remitentes sin verificar. Un despliegue
+configurado **exactamente como estaba documentado** no enviaba nada.
+
+Se corrige el compose, y `EMAIL_FROM_ADDRESS` sigue siendo el nombre oficial.
+Pero el código acepta también el otro y da prioridad al documentado, porque
+romper un despliegue que ya usaba el nombre equivocado no arregla a nadie.
+
+Cuatro tests nuevos: que sin clave devuelva `false` y no llame al proveedor,
+que un rechazo devuelva `false`, que solo un `ok` devuelva `true`, y que el
+remitente se lea de cualquiera de los dos nombres con el documentado ganando.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (326 tests, 4 nuevos)
+```

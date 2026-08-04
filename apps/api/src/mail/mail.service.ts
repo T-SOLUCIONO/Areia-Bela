@@ -30,19 +30,51 @@ export class MailService {
     return this.config.get<string>('BREVO_API_KEY')
   }
 
+  /**
+   * `BREVO_SENDER_EMAIL` is accepted because `docker-compose.prod.yml` has
+   * always passed that name, and nothing read it. Setting it did nothing, the
+   * sender silently fell back to a default on a domain nobody may own, and
+   * Brevo rejects mail from an unverified sender — so the symptom was a
+   * deployment configured exactly as documented, sending nothing.
+   *
+   * `EMAIL_FROM_ADDRESS` remains the documented name and wins when both are
+   * set. The alias exists so a deployment that already uses the other one is
+   * not broken to make a point.
+   */
   private get sender(): { email: string; name: string } {
     return {
-      email: this.config.get<string>('EMAIL_FROM_ADDRESS') ?? 'no-reply@areiabela.com',
+      email:
+        this.config.get<string>('EMAIL_FROM_ADDRESS') ??
+        this.config.get<string>('BREVO_SENDER_EMAIL') ??
+        'no-reply@areiabela.com',
       name: this.config.get<string>('EMAIL_FROM_NAME') ?? 'Areia Bela',
     }
   }
 
-  async send(email: OutgoingEmail): Promise<void> {
+  /**
+   * Returns whether the message actually left, and that return value is the
+   * point.
+   *
+   * This used to be `void`, so "no API key", "the provider said no" and "sent"
+   * were indistinguishable to every caller. They all logged a confident
+   * *"Sent confirmation to the guest"* — including, in production, one line
+   * after this service had just warned that nothing was sent at all. Two log
+   * entries in the same millisecond, one of them false.
+   *
+   * A log that claims work nobody did is worse than no log: it is the line
+   * someone will trust while looking for why a guest never got their booking.
+   *
+   * It stays a boolean rather than a thrown error on purpose. Whether the
+   * provider accepted a message must not change what an endpoint answers —
+   * `/auth/forgot-password` replies the same either way, or it becomes a way
+   * to find out which addresses have accounts.
+   */
+  async send(email: OutgoingEmail): Promise<boolean> {
     if (!this.apiKey) {
       this.logger.warn(
         `BREVO_API_KEY not set — email NOT sent. To: ${email.to} | ${email.subject}\n${email.text}`,
       )
-      return
+      return false
     }
 
     const response = await fetch(BREVO_ENDPOINT, {
@@ -68,9 +100,10 @@ export class MailService {
       this.logger.error(
         `Brevo rejected the email to ${email.to} (${response.status}): ${await response.text()}`,
       )
-      return
+      return false
     }
 
     this.logger.log(`Email sent to ${email.to}: ${email.subject}`)
+    return true
   }
 }

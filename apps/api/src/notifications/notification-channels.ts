@@ -6,7 +6,14 @@ import { Logger } from '@nestjs/common'
  */
 export interface NotificationChannel {
   readonly name: string
-  send(to: string, subject: string, body: string): Promise<void>
+  /**
+   * Whether the message actually left.
+   *
+   * A channel that cannot deliver returns `false` instead of pretending. It
+   * used to return nothing, so `deliver` logged a confident "Sent" for every
+   * attempt — including the ones that never sent anything.
+   */
+  send(to: string, subject: string, body: string): Promise<boolean>
 }
 
 // --- WhatsApp via Twilio -----------------------------------------------------
@@ -38,7 +45,7 @@ export class WhatsAppChannel implements NotificationChannel {
     private readonly from: string,
   ) {}
 
-  async send(to: string, subject: string, body: string): Promise<void> {
+  async send(to: string, subject: string, body: string): Promise<boolean> {
     const digits = to.replace(/\D/g, '')
     if (!digits) throw new Error('No WhatsApp number configured')
 
@@ -63,6 +70,7 @@ export class WhatsAppChannel implements NotificationChannel {
       const detail = (await response.json().catch(() => null)) as TwilioError | null
       throw new Error(`Twilio: ${detail?.message ?? response.statusText}`)
     }
+    return true
   }
 }
 
@@ -74,12 +82,12 @@ export class EmailChannel implements NotificationChannel {
 
   constructor(
     private readonly mailer: {
-      send(email: { to: string; subject: string; html: string; text: string }): Promise<void>
+      send(email: { to: string; subject: string; html: string; text: string }): Promise<boolean>
     },
   ) {}
 
-  async send(to: string, subject: string, body: string): Promise<void> {
-    await this.mailer.send({
+  async send(to: string, subject: string, body: string): Promise<boolean> {
+    return this.mailer.send({
       to,
       subject,
       text: body,
@@ -122,8 +130,11 @@ export async function deliver(
   await Promise.all(
     destinations.map(async ({ channel, to }) => {
       try {
-        await channel.send(to, subject, body)
-        logger.log(`Sent "${subject}" over ${channel.name}`)
+        const sent = await channel.send(to, subject, body)
+        if (sent) logger.log(`Sent "${subject}" over ${channel.name}`)
+        // Not an error — the channel already said why, loudly — but not a
+        // delivery either, and the log must not claim one.
+        else logger.warn(`"${subject}" was not delivered over ${channel.name}`)
       } catch (error) {
         logger.error(
           `Could not send "${subject}" over ${channel.name}: ${(error as Error).message}`,
