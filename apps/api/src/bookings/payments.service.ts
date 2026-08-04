@@ -48,7 +48,41 @@ export class PaymentsService {
       throw new ServiceUnavailableException('Payments are not configured')
     }
 
-    const session = await this.stripe.checkout.sessions.create({
+    const session = await this.createSession(request)
+
+    if (!session.url) {
+      throw new ServiceUnavailableException('Stripe returned no checkout URL')
+    }
+    return session.url
+  }
+
+  /**
+   * Every Stripe failure here becomes a 503, whatever Stripe called it.
+   *
+   * Stripe answers a bad API key with **401**, and letting that through means a
+   * guest pressing "pay" is told they are not authorised — on an endpoint that
+   * needs no session at all. It is a lie about whose fault it is, and it sends
+   * whoever debugs it into the auth code, which is where this went once.
+   *
+   * A key the server got wrong is the server being unavailable. 503 says that.
+   */
+  private async createSession(request: CheckoutRequest): Promise<Stripe.Checkout.Session> {
+    try {
+      return await this.stripe.checkout.sessions.create(this.sessionParams(request))
+    } catch (error) {
+      // The real cause stays in the logs, where it is useful and where the
+      // guest cannot read it.
+      this.logger.error(
+        `Stripe refused to open checkout for ${request.reference}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+      throw new ServiceUnavailableException('Payments are temporarily unavailable')
+    }
+  }
+
+  private sessionParams(request: CheckoutRequest): Stripe.Checkout.SessionCreateParams {
+    return {
       line_items: [
         {
           price_data: {
@@ -89,12 +123,7 @@ export class PaymentsService {
       // Everything else about the stay is already a row in the database, where
       // whoever holds the session cannot edit it.
       metadata: { bookingId: request.bookingId, reference: request.reference },
-    })
-
-    if (!session.url) {
-      throw new ServiceUnavailableException('Stripe returned no checkout URL')
     }
-    return session.url
   }
 
   /**

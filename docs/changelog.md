@@ -5318,3 +5318,55 @@ por el motivo equivocado.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (318 tests, 1 nuevo)
 ```
+
+## 82. Un 401 que culpaba al huésped
+
+Reservar desde el dominio nuevo devolvía `401 Unauthorized` en
+`POST /bookings/areia-bela/hold` — un endpoint `@Public()` que ningún huésped
+necesita autenticar. El log de Cloud Run lo aclaró:
+
+```
+www-authenticate: Bearer realm="Stripe"
+rawType: 'invalid_request_error'
+statusCode: 401
+```
+
+El 401 era de **Stripe**, rechazando la clave, y viajaba intacto hasta el
+navegador.
+
+### La causa: una variable con el valor de otra
+
+`STRIPE_SECRET_KEY` en Cloud Run contenía un valor que empieza por `whsec_` —
+el secreto de firma del webhook, no la clave de API, que empieza por `sk_`. Y
+`STRIPE_WEBHOOK_SECRET` no estaba definido. El valor correcto, en la variable
+equivocada.
+
+Configuración, no código. Pero lo que hizo el código con ese error sí es un
+fallo nuestro.
+
+### Ningún estado de Stripe vuelve a salir al navegador
+
+`checkoutUrlFor` dejaba escapar la excepción del SDK tal cual. Un huésped
+pulsaba «pagar» y se le decía que **no estaba autorizado**, por un secreto del
+servidor que él no puede ver ni arreglar: el estado señalaba a la persona
+equivocada.
+
+Y desorienta a quien lo depura. Este 401 mandó la investigación al guard, al
+middleware y a las cookies —tres capas inocentes— antes de que el log de Cloud
+Run apuntara a Stripe. Una clave que el servidor tiene mal es el servidor no
+estando disponible, y eso es un **503**.
+
+Todo fallo de Stripe al abrir el checkout se convierte ahora en
+`ServiceUnavailableException`. El motivo real queda en el log, donde sirve y
+donde el huésped no lo lee — el mensaje de Stripe llegó a incluir un fragmento
+del secreto mal puesto.
+
+Cuatro tests nuevos, uno por cada cosa que no debe repetirse: que un 401 de
+Stripe salga como 503, que su mensaje no se repita al huésped, que la ausencia
+total de clave siga fallando de forma distinta y ruidosa, y que el camino
+bueno siga devolviendo la URL.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (322 tests, 4 nuevos)
+```
