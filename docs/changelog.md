@@ -5207,3 +5207,77 @@ Se queja de la **firma**, no de un cuerpo vacío.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (314 tests, 6 nuevos)
 ```
+
+## 80. La cookie que nadie podía leer
+
+Con QA ya desplegado en Cloud Run, el panel no dejaba entrar. El síntoma era
+raro: `POST /auth/login` respondía **200**, con su `Set-Cookie` bien formado
+—`HttpOnly; Secure; SameSite=None`— y CORS correcto. Y el navegador volvía al
+login. En bucle, sin un solo error en ninguna consola.
+
+No eran las credenciales: se verificó el login por `curl` contra el API
+desplegado y devolvía el usuario `SUPERADMIN` real. No hacía falta ninguna
+«cuenta maestra».
+
+### Dónde estaba
+
+En `apps/web/middleware.ts`, que protege `/admin` y hace:
+
+```ts
+if (request.cookies.has(ACCESS_TOKEN_COOKIE)) { ... }
+```
+
+Ese middleware corre en el servidor **de la web** y lee las cookies que llegan
+a **su** host. La cookie la había puesto el API para el suyo. Nunca aparecía.
+
+La sección 79 había puesto `SameSite=None` para este mismo problema, y era
+necesario pero no suficiente: **`SameSite` decide si el navegador _adjunta_ una
+cookie a una petición entre sitios; no dice nada sobre quién puede _leerla_.**
+Faltaba la otra mitad.
+
+En local no se veía porque `localhost:3000` y `localhost:3001` son el mismo
+host —las cookies ignoran el puerto—. Dos URLs de Cloud Run no comparten nada:
+`run.app` está en la Public Suffix List, justamente para que un servicio ajeno
+no pueda escribir cookies sobre el tuyo. La misma protección que impedía el
+ataque impedía el login.
+
+### `COOKIE_DOMAIN`
+
+`sessionCookieOptions` acepta ahora un dominio padre y lo normaliza a un punto
+inicial. Con la web en `areia.example.com` y el API en `api.areia.example.com`,
+`COOKIE_DOMAIN=areia.example.com` deja la cookie donde ambos la leen.
+
+Y arreglarlo así **revierte** la concesión de la sección 79: vuelven a ser el
+mismo sitio, `SameSite` regresa a `Lax`, y con él se van las cookies de
+terceros —Safari y las ventanas privadas incluidas— y el agujero declarado de
+los dos endpoints de subida de imágenes. `COOKIE_SAMESITE=none` queda como lo
+que siempre debió ser: una salida para QA sin dominio propio.
+
+Tres tests nuevos, y uno cubre el caso que rompería el arreglo en silencio:
+una cadena vacía o en blanco produciría `Domain=.` y el navegador descartaría
+la cookie entera, con el mismo síntoma mudo del principio.
+
+### QA sobre un dominio real
+
+Se mapeó contra un dominio existente del usuario (`t-soluciono.com`, en
+Cloudflare), anidando el API bajo la web para que la cookie quede encerrada en
+la rama `areia.` y el resto de servicios del dominio no la vean.
+
+Dos cosas que costaron y quedan documentadas en `docs/deployment.md`:
+
+- **Verificar el dominio padre en Search Console como propiedad de tipo
+  Dominio**, no de prefijo de URL: la primera cubre todos los subdominios de
+  una vez. Sin eso, `domain-mappings create` se niega.
+- **En Cloudflare los `CNAME` van en gris**, y se crean en naranja por defecto.
+  Con el proxy activo Google no valida el dominio y el certificado nunca llega.
+  Además su SSL universal cubre un solo nivel de subdominio, y `api.areia.` son
+  dos.
+
+Reconstruir la web no era opcional: `NEXT_PUBLIC_API_URL` se compila dentro
+del bundle del navegador. Y la imagen del API tampoco servía tal cual — era
+anterior a este cambio, así que la variable sola no habría hecho nada.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (317 tests, 3 nuevos)
+```

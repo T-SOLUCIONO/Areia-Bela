@@ -299,6 +299,76 @@ Lo mismo para `seed` (con `ADMIN_SEED_PASSWORD`) y `seed:taxes`.
 4. Subir una foto desde `/admin/content` y **volver a verla tras un
    despliegue** — si desaparece, es el punto 2 de arriba.
 
+### Dos URLs de `run.app` no comparten la sesión
+
+El punto 2 de esa lista es el que falla, y no falla de forma ruidosa: el login
+responde **200**, con su `Set-Cookie` correcto, y el panel te devuelve a la
+pantalla de acceso. En bucle, y sin un solo error en ninguna consola.
+
+La causa está en `apps/web/middleware.ts`, que protege `/admin`. Corre en el
+servidor de la web y lee las cookies que llegan a **su** host. La cookie la
+puso el API para el suyo, así que nunca aparece por ahí.
+
+En local no se ve, porque `localhost:3000` y `localhost:3001` son el mismo host
+—las cookies ignoran el puerto—. Dos servicios de Cloud Run no comparten nada:
+`run.app` está en la Public Suffix List, precisamente para que un servicio
+ajeno no pueda escribir cookies sobre el tuyo.
+
+`COOKIE_SAMESITE=none` es necesario pero **no alcanza**: `SameSite` decide si
+el navegador _adjunta_ la cookie, no quién puede _leerla_.
+
+La solución es un dominio propio con las dos mitades bajo un padre común, y
+`COOKIE_DOMAIN` apuntando a ese padre. Con eso vuelven a ser el mismo sitio,
+`SameSite` regresa a `Lax` y desaparece de paso el problema de las cookies de
+terceros —Safari y las ventanas privadas incluidas—.
+
+```bash
+gcloud components install beta   # domain-mappings vive en beta
+
+gcloud beta run domain-mappings create --service areia-bela-web \
+  --domain areia.example.com --region us-central1
+gcloud beta run domain-mappings create --service areia-bela-api \
+  --domain api.areia.example.com --region us-central1
+```
+
+Antes hay que **verificar el dominio padre** en
+[Search Console](https://www.google.com/webmasters/verification/verification),
+como propiedad de tipo **Dominio** y con la misma cuenta que usa `gcloud`. El
+tipo Dominio cubre todos los subdominios de una vez; el de prefijo de URL, no.
+Comprobable con `gcloud domains list-user-verified`.
+
+Cada comando devuelve el `CNAME` que hay que crear (`ghs.googlehosted.com`).
+
+Anidar el API bajo la web (`api.areia.` y no `api-areia.`) no es estética: deja
+la cookie de sesión encerrada en la rama `areia.`, donde el resto de servicios
+del dominio no la pueden leer.
+
+**Si el DNS está en Cloudflare, los registros van en gris (DNS only).** Es el
+único paso que se puede arruinar, y Cloudflare crea los `CNAME` en naranja por
+defecto. Con el proxy activo Google no valida el dominio y el certificado se
+queda «pending» para siempre. Además, el SSL universal de Cloudflare cubre un
+solo nivel de subdominio: `api.areia.example.com` son dos, y cubrirlo exige el
+Advanced Certificate Manager, de pago. En gris el certificado lo emite y renueva
+Google. Se comprueba resolviendo el nombre: si las IPs son de Google va bien; si
+son de Cloudflare, la nube sigue naranja.
+
+Entre los `CNAME` y el certificado pasan de 15 minutos a unas horas. Mientras
+tanto el dominio da error de certificado, que es normal:
+
+```bash
+gcloud beta run domain-mappings describe --domain areia.example.com \
+  --region us-central1 --format="value(status.conditions)"
+```
+
+Cuando `CertificateProvisioned` pase a `True`, queda apuntar el API al padre y
+**reconstruir la web** — `NEXT_PUBLIC_API_URL` se compila dentro del bundle:
+
+```bash
+gcloud run services update areia-bela-api --region us-central1 \
+  --update-env-vars COOKIE_DOMAIN=areia.example.com,CORS_ORIGINS=https://areia.example.com \
+  --remove-env-vars COOKIE_SAMESITE
+```
+
 ### Sin Docker en la máquina: construir con Cloud Build
 
 `gcloud builds submit --tag` da por hecho un `Dockerfile` en la raíz del
