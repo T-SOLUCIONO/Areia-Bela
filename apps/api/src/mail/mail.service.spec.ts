@@ -56,28 +56,17 @@ describe('MailService.send', () => {
     await expect(service.send(anEmail)).resolves.toBe(true)
   })
 
-  it('reads the sender from either name, preferring the documented one', async () => {
-    // `BREVO_SENDER_EMAIL` was passed by docker-compose.prod.yml and read by
-    // nothing: a deployment configured exactly as documented fell back to a
-    // default address on a domain it may not own, and Brevo refuses those.
+  it('sends from the configured address', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 201 })
-    const senderOf = async (values: Record<string, string>) => {
-      fetchMock.mockClear()
-      await new MailService(configOf({ BREVO_API_KEY: 'xkeysib-test', ...values })).send(anEmail)
-      return (
-        JSON.parse(fetchMock.mock.calls[0][1].body as string) as { sender: { email: string } }
-      ).sender.email
-    }
+    await new MailService(
+      configOf({ BREVO_API_KEY: 'xkeysib-test', EMAIL_FROM_ADDRESS: 'noreply@example.com' }),
+    ).send(anEmail)
 
-    expect(await senderOf({ BREVO_SENDER_EMAIL: 'alias@example.com' })).toBe('alias@example.com')
-    expect(await senderOf({ EMAIL_FROM_ADDRESS: 'documented@example.com' })).toBe(
-      'documented@example.com',
-    )
-    expect(
-      await senderOf({
-        EMAIL_FROM_ADDRESS: 'documented@example.com',
-        BREVO_SENDER_EMAIL: 'alias@example.com',
-      }),
-    ).toBe('documented@example.com')
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      sender: { email: string; name: string }
+    }
+    expect(body.sender.email).toBe('noreply@example.com')
+    // The display name has a sensible default, so it is not required.
+    expect(body.sender.name).toBe('Areia Bela')
   })
 })

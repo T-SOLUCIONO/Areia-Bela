@@ -5411,9 +5411,10 @@ defecto `no-reply@areiabela.com`, un dominio que el despliegue puede no
 controlar, y Brevo rechaza los remitentes sin verificar. Un despliegue
 configurado **exactamente como estaba documentado** no enviaba nada.
 
-Se corrige el compose, y `EMAIL_FROM_ADDRESS` sigue siendo el nombre oficial.
-Pero el código acepta también el otro y da prioridad al documentado, porque
-romper un despliegue que ya usaba el nombre equivocado no arregla a nadie.
+Se corrige el compose. El código llegó a aceptar los dos nombres para no
+romper el despliegue que ya usaba el equivocado; en cuanto QA se renombró a
+`EMAIL_FROM_ADDRESS`, el alias se eliminó: un segundo nombre que nadie usa solo
+documenta un error pasado.
 
 Cuatro tests nuevos: que sin clave devuelva `false` y no llame al proveedor,
 que un rechazo devuelva `false`, que solo un `ok` devuelva `true`, y que el

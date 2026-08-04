@@ -30,23 +30,11 @@ export class MailService {
     return this.config.get<string>('BREVO_API_KEY')
   }
 
-  /**
-   * `BREVO_SENDER_EMAIL` is accepted because `docker-compose.prod.yml` has
-   * always passed that name, and nothing read it. Setting it did nothing, the
-   * sender silently fell back to a default on a domain nobody may own, and
-   * Brevo rejects mail from an unverified sender — so the symptom was a
-   * deployment configured exactly as documented, sending nothing.
-   *
-   * `EMAIL_FROM_ADDRESS` remains the documented name and wins when both are
-   * set. The alias exists so a deployment that already uses the other one is
-   * not broken to make a point.
-   */
   private get sender(): { email: string; name: string } {
     return {
-      email:
-        this.config.get<string>('EMAIL_FROM_ADDRESS') ??
-        this.config.get<string>('BREVO_SENDER_EMAIL') ??
-        'no-reply@areiabela.com',
+      // Brevo refuses a sender on an unverified domain, so a wrong value here
+      // is silence rather than an error the caller sees.
+      email: this.config.get<string>('EMAIL_FROM_ADDRESS') ?? 'no-reply@areiabela.com',
       name: this.config.get<string>('EMAIL_FROM_NAME') ?? 'Areia Bela',
     }
   }
