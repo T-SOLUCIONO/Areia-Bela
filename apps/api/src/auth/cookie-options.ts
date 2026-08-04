@@ -45,14 +45,45 @@ export type SameSite = 'lax' | 'none'
  *
  * So `none` is a reasonable trade for a QA environment on two unrelated
  * domains, and the wrong default for production.
+ *
+ * ## Why `COOKIE_DOMAIN` exists
+ *
+ * `SameSite` decides whether a browser *attaches* a cookie to a cross-site
+ * request. It says nothing about who can *read* one — and that turned out to
+ * be the harder half.
+ *
+ * The panel is guarded by `apps/web/middleware.ts`, which runs on the web
+ * server and reads the cookies sent to **its** host. A cookie the API set for
+ * its own host never arrives there, so the guard sees nothing, and a guest who
+ * has just authenticated is bounced back to the login screen for ever.
+ *
+ * Locally this never showed: `localhost:3000` and `localhost:3001` share the
+ * host `localhost`, because cookies ignore the port. Two Cloud Run URLs do not
+ * share anything — `run.app` is on the Public Suffix List, so each subdomain is
+ * a separate site.
+ *
+ * Setting `COOKIE_DOMAIN=.example.com` with the site on `example.com` and the
+ * API on `api.example.com` puts the cookie on the parent, where both can read
+ * it. It also makes them the same site again, so `SameSite` goes back to `lax`
+ * and the third-party-cookie problem disappears with it — Safari and private
+ * windows included.
+ *
+ * The cost is that every subdomain of that parent can read the session cookie.
+ * Worth knowing before pointing a third service at the same domain.
  */
 export function sessionCookieOptions(config: ConfigService, base: CookieOptions): CookieOptions {
   const isProduction = config.get<string>('NODE_ENV') === 'production'
   const configured = config.get<string>('COOKIE_SAMESITE')?.toLowerCase()
   const sameSite: SameSite = configured === 'none' ? 'none' : 'lax'
 
+  // Normalised to a leading dot. `.example.com` and `example.com` mean the
+  // same thing to a modern browser, but the dot is what makes the intent
+  // readable in a `Set-Cookie` header and in this configuration.
+  const domain = config.get<string>('COOKIE_DOMAIN')?.trim()
+
   return {
     ...base,
+    ...(domain ? { domain: domain.startsWith('.') ? domain : `.${domain}` } : {}),
     // Never readable from JavaScript, whatever else changes.
     httpOnly: true,
     // A browser rejects `SameSite=None` outright unless the cookie is

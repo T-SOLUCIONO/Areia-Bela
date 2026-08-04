@@ -54,6 +54,28 @@ describe('sessionCookieOptions', () => {
     expect(options.sameSite).toBe('lax')
   })
 
+  it('shares the cookie with the parent domain when told to', () => {
+    // The half `SameSite` does not solve: the panel's middleware runs on the
+    // web host and can only read cookies sent to it. Without this, a login
+    // succeeds and the guard still sees nothing.
+    const options = sessionCookieOptions(configOf({ COOKIE_DOMAIN: 'areiabela.com' }), {})
+
+    expect(options.domain).toBe('.areiabela.com')
+  })
+
+  it('does not double the leading dot', () => {
+    expect(sessionCookieOptions(configOf({ COOKIE_DOMAIN: '.areiabela.com' }), {}).domain).toBe(
+      '.areiabela.com',
+    )
+  })
+
+  it('sets no domain at all when unset, which is right for one host', () => {
+    // A `Domain` on localhost would be wrong, and an empty string is not a
+    // domain — it would produce `Domain=.` and the browser would drop it.
+    expect(sessionCookieOptions(configOf({}), {}).domain).toBeUndefined()
+    expect(sessionCookieOptions(configOf({ COOKIE_DOMAIN: '   ' }), {}).domain).toBeUndefined()
+  })
+
   it('never lets a caller turn off HttpOnly', () => {
     const options = sessionCookieOptions(configOf({}), {
       // Whatever a call site passes, this one is not up for negotiation.
