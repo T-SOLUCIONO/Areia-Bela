@@ -5207,3 +5207,220 @@ Se queja de la **firma**, no de un cuerpo vacío.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (314 tests, 6 nuevos)
 ```
+
+## 80. La cookie que nadie podía leer
+
+Con QA ya desplegado en Cloud Run, el panel no dejaba entrar. El síntoma era
+raro: `POST /auth/login` respondía **200**, con su `Set-Cookie` bien formado
+—`HttpOnly; Secure; SameSite=None`— y CORS correcto. Y el navegador volvía al
+login. En bucle, sin un solo error en ninguna consola.
+
+No eran las credenciales: se verificó el login por `curl` contra el API
+desplegado y devolvía el usuario `SUPERADMIN` real. No hacía falta ninguna
+«cuenta maestra».
+
+### Dónde estaba
+
+En `apps/web/middleware.ts`, que protege `/admin` y hace:
+
+```ts
+if (request.cookies.has(ACCESS_TOKEN_COOKIE)) { ... }
+```
+
+Ese middleware corre en el servidor **de la web** y lee las cookies que llegan
+a **su** host. La cookie la había puesto el API para el suyo. Nunca aparecía.
+
+La sección 79 había puesto `SameSite=None` para este mismo problema, y era
+necesario pero no suficiente: **`SameSite` decide si el navegador _adjunta_ una
+cookie a una petición entre sitios; no dice nada sobre quién puede _leerla_.**
+Faltaba la otra mitad.
+
+En local no se veía porque `localhost:3000` y `localhost:3001` son el mismo
+host —las cookies ignoran el puerto—. Dos URLs de Cloud Run no comparten nada:
+`run.app` está en la Public Suffix List, justamente para que un servicio ajeno
+no pueda escribir cookies sobre el tuyo. La misma protección que impedía el
+ataque impedía el login.
+
+### `COOKIE_DOMAIN`
+
+`sessionCookieOptions` acepta ahora un dominio padre y lo normaliza a un punto
+inicial. Con la web en `areia.example.com` y el API en `api.areia.example.com`,
+`COOKIE_DOMAIN=areia.example.com` deja la cookie donde ambos la leen.
+
+Y arreglarlo así **revierte** la concesión de la sección 79: vuelven a ser el
+mismo sitio, `SameSite` regresa a `Lax`, y con él se van las cookies de
+terceros —Safari y las ventanas privadas incluidas— y el agujero declarado de
+los dos endpoints de subida de imágenes. `COOKIE_SAMESITE=none` queda como lo
+que siempre debió ser: una salida para QA sin dominio propio.
+
+Tres tests nuevos, y uno cubre el caso que rompería el arreglo en silencio:
+una cadena vacía o en blanco produciría `Domain=.` y el navegador descartaría
+la cookie entera, con el mismo síntoma mudo del principio.
+
+### QA sobre un dominio real
+
+Se mapeó contra un dominio existente del usuario (`t-soluciono.com`, en
+Cloudflare), anidando el API bajo la web para que la cookie quede encerrada en
+la rama `areia.` y el resto de servicios del dominio no la vean.
+
+Dos cosas que costaron y quedan documentadas en `docs/deployment.md`:
+
+- **Verificar el dominio padre en Search Console como propiedad de tipo
+  Dominio**, no de prefijo de URL: la primera cubre todos los subdominios de
+  una vez. Sin eso, `domain-mappings create` se niega.
+- **En Cloudflare los `CNAME` van en gris**, y se crean en naranja por defecto.
+  Con el proxy activo Google no valida el dominio y el certificado nunca llega.
+  Además su SSL universal cubre un solo nivel de subdominio, y `api.areia.` son
+  dos.
+
+Reconstruir la web no era opcional: `NEXT_PUBLIC_API_URL` se compila dentro
+del bundle del navegador. Y la imagen del API tampoco servía tal cual — era
+anterior a este cambio, así que la variable sola no habría hecho nada.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (317 tests, 3 nuevos)
+```
+
+## 81. El cierre de sesión que no cerraba nada
+
+Con el dominio ya funcionando, la comprobación del `Set-Cookie` del logout
+salió así:
+
+```
+set-cookie: areia_bela_access=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+```
+
+Sin `Domain`. Y una cookie se identifica por **nombre, dominio y ruta**: ese
+borrado eliminaba una cookie del host que ya no existía, mientras la real
+—la de `.areia.t-soluciono.com`, que puso la sección 80— seguía intacta en el
+navegador. El logout devolvía `204` y la sesión sobrevivía.
+
+Efecto acotado pero real: el refresh se revoca en servidor, así que la sesión
+no se podía renovar, pero el access token seguía autenticando **hasta 15
+minutos** tras pulsar «cerrar sesión». En un ordenador compartido eso importa.
+
+Lo introdujo la propia sección 80. Antes no había `Domain` en ningún lado y
+los tres `clearCookie` escritos a mano coincidían por defecto — la misma
+coincidencia por suerte que esa sección decía haber eliminado, sobreviviendo
+en los borrados porque solo se habían unificado las escrituras.
+
+Los tres pasan ahora por `sessionCookieOptions`, la función que los escribe.
+
+El test que lo cubre no comprueba un valor: recorre el árbol del API y exige
+que **ninguna** llamada a `clearCookie` se salte esa función, porque el error
+no vive dentro de ella sino en quien la ignora. Verificado en los dos
+sentidos: falla al revertir uno de los tres, pasa con el arreglo. Y cuenta
+cuántas llamadas inspeccionó, porque un escaneo que no encuentra nada pasaría
+por el motivo equivocado.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (318 tests, 1 nuevo)
+```
+
+## 82. Un 401 que culpaba al huésped
+
+Reservar desde el dominio nuevo devolvía `401 Unauthorized` en
+`POST /bookings/areia-bela/hold` — un endpoint `@Public()` que ningún huésped
+necesita autenticar. El log de Cloud Run lo aclaró:
+
+```
+www-authenticate: Bearer realm="Stripe"
+rawType: 'invalid_request_error'
+statusCode: 401
+```
+
+El 401 era de **Stripe**, rechazando la clave, y viajaba intacto hasta el
+navegador.
+
+### La causa: una variable con el valor de otra
+
+`STRIPE_SECRET_KEY` en Cloud Run contenía un valor que empieza por `whsec_` —
+el secreto de firma del webhook, no la clave de API, que empieza por `sk_`. Y
+`STRIPE_WEBHOOK_SECRET` no estaba definido. El valor correcto, en la variable
+equivocada.
+
+Configuración, no código. Pero lo que hizo el código con ese error sí es un
+fallo nuestro.
+
+### Ningún estado de Stripe vuelve a salir al navegador
+
+`checkoutUrlFor` dejaba escapar la excepción del SDK tal cual. Un huésped
+pulsaba «pagar» y se le decía que **no estaba autorizado**, por un secreto del
+servidor que él no puede ver ni arreglar: el estado señalaba a la persona
+equivocada.
+
+Y desorienta a quien lo depura. Este 401 mandó la investigación al guard, al
+middleware y a las cookies —tres capas inocentes— antes de que el log de Cloud
+Run apuntara a Stripe. Una clave que el servidor tiene mal es el servidor no
+estando disponible, y eso es un **503**.
+
+Todo fallo de Stripe al abrir el checkout se convierte ahora en
+`ServiceUnavailableException`. El motivo real queda en el log, donde sirve y
+donde el huésped no lo lee — el mensaje de Stripe llegó a incluir un fragmento
+del secreto mal puesto.
+
+Cuatro tests nuevos, uno por cada cosa que no debe repetirse: que un 401 de
+Stripe salga como 503, que su mensaje no se repita al huésped, que la ausencia
+total de clave siga fallando de forma distinta y ruidosa, y que el camino
+bueno siga devolviendo la URL.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (322 tests, 4 nuevos)
+```
+
+## 83. Un log que decía haber enviado lo que no envió
+
+En el log de QA, con un segundo de diferencia cero:
+
+```
+WARN [MailService]         BREVO_API_KEY not set — email NOT sent. To: egiraldom@outlook.com
+LOG  [NotificationsService] Sent booking AB-NLFMMK confirmation to the guest
+```
+
+Dos entradas en el mismo milisegundo, y una de ellas falsa. Un log que afirma
+un trabajo que nadie hizo es peor que no tener log: es la línea en la que
+alguien va a confiar el día que busque por qué un huésped nunca recibió su
+reserva.
+
+### La causa era una firma, no cuatro mensajes
+
+`MailService.send` devolvía `void` en sus tres caminos —sin clave, rechazado
+por el proveedor y enviado—, así que ningún llamante podía distinguirlos.
+Los cuatro loguearon lo mismo porque no tenían con qué decidir otra cosa.
+
+Arreglar los mensajes uno a uno habría dejado el mismo agujero para el
+siguiente. `send` devuelve ahora si el correo salió, y con eso los cuatro
+avisos al huésped dicen lo que pasó.
+
+Sigue sin lanzar excepción, a propósito: que el proveedor acepte o no un
+mensaje no debe cambiar lo que responde un endpoint, o `/auth/forgot-password`
+se convierte en una forma de averiguar qué direcciones tienen cuenta.
+
+`NotificationChannel` tenía la misma forma y el mismo defecto — `deliver`
+registraba `Sent "…" over Email` para todo intento— así que la interfaz
+también devuelve ahora si entregó.
+
+### Y una variable que no leía nadie
+
+`docker-compose.prod.yml` pasaba `BREVO_SENDER_EMAIL` desde siempre. El código
+lee `EMAIL_FROM_ADDRESS`. Ponerla no hacía nada: el remitente caía al valor por
+defecto `no-reply@areiabela.com`, un dominio que el despliegue puede no
+controlar, y Brevo rechaza los remitentes sin verificar. Un despliegue
+configurado **exactamente como estaba documentado** no enviaba nada.
+
+Se corrige el compose. El código llegó a aceptar los dos nombres para no
+romper el despliegue que ya usaba el equivocado; en cuanto QA se renombró a
+`EMAIL_FROM_ADDRESS`, el alias se eliminó: un segundo nombre que nadie usa solo
+documenta un error pasado.
+
+Cuatro tests nuevos: que sin clave devuelva `false` y no llame al proveedor,
+que un rechazo devuelva `false`, que solo un `ok` devuelva `true`, y que el
+remitente se lea de cualquiera de los dos nombres con el documentado ganando.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (326 tests, 4 nuevos)
+```

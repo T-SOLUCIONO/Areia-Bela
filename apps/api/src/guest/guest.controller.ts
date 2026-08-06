@@ -80,7 +80,9 @@ export class GuestController {
   @HttpCode(204)
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(GUEST_SESSION_COOKIE, { path: '/' })
+    // Same options that wrote it, domain included: clearing with a different
+    // domain removes a cookie that was never there and leaves the real one.
+    res.clearCookie(GUEST_SESSION_COOKIE, sessionCookieOptions(this.config, { path: '/' }))
   }
 
   @Public()

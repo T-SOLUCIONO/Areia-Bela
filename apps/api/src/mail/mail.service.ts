@@ -32,17 +32,37 @@ export class MailService {
 
   private get sender(): { email: string; name: string } {
     return {
+      // Brevo refuses a sender on an unverified domain, so a wrong value here
+      // is silence rather than an error the caller sees.
       email: this.config.get<string>('EMAIL_FROM_ADDRESS') ?? 'no-reply@areiabela.com',
       name: this.config.get<string>('EMAIL_FROM_NAME') ?? 'Areia Bela',
     }
   }
 
-  async send(email: OutgoingEmail): Promise<void> {
+  /**
+   * Returns whether the message actually left, and that return value is the
+   * point.
+   *
+   * This used to be `void`, so "no API key", "the provider said no" and "sent"
+   * were indistinguishable to every caller. They all logged a confident
+   * *"Sent confirmation to the guest"* — including, in production, one line
+   * after this service had just warned that nothing was sent at all. Two log
+   * entries in the same millisecond, one of them false.
+   *
+   * A log that claims work nobody did is worse than no log: it is the line
+   * someone will trust while looking for why a guest never got their booking.
+   *
+   * It stays a boolean rather than a thrown error on purpose. Whether the
+   * provider accepted a message must not change what an endpoint answers —
+   * `/auth/forgot-password` replies the same either way, or it becomes a way
+   * to find out which addresses have accounts.
+   */
+  async send(email: OutgoingEmail): Promise<boolean> {
     if (!this.apiKey) {
       this.logger.warn(
         `BREVO_API_KEY not set — email NOT sent. To: ${email.to} | ${email.subject}\n${email.text}`,
       )
-      return
+      return false
     }
 
     const response = await fetch(BREVO_ENDPOINT, {
@@ -68,9 +88,10 @@ export class MailService {
       this.logger.error(
         `Brevo rejected the email to ${email.to} (${response.status}): ${await response.text()}`,
       )
-      return
+      return false
     }
 
     this.logger.log(`Email sent to ${email.to}: ${email.subject}`)
+    return true
   }
 }

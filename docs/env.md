@@ -291,3 +291,33 @@ llevaba la cookie. Con `none` eso deja de ser cierto, y lo que queda es:
 
 Por eso `none` es un intercambio razonable para un entorno de QA en dos dominios
 sueltos, y el valor equivocado para producción.
+
+## `COOKIE_DOMAIN`
+
+El dominio padre que comparten el sitio y el API. Sin definir, cada uno pone su
+cookie en su propio host.
+
+```
+COOKIE_DOMAIN=areiabela.com     # sitio en areiabela.com, API en api.areiabela.com
+```
+
+**`SameSite` resuelve la mitad del problema, y esta variable la otra.** `SameSite`
+decide si el navegador **adjunta** una cookie a una petición entre sitios; no
+dice nada sobre quién puede **leerla**.
+
+El panel lo protege `apps/web/middleware.ts`, que corre en el servidor de la web
+y lee las cookies que llegan a **su** host. Una cookie que el API puso para el
+suyo nunca llega ahí: el login responde 200, el guard no ve nada, y el usuario
+vuelve al login. En bucle, y sin ningún error.
+
+En local no se nota, porque `localhost:3000` y `localhost:3001` comparten el
+host `localhost` — las cookies ignoran el puerto. Dos URLs de Cloud Run no
+comparten nada: `run.app` está en la Public Suffix List, así que cada subdominio
+es un sitio distinto.
+
+Con el padre compartido, además, **`COOKIE_SAMESITE` deja de hacer falta**:
+vuelven a ser el mismo sitio, `Lax` funciona, y con él desaparece el problema de
+las cookies de terceros —Safari y las ventanas privadas incluidas.
+
+El precio: cualquier subdominio de ese padre puede leer la cookie de sesión.
+Conviene saberlo antes de apuntar un tercer servicio al mismo dominio.

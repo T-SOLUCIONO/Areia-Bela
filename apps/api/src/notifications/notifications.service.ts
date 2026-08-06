@@ -193,7 +193,7 @@ export class NotificationsService {
     ].join('\n')
 
     try {
-      await this.mail.send({
+      const sent = await this.mail.send({
         to: booking.guestEmail,
         toName: booking.guestName,
         subject: copy.subject(booking.reference),
@@ -204,6 +204,14 @@ export class NotificationsService {
         // waiting to happen.
         html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
       })
+      if (!sent) {
+        // Says nothing was delivered, because nothing was. The reason is
+        // already in MailService's own log, one line above this one.
+        this.logger.warn(
+          `Could not send booking ${booking.reference} confirmation — mail was not delivered`,
+        )
+        return
+      }
       this.logger.log(`Sent booking ${booking.reference} confirmation to the guest`)
     } catch (error) {
       this.logger.error(
@@ -242,13 +250,21 @@ export class NotificationsService {
     ].join('\n')
 
     try {
-      await this.mail.send({
+      const sent = await this.mail.send({
         to: notice.guestEmail,
         toName: notice.guestName,
         subject: copy.subject(notice.reference),
         text: body,
         html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
       })
+      if (!sent) {
+        // Says nothing was delivered, because nothing was. The reason is
+        // already in MailService's own log, one line above this one.
+        this.logger.warn(
+          `Could not send the cancellation of ${notice.reference} — mail was not delivered`,
+        )
+        return
+      }
       this.logger.log(`Told the guest booking ${notice.reference} was cancelled`)
     } catch (error) {
       this.logger.error(
@@ -287,13 +303,21 @@ export class NotificationsService {
     ].join('\n')
 
     try {
-      await this.mail.send({
+      const sent = await this.mail.send({
         to: notice.guestEmail,
         toName: notice.guestName,
         subject: copy.subject(notice.reference),
         text: body,
         html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
       })
+      if (!sent) {
+        // Says nothing was delivered, because nothing was. The reason is
+        // already in MailService's own log, one line above this one.
+        this.logger.warn(
+          `Could not send the refund notice for ${notice.reference} — mail was not delivered`,
+        )
+        return
+      }
       this.logger.log(`Told the guest about the refund on ${notice.reference}`)
     } catch (error) {
       // The money has already moved. A mail that did not send is not a reason
@@ -360,7 +384,7 @@ export class NotificationsService {
     const base = this.config.get<string>('PUBLIC_SITE_URL') ?? 'http://localhost:3000'
 
     try {
-      await this.mail.send({
+      const sent = await this.mail.send({
         to: booking.guestEmail,
         toName: booking.guestName,
         subject: copy.subject,
@@ -381,6 +405,14 @@ export class NotificationsService {
           footnote: copy.footnote,
         }),
       })
+      if (!sent) {
+        // Says nothing was delivered, because nothing was. The reason is
+        // already in MailService's own log, one line above this one.
+        this.logger.warn(
+          `Could not send the failed-payment notice for ${booking.reference} — mail was not delivered`,
+        )
+        return
+      }
       this.logger.log(`Told ${booking.guestEmail} their payment did not complete`)
     } catch (error) {
       this.logger.error(

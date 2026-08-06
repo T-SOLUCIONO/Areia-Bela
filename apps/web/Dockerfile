@@ -46,7 +46,14 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN pnpm --filter @areia-bela/web build
+# Los tres puntos importan: `@areia-bela/web...` construye antes sus
+# dependencias del workspace.
+#
+# Desde que `packages/shared` y `packages/types` compilan, su `exports` da el
+# fuente a un servidor de desarrollo y `dist` a todo lo demás — y `next build`
+# es "todo lo demás". Sin construirlos antes, resuelve a un `dist` que no
+# existe y falla con `Can't resolve '@areia-bela/shared'`.
+RUN pnpm --filter @areia-bela/web... build
 
 # ---------------------------------------------------------------------------
 FROM base AS runtime
