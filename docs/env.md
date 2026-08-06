@@ -12,26 +12,28 @@ cp apps/web/.env.example apps/web/.env
 
 ## apps/api
 
-| Variable                | Requerida       | Propósito                                                                                                                                                                                                                                 |
-| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`          | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                                 |
-| `PORT`                  | no              | Puerto del API. Default `3001`.                                                                                                                                                                                                           |
-| `JWT_ACCESS_SECRET`     | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                              |
-| `TOTP_ENCRYPTION_KEY`   | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación.              |
-| `CORS_ORIGINS`          | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
-| `ADMIN_SEED_PASSWORD`   | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
-| `NODE_ENV`              | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
-| `BLOB_READ_WRITE_TOKEN` | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
-| `DEEPL_API_KEY`         | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
-| `TRANSLATION_PROVIDER`  | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
-| `LIBRETRANSLATE_URL`    | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
-| `ANTHROPIC_API_KEY`     | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
-| `PUBLIC_SITE_URL`       | sí              | Base de los enlaces que salen por correo (el de acceso del huésped). Sin ella se usa `http://localhost:3000`, y un enlace a localhost en el correo de un huésped no lleva a ninguna parte.                                                |
-| `STRIPE_SECRET_KEY`     | sí              | Abre la sesión de pago de Stripe. Sin ella `POST /bookings/:slug/hold` responde 503 y nadie puede reservar.                                                                                                                               |
-| `TWILIO_ACCOUNT_SID`    | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
-| `TWILIO_AUTH_TOKEN`     | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
-| `TELEGRAM_BOT_TOKEN`    | no              | Avisos por Telegram. El chat de destino se pone en el panel, no aquí.                                                                                                                                                                     |
-| `TWILIO_WHATSAPP_FROM`  | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
+| Variable                        | Requerida       | Propósito                                                                                                                                                                                                                                 |
+| ------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                                 |
+| `PORT`                          | no              | Puerto del API. Default `3001`.                                                                                                                                                                                                           |
+| `JWT_ACCESS_SECRET`             | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                              |
+| `TOTP_ENCRYPTION_KEY`           | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación.              |
+| `CORS_ORIGINS`                  | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
+| `ADMIN_SEED_PASSWORD`           | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
+| `NODE_ENV`                      | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
+| `BLOB_READ_WRITE_TOKEN`         | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
+| `DEEPL_API_KEY`                 | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
+| `TRANSLATION_PROVIDER`          | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
+| `LIBRETRANSLATE_URL`            | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
+| `ANTHROPIC_API_KEY`             | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
+| `PUBLIC_SITE_URL`               | sí              | Base de los enlaces que salen por correo (el de acceso del huésped). Sin ella se usa `http://localhost:3000`, y un enlace a localhost en el correo de un huésped no lleva a ninguna parte.                                                |
+| `STRIPE_SECRET_KEY`             | sí              | Abre la sesión de pago de Stripe. Sin ella `POST /bookings/:slug/hold` responde 503 y nadie puede reservar.                                                                                                                               |
+| `TWILIO_ACCOUNT_SID`            | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
+| `TWILIO_AUTH_TOKEN`             | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
+| `TELEGRAM_BOT_TOKEN`            | no              | Avisos por Telegram. El chat de destino se pone en el panel, no aquí.                                                                                                                                                                     |
+| `META_WHATSAPP_TOKEN`           | no              | WhatsApp por el Cloud API de Meta. Se elige el proveedor en el panel.                                                                                                                                                                     |
+| `META_WHATSAPP_PHONE_NUMBER_ID` | no              | El id del número emisor en Meta, no el número.                                                                                                                                                                                            |
+| `TWILIO_WHATSAPP_FROM`          | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
 ### Almacenamiento de imágenes (Vercel Blob)
 
@@ -352,3 +354,31 @@ de plantillas. Tiene coste por mensaje.
 El panel distingue **«falta el chat id»** de **«falta el token en el API»**: son
 dos problemas con dueños distintos, y una sola señal para ambos mandaría a la
 anfitriona a buscar donde no es.
+
+### Los dos proveedores de WhatsApp
+
+Se elige en el panel, en Ajustes → Avisos. Solo trabaja uno a la vez: mandar el
+mismo mensaje dos veces es ruido, no redundancia.
+
+|               | Twilio                                                            | Cloud API de Meta                                      |
+| ------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
+| Variables     | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | `META_WHATSAPP_TOKEN`, `META_WHATSAPP_PHONE_NUMBER_ID` |
+| Empezar       | Sandbox, envía hoy                                                | Cuenta de Business y número verificado                 |
+| Remitente     | Número compartido                                                 | El tuyo                                                |
+| Coste         | Margen de reventa sobre la tarifa de Meta                         | La tarifa de Meta                                      |
+| Regla de 24 h | Sí                                                                | **Sí, igual**                                          |
+
+**Ninguno de los dos se libra de la regla de las 24 horas.** Es de WhatsApp, no
+del revendedor: fuera de una ventana que el destinatario haya abierto
+escribiendo él, solo llegan plantillas aprobadas. Elegir Meta esperando que
+desaparezca es elegirlo por el motivo equivocado — para avisos no solicitados,
+Telegram sigue siendo el canal correcto.
+
+`META_WHATSAPP_PHONE_NUMBER_ID` **no es el número de teléfono**: es el id que
+Meta le asigna, visible en el panel de WhatsApp de tu app de Meta.
+
+**Si el proveedor elegido no tiene credenciales, no se sustituye por el otro.**
+Elegir Meta y que salga por Twilio significaría que el panel dice una cosa y el
+teléfono muestra otra, sin motivo para que nadie lo mire. En su lugar el panel
+señala qué falta y distingue si el otro proveedor está listo para cambiarse —
+porque poner credenciales es un despliegue y cambiar de proveedor es un clic.

@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common'
 
 /**
- * How the host is reached. Three implementations, chosen by what is configured,
- * so adding a fourth is a class rather than a rewrite.
+ * How the host is reached. Four implementations, chosen by what is configured,
+ * so adding a fifth is a class rather than a rewrite.
  */
 export interface NotificationChannel {
   readonly name: string
@@ -69,6 +69,70 @@ export class WhatsAppChannel implements NotificationChannel {
     if (!response.ok) {
       const detail = (await response.json().catch(() => null)) as TwilioError | null
       throw new Error(`Twilio: ${detail?.message ?? response.statusText}`)
+    }
+    return true
+  }
+}
+
+// --- WhatsApp via Meta's Cloud API ------------------------------------------
+
+interface MetaError {
+  error?: { message?: string; code?: number }
+}
+
+/**
+ * WhatsApp straight from Meta, without a reseller in between.
+ *
+ * The other WhatsApp channel goes through Twilio. Both end at the same place,
+ * and the difference is worth stating plainly:
+ *
+ * - **Twilio** has a sandbox that sends today, at the cost of a per-message
+ *   markup and one more company holding the conversation.
+ * - **Meta** is the official path: no markup, and the sender is your own
+ *   number rather than a shared one. Getting there needs a Business account, a
+ *   verified number and a permanent access token.
+ *
+ * What it does **not** change is the 24-hour rule. That is Meta's, not Twilio's,
+ * so switching provider does not escape it — outside a window the recipient
+ * opened, only an approved template arrives. Anyone choosing this expecting the
+ * window to go away is choosing it for the wrong reason, which is why the panel
+ * says so next to the choice.
+ */
+export class MetaWhatsAppChannel implements NotificationChannel {
+  readonly name = 'WhatsApp (Meta)'
+
+  constructor(
+    private readonly accessToken: string,
+    private readonly phoneNumberId: string,
+  ) {}
+
+  async send(to: string, subject: string, body: string): Promise<boolean> {
+    const digits = to.replace(/\D/g, '')
+    if (!digits) throw new Error('No WhatsApp number configured')
+
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${this.phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: digits,
+          type: 'text',
+          // Same shape as the Twilio channel: one recognisable format for the
+          // host, whichever provider woke them up.
+          text: { preview_url: false, body: `*${subject}*\n\n${body}` },
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as MetaError | null
+      throw new Error(`Meta: ${detail?.error?.message ?? response.statusText}`)
     }
     return true
   }

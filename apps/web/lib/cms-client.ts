@@ -57,6 +57,7 @@ export interface SiteSettings {
   notifyEmail: string
   notifyWhatsapp: string
   notifyTelegram: string
+  whatsappProvider: 'TWILIO' | 'META'
   notifyOnBooking: boolean
   notifyOnCancel: boolean
   notifyOnChange: boolean
@@ -177,6 +178,9 @@ export const cms = {
       email: boolean
       whatsapp: boolean
       whatsappConfigured: boolean
+      whatsappProvider: 'TWILIO' | 'META'
+      twilioConfigured: boolean
+      metaConfigured: boolean
       telegram: boolean
       telegramConfigured: boolean
     }>('/notifications/status'),

@@ -1,5 +1,10 @@
 import { Logger } from '@nestjs/common'
-import { EmailChannel, TelegramChannel, deliver } from './notification-channels'
+import {
+  EmailChannel,
+  MetaWhatsAppChannel,
+  TelegramChannel,
+  deliver,
+} from './notification-channels'
 
 describe('TelegramChannel', () => {
   const fetchMock = jest.fn()
@@ -108,5 +113,67 @@ describe('deliver', () => {
     // not go out, and the host still gets told through whatever does work.
     expect(working.send).toHaveBeenCalled()
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('sin red'))
+  })
+})
+
+describe('MetaWhatsAppChannel', () => {
+  const fetchMock = jest.fn()
+  const originalFetch = global.fetch
+  const channel = new MetaWhatsAppChannel('meta-token', '123456789')
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue({ ok: true, status: 200 })
+    global.fetch = fetchMock as unknown as typeof fetch
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
+  })
+
+  const sentBody = () =>
+    JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>
+
+  it('posts to the phone number id it was given', async () => {
+    await expect(channel.send('+1 305 555 0100', 'Nueva reserva', 'Jane')).resolves.toBe(true)
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://graph.facebook.com/v21.0/123456789/messages')
+    expect((fetchMock.mock.calls[0][1].headers as Record<string, string>).Authorization).toBe(
+      'Bearer meta-token',
+    )
+  })
+
+  it('strips the number down to digits', async () => {
+    // Meta rejects a `+` or a space in `to`, and the host types the number the
+    // way they would dial it.
+    await channel.send('+1 (305) 555-0100', 'Nueva reserva', 'Jane')
+
+    expect(sentBody().to).toBe('13055550100')
+  })
+
+  it('keeps the subject as the first line, in bold', async () => {
+    await channel.send('13055550100', 'Nueva reserva', 'Jane Doe')
+
+    // The same shape as Twilio and Telegram: one recognisable format, whichever
+    // provider woke the host up.
+    expect((sentBody().text as { body: string }).body).toBe('*Nueva reserva*\n\nJane Doe')
+  })
+
+  it('throws with Meta’s own reason when it refuses', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: async () => ({ error: { message: 'Recipient phone number not in allowed list' } }),
+    })
+
+    await expect(channel.send('13055550100', 'Nueva reserva', 'Jane')).rejects.toThrow(
+      'Recipient phone number not in allowed list',
+    )
+  })
+
+  it('refuses a number with no digits rather than posting nowhere', async () => {
+    await expect(channel.send('sin numero', 'Nueva reserva', 'Jane')).rejects.toThrow('number')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

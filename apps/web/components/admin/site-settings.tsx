@@ -6,6 +6,13 @@ import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Switch } from '@areia-bela/ui/switch'
 import { Input } from '@areia-bela/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@areia-bela/ui/select'
 import { Label } from '@areia-bela/ui/label'
 import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Textarea } from '@areia-bela/ui/textarea'
@@ -27,6 +34,7 @@ const BLANK: Settings = {
   notifyEmail: '',
   notifyWhatsapp: '',
   notifyTelegram: '',
+  whatsappProvider: 'TWILIO' as const,
   notifyOnBooking: true,
   notifyOnCancel: true,
   notifyOnChange: true,
@@ -43,6 +51,9 @@ export function SiteSettings() {
     email: boolean
     whatsapp: boolean
     whatsappConfigured: boolean
+    whatsappProvider: 'TWILIO' | 'META'
+    twilioConfigured: boolean
+    metaConfigured: boolean
     telegram: boolean
     telegramConfigured: boolean
   } | null>(null)
@@ -176,6 +187,22 @@ export function SiteSettings() {
             </p>
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="whatsappProvider">{t.site.whatsappProvider}</Label>
+            <Select
+              value={draft.whatsappProvider}
+              onValueChange={(value) => edit({ whatsappProvider: value as 'TWILIO' | 'META' })}
+            >
+              <SelectTrigger id="whatsappProvider">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TWILIO">{t.site.whatsappProviderTwilio}</SelectItem>
+                <SelectItem value="META">{t.site.whatsappProviderMeta}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">{t.site.whatsappProviderHint}</p>
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="notifyWhatsapp">{t.site.notifyWhatsapp}</Label>
             <Input
               id="notifyWhatsapp"
@@ -185,8 +212,20 @@ export function SiteSettings() {
               onChange={(e) => edit({ notifyWhatsapp: e.target.value.replace(/\D/g, '') })}
             />
             <p className="text-xs text-muted-foreground">
-              {status?.whatsappConfigured ? t.site.notifyWhatsappOn : t.site.notifyWhatsappOff}
+              {status?.whatsappConfigured
+                ? t.site.notifyWhatsappOn
+                : t.site.whatsappProviderMissing}
             </p>
+            {/* Which one is missing matters: the host can pick the other, but
+                only a deploy can add credentials. Saying "WhatsApp is off"
+                would send them looking in the wrong place. */}
+            {status !== null &&
+              !status.whatsappConfigured &&
+              (draft.whatsappProvider === 'META'
+                ? status.twilioConfigured
+                : status.metaConfigured) && (
+                <p className="text-xs text-muted-foreground">{t.site.whatsappOtherReady}</p>
+              )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="notifyTelegram">{t.site.notifyTelegram}</Label>

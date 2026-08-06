@@ -704,6 +704,14 @@ export const adminCopy = {
       loadFailed: 'Could not load the house settings.',
     },
     site: {
+      whatsappProvider: 'WhatsApp provider',
+      whatsappProviderTwilio: 'Twilio',
+      whatsappProviderMeta: 'Meta Cloud API (official)',
+      whatsappProviderHint:
+        'Both end at the same place. Meta has no reseller markup and uses your own number; Twilio sends today with a shared one. Neither escapes WhatsApp’s 24-hour rule.',
+      whatsappProviderMissing:
+        'That provider has no credentials on the API, so nothing goes out over WhatsApp.',
+      whatsappOtherReady: 'The other provider is configured, if you would rather switch.',
       title: 'Contact and SEO',
       subtitle: 'How guests reach you, and how the site looks when shared',
       notifyTitle: 'Where to reach you',
@@ -1496,6 +1504,14 @@ export const adminCopy = {
       loadFailed: 'No se pudieron cargar los datos de la casa.',
     },
     site: {
+      whatsappProvider: 'Proveedor de WhatsApp',
+      whatsappProviderTwilio: 'Twilio',
+      whatsappProviderMeta: 'Cloud API de Meta (oficial)',
+      whatsappProviderHint:
+        'Los dos acaban en el mismo sitio. Meta no cobra margen de reventa y usa tu propio número; Twilio envía hoy con uno compartido. Ninguno se libra de la regla de las 24 horas de WhatsApp.',
+      whatsappProviderMissing:
+        'Ese proveedor no tiene credenciales en el API, así que no sale nada por WhatsApp.',
+      whatsappOtherReady: 'El otro proveedor sí está configurado, si prefieres cambiar.',
       title: 'Contacto y SEO',
       subtitle: 'Cómo te contactan y cómo se ve el sitio al compartirlo',
       notifyTitle: 'Dónde te avisamos',

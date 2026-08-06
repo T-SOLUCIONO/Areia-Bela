@@ -529,6 +529,19 @@ model GalleryImage {
 
 // Single row, like Property. `id` is pinned to a constant so upserts can find
 // it without a lookup, and so a second row can't be created by accident.
+/**
+ * Which company carries the WhatsApp message.
+ * Both end at the same place. Twilio sends today at the cost of a markup and a
+ * shared sender; Meta is the official path with your own number and no markup,
+ * but needs a Business account and a verified number.
+ * Neither escapes Meta's 24-hour rule — that belongs to WhatsApp, not to the
+ * reseller.
+ */
+enum WhatsAppProvider {
+  TWILIO
+  META
+}
+
 model SiteSettings {
   id           String @id @default("site")
   // Shown to guests, in the footer and the contact card.
@@ -540,25 +553,28 @@ model SiteSettings {
   // Separate from the public ones on purpose: the address a guest writes to is
   // rarely the one the host wants woken up at.  Empty falls back to the public
   // field, so a host who only has one address does not have to type it twice.
-  notifyEmail     String   @default("")
-  notifyWhatsapp  String   @default("")
+  notifyEmail      String           @default("")
+  notifyWhatsapp   String           @default("")
   // A Telegram chat id, not a phone number: it comes from `getUpdates` after the
   // host writes to the bot once, which is also what authorises the bot to reply.
   // No public fallback exists because a chat id is never given to a guest.
-  notifyTelegram  String   @default("")
-  notifyOnBooking Boolean  @default(true)
-  notifyOnCancel  Boolean  @default(true)
+  notifyTelegram   String           @default("")
+  // Which provider carries the WhatsApp alerts. Only one is used at a time:
+  // sending the same message twice is noise, not redundancy.
+  whatsappProvider WhatsAppProvider @default(TWILIO)
+  notifyOnBooking  Boolean          @default(true)
+  notifyOnCancel   Boolean          @default(true)
   // Changes to a stay that is already sold: dates moved, guest count edited.
-  notifyOnChange  Boolean  @default(true)
-  notifyOnMessage Boolean  @default(true)
-  seoTitle        String
-  seoDescription  String
-  instagramUrl    String?
-  facebookUrl     String?
-  airbnbUrl       String?
+  notifyOnChange   Boolean          @default(true)
+  notifyOnMessage  Boolean          @default(true)
+  seoTitle         String
+  seoDescription   String
+  instagramUrl     String?
+  facebookUrl      String?
+  airbnbUrl        String?
   // Header and footer share one mark; null falls back to the bundled PNG.
-  logoUrl         String?
-  updatedAt       DateTime @updatedAt
+  logoUrl          String?
+  updatedAt        DateTime         @updatedAt
 }
 
 // ---------------------------------------------------------------------------

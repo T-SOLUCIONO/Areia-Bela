@@ -9,6 +9,7 @@ const SETTINGS = {
   notifyEmail: '',
   notifyWhatsapp: '',
   notifyTelegram: '',
+  whatsappProvider: 'TWILIO' as const,
   notifyOnBooking: true,
   notifyOnCancel: true,
   notifyOnChange: true,
@@ -155,7 +156,10 @@ describe('NotificationsService', () => {
       await expect(build().status()).resolves.toEqual({
         email: true,
         whatsapp: false,
+        whatsappProvider: 'TWILIO',
         whatsappConfigured: false,
+        twilioConfigured: false,
+        metaConfigured: false,
         telegram: false,
         telegramConfigured: false,
       })
@@ -182,6 +186,53 @@ describe('NotificationsService', () => {
       await expect(build({ TELEGRAM_BOT_TOKEN: 'bot-token' }).status()).resolves.toMatchObject({
         telegram: true,
         telegramConfigured: true,
+      })
+    })
+  })
+
+  describe('choosing a WhatsApp provider', () => {
+    const META = {
+      META_WHATSAPP_TOKEN: 'meta-token',
+      META_WHATSAPP_PHONE_NUMBER_ID: '123456789',
+    }
+
+    it('uses Meta when Meta is chosen', async () => {
+      prisma.siteSettings.findUnique.mockResolvedValue({
+        ...SETTINGS,
+        notifyWhatsapp: '13055550100',
+        whatsappProvider: 'META',
+      })
+
+      await expect(build(META).status()).resolves.toMatchObject({
+        whatsapp: true,
+        whatsappProvider: 'META',
+        whatsappConfigured: true,
+      })
+    })
+
+    it('does not quietly fall back to the other provider', async () => {
+      // Choosing Meta and getting Twilio would mean the panel says one thing
+      // and the phone shows another, with no reason for anyone to look.
+      prisma.siteSettings.findUnique.mockResolvedValue({
+        ...SETTINGS,
+        notifyWhatsapp: '13055550100',
+        whatsappProvider: 'META',
+      })
+
+      await expect(build(TWILIO).status()).resolves.toMatchObject({
+        whatsapp: false,
+        whatsappConfigured: false,
+        // Reported separately, so the panel can say Twilio is there to switch to
+        // rather than only that the current choice is broken.
+        twilioConfigured: true,
+        metaConfigured: false,
+      })
+    })
+
+    it('reports both when both are configured', async () => {
+      await expect(build({ ...TWILIO, ...META }).status()).resolves.toMatchObject({
+        twilioConfigured: true,
+        metaConfigured: true,
       })
     })
   })

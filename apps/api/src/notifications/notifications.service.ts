@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import type { WhatsAppProvider } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { MailService } from '../mail/mail.service'
 import { renderEmail } from '../mail/email-layout'
 import {
   deliver,
   EmailChannel,
+  MetaWhatsAppChannel,
   TelegramChannel,
   WhatsAppChannel,
   type Destination,
@@ -127,12 +129,31 @@ export class NotificationsService {
     return token ? new TelegramChannel(token) : null
   }
 
-  private get whatsapp(): NotificationChannel | null {
+  private get twilio(): NotificationChannel | null {
     const sid = this.config.get<string>('TWILIO_ACCOUNT_SID')
     const token = this.config.get<string>('TWILIO_AUTH_TOKEN')
     const from = this.config.get<string>('TWILIO_WHATSAPP_FROM')
 
     return sid && token && from ? new WhatsAppChannel(sid, token, from) : null
+  }
+
+  private get meta(): NotificationChannel | null {
+    const token = this.config.get<string>('META_WHATSAPP_TOKEN')
+    const phoneNumberId = this.config.get<string>('META_WHATSAPP_PHONE_NUMBER_ID')
+
+    return token && phoneNumberId ? new MetaWhatsAppChannel(token, phoneNumberId) : null
+  }
+
+  /**
+   * The WhatsApp provider the host picked, and **only** that one.
+   *
+   * No silent substitution. Choosing Meta and getting Twilio because Meta was
+   * not configured would mean the panel says one thing and the phone shows
+   * another — and the host would have no reason to look. An unconfigured choice
+   * is reported: the panel shows it per provider and the log says so.
+   */
+  private whatsappFor(provider: WhatsAppProvider): NotificationChannel | null {
+    return provider === 'META' ? this.meta : this.twilio
   }
 
   /** Every configured way to reach the host for this kind of event. */
@@ -157,8 +178,13 @@ export class NotificationsService {
     if (email) destinations.push({ channel: new EmailChannel(this.mail), to: email })
 
     const number = settings.notifyWhatsapp.trim() || settings.whatsapp.trim()
-    const whatsapp = this.whatsapp
+    const whatsapp = this.whatsappFor(settings.whatsappProvider)
     if (number && whatsapp) destinations.push({ channel: whatsapp, to: number })
+    else if (number && !whatsapp) {
+      this.logger.warn(
+        `WhatsApp is set to ${settings.whatsappProvider} and that provider has no credentials — no WhatsApp alert sent`,
+      )
+    }
 
     // No public fallback, unlike email and WhatsApp: a chat id is not something
     // a guest is ever given, so there is no second field to fall back to.
@@ -571,9 +597,17 @@ export class NotificationsService {
     return {
       email: Boolean(settings?.notifyEmail.trim() || settings?.contactEmail.trim()),
       whatsapp: Boolean(
-        (settings?.notifyWhatsapp.trim() || settings?.whatsapp.trim()) && this.whatsapp,
+        (settings?.notifyWhatsapp.trim() || settings?.whatsapp.trim()) &&
+        settings &&
+        this.whatsappFor(settings.whatsappProvider),
       ),
-      whatsappConfigured: this.whatsapp !== null,
+      whatsappProvider: settings?.whatsappProvider ?? 'TWILIO',
+      // Whether the **chosen** provider can send.
+      whatsappConfigured: Boolean(settings && this.whatsappFor(settings.whatsappProvider)),
+      // And each one on its own, so the panel can say which is ready to switch
+      // to instead of only that the current one is broken.
+      twilioConfigured: this.twilio !== null,
+      metaConfigured: this.meta !== null,
       // Two separate facts, deliberately: "there is a chat id" and "the service
       // has a bot token". A host who filled in the id needs to know the missing
       // half is not theirs to fix.

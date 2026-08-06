@@ -5862,3 +5862,58 @@ pnpm typecheck ✅   pnpm test ✅ (341, 15 nuevos)
 - Correr la migración `20260806020000_host_notifications`. El pipeline lo hace
   solo al mergear, y el código lee `notifyTelegram?.trim()` a propósito: un API
   contra una base sin migrar pierde un canal, no una alerta entera.
+
+## 92. Dos proveedores de WhatsApp, y quien manda es el panel
+
+`MetaWhatsAppChannel` habla directamente con el Cloud API de Meta, y un
+`WhatsAppProvider` en los ajustes decide cuál de los dos lleva el mensaje. Solo
+uno a la vez: mandar el mismo aviso dos veces es ruido, no redundancia.
+
+Cabía sin tocar nada más porque `NotificationChannel` ya era una interfaz con
+tres implementaciones. El cuarto canal fue una clase, no una reforma.
+
+|               | Twilio             | Meta                         |
+| ------------- | ------------------ | ---------------------------- |
+| Empezar       | Sandbox, envía hoy | Business y número verificado |
+| Remitente     | Compartido         | El tuyo                      |
+| Coste         | Margen de reventa  | Tarifa de Meta               |
+| Regla de 24 h | Sí                 | **Sí, igual**                |
+
+Esa última fila es la que importa y la que el panel dice en voz alta: **la regla
+de las 24 horas es de WhatsApp, no de Twilio.** Cambiar de proveedor no la
+esquiva. Alguien que elija Meta esperando que desaparezca lo estará eligiendo por
+el motivo equivocado, y descubrirlo cuando un aviso de madrugada no llegue es
+tarde. Para mensajes no solicitados, Telegram sigue siendo la respuesta.
+
+### Sin sustitución silenciosa
+
+Si el proveedor elegido no tiene credenciales, **no se usa el otro**. Elegir Meta
+y que saliera por Twilio significaría que el panel dice una cosa y el teléfono
+muestra otra, sin motivo para que nadie lo mire. En su lugar se registra el aviso
+y el panel informa por proveedor.
+
+Y son **tres hechos distintos**, no uno: «hay un número», «el proveedor elegido
+puede enviar» y «el otro también está configurado». El tercero existe porque los
+dos problemas tienen dueños distintos — poner credenciales es un despliegue,
+cambiar de proveedor es un clic —, y una sola señal mandaría a la anfitriona a
+buscar donde no es.
+
+Por defecto `TWILIO`, porque es lo que ya estaba configurado: una migración no
+debe cambiar por dónde salen los avisos de nadie.
+
+Cinco tests nuevos, incluido el que recorta el número a dígitos —Meta rechaza un
+`+` o un espacio en `to`, y la anfitriona lo escribe como lo marcaría— y el que
+comprueba que el asunto sigue siendo la primera línea en negrita, igual que en
+Twilio y en Telegram: un solo formato reconocible, sea quien sea el que la
+despierte.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (349, 8 nuevos)
+```
+
+### Pendiente del usuario
+
+Para usar Meta: `META_WHATSAPP_TOKEN` y `META_WHATSAPP_PHONE_NUMBER_ID` en el
+servicio, y elegirlo en el panel. Ese id **no es el número de teléfono**, es el
+que Meta le asigna.
