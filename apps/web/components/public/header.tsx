@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Globe, Menu } from 'lucide-react'
+import { Check, Globe, Menu } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import {
   DropdownMenu,
@@ -24,12 +24,68 @@ import { translations } from '@/lib/i18n'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { publicNavItems } from '@/components/public/public-navigation'
+import { cn } from '@/lib/utils'
+
+/**
+ * The language menu, one implementation for both breakpoints.
+ *
+ * It lived twice: a dropdown for wide screens and a grid of five buttons inside
+ * the mobile sheet. Two copies of the same five options meant two places to fix
+ * whenever a language was added, and they had already drifted — the sheet
+ * version marked the current language by filling it navy, which shouted louder
+ * than the booking button right above it.
+ *
+ * `compact` only changes the trigger's footprint. What it opens is identical.
+ */
+function LanguageMenu({ compact = false }: { compact?: boolean }) {
+  const { language, setLanguage } = useLanguage()
+  const copy = translations[language]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size={compact ? 'default' : 'lg'}
+          className={cn(
+            'gap-2 rounded-full bg-white/80',
+            // 44px is the touch minimum, and this one sits beside the menu
+            // button where a mis-tap opens the wrong thing.
+            compact && 'h-11 px-3',
+          )}
+          aria-label={copy.ui.changeLanguage}
+        >
+          <Globe className="h-4 w-4" aria-hidden />
+          <span className="text-xs font-semibold tracking-[0.18em]">{language.toUpperCase()}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {languages.map((item) => {
+          const isCurrent = item.code === language
+          return (
+            <DropdownMenuItem
+              key={item.code}
+              onSelect={() => setLanguage(item.code)}
+              // Marked, not filled: the check carries the state and the row
+              // keeps the same weight as its neighbours.
+              className={cn('min-h-11 gap-6', isCurrent && 'font-semibold text-primary')}
+            >
+              {item.name}
+              {isCurrent && <Check className="ml-auto h-4 w-4 shrink-0" aria-hidden />}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export function Header() {
   // Editable in /admin/settings; the bundled mark is the fallback.
   const logo = useSiteContent()?.settings?.logoUrl ?? '/areia-bela-logo.png'
   const [isOpen, setIsOpen] = useState(false)
-  const { language, setLanguage } = useLanguage()
+  // Choosing a language is LanguageMenu's job now; this only reads it.
+  const { language } = useLanguage()
   const copy = translations[language]
   const navigation = publicNavItems.map((item, index) => ({
     name: copy.nav[index],
@@ -65,109 +121,65 @@ export function Header() {
           <Button asChild variant="brand" size="lg" className="font-semibold">
             <Link href="#reservar">{copy.bookNow}</Link>
           </Button>
-          {/* A dropdown rather than five pills: at two languages a row of
-              buttons was tidy, at five it crowds the header — and the menu has
-              room for the language's own name, which is what a visitor scans
-              for. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="lg"
-                className="gap-2 rounded-full bg-white/80"
-                aria-label={copy.ui.changeLanguage}
-              >
-                <Globe className="h-4 w-4" aria-hidden />
-                <span className="text-xs font-semibold tracking-[0.18em]">
-                  {language.toUpperCase()}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {languages.map((item) => (
-                <DropdownMenuItem
-                  key={item.code}
-                  onSelect={() => setLanguage(item.code)}
-                  className={item.code === language ? 'font-semibold text-primary' : undefined}
-                >
-                  {item.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <LanguageMenu />
         </div>
 
-        {/* Mobile Menu */}
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">{copy.ui.toggleMenu}</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="overflow-y-auto">
-            <SheetHeader className="pt-8">
-              <SheetTitle className="flex justify-center">
-                <Image
-                  src={logo}
-                  alt="Areia Bela"
-                  width={220}
-                  height={72}
-                  className="h-auto w-[220px]"
-                />
-              </SheetTitle>
-              <SheetDescription className="text-[10px] uppercase tracking-[0.2em]">
-                {language === 'en'
-                  ? 'Beach retreat in St. Petersburg'
-                  : 'Escapada junto a la playa en St. Petersburg'}
-              </SheetDescription>
-            </SheetHeader>
+        {/* Beside the menu button rather than inside the sheet. Changing
+            language is a one-tap decision a visitor makes on arrival, and
+            burying it behind the hamburger asked for two taps and a guess about
+            where it lived. */}
+        <div className="flex items-center gap-2 md:hidden">
+          <LanguageMenu compact />
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-11 w-11">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">{copy.ui.toggleMenu}</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="overflow-y-auto">
+              <SheetHeader className="pt-8">
+                <SheetTitle className="flex justify-center">
+                  <Image
+                    src={logo}
+                    alt="Areia Bela"
+                    width={220}
+                    height={72}
+                    className="h-auto w-[220px]"
+                  />
+                </SheetTitle>
+                <SheetDescription className="text-[10px] uppercase tracking-[0.2em]">
+                  {language === 'en'
+                    ? 'Beach retreat in St. Petersburg'
+                    : 'Escapada junto a la playa en St. Petersburg'}
+                </SheetDescription>
+              </SheetHeader>
 
-            <div className="flex flex-col gap-6 px-4 pb-6">
-              <nav className="flex flex-col gap-4">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className="text-lg font-medium text-slate-800 transition-colors hover:text-primary"
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </nav>
+              <div className="flex flex-col gap-6 px-4 pb-6">
+                <nav className="flex flex-col gap-4">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsOpen(false)}
+                      className="text-lg font-medium text-slate-800 transition-colors hover:text-primary"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </nav>
 
-              <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
-                <Button asChild variant="brand" size="lg" className="w-full font-semibold">
-                  <Link href="#reservar" onClick={() => setIsOpen(false)}>
-                    {copy.bookNow}
-                  </Link>
-                </Button>
-                <div className="grid gap-3 rounded-2xl border border-border bg-background p-4">
-                  <div className="text-sm font-medium text-foreground">{copy.ui.language}</div>
-                  {/* On a phone there is room to list them, and tapping a
-                      language name is a bigger target than a two-letter pill. */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {languages.map((item) => (
-                      <button
-                        key={item.code}
-                        type="button"
-                        onClick={() => setLanguage(item.code)}
-                        className={
-                          item.code === language
-                            ? 'rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground'
-                            : 'rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground'
-                        }
-                      >
-                        {item.name}
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
+                  <Button asChild variant="brand" size="lg" className="w-full font-semibold">
+                    <Link href="#reservar" onClick={() => setIsOpen(false)}>
+                      {copy.bookNow}
+                    </Link>
+                  </Button>
                 </div>
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   )

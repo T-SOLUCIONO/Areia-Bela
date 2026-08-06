@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { ChevronDown, ShieldCheck, X } from 'lucide-react'
@@ -53,15 +53,58 @@ function findFirstFreeStay(nights: NightRate[], wanted: number): { from: Date; t
   return null
 }
 
+/** One end of the stay, with the button that clears it. */
+function DateBox({
+  label,
+  value,
+  onClear,
+  clearLabel,
+}: {
+  label: string
+  value?: Date
+  onClear: () => void
+  clearLabel: string
+}) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2">
+      <div className="min-w-20">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-800">{label}</p>
+        <p className="text-sm text-slate-700">{value ? format(value, 'd/M/yyyy') : '—'}</p>
+      </div>
+      {value && (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={`${clearLabel}: ${label}`}
+          className="shrink-0 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function AvailabilityCard({ className }: Props) {
   const router = useRouter()
   const { language } = useLanguage()
   const copy = translations[language].availability
   const locale = { es, en: enUS, pt: ptBR, fr, de }[language]
-  const today = new Date()
-  // Replaced once the rates arrive, if these nights turn out to be taken.
-  const [checkIn, setCheckIn] = useState<Date | undefined>(addDays(today, 1))
-  const [checkOut, setCheckOut] = useState<Date | undefined>(addDays(today, 1 + DEFAULT_NIGHTS))
+  /**
+   * Empty until the browser says what day it is.
+   *
+   * These used to start at `addDays(new Date(), 1)`, computed while rendering —
+   * on the server too. Cloud Run runs in UTC and the guests are in Florida, so
+   * from 8pm local onwards the server was already on tomorrow: it shipped HTML
+   * reading 7/8/2026 to a browser that had just worked out 6/8/2026.
+   *
+   * React calls that a hydration mismatch (#418), throws the server's markup
+   * away and repaints — every evening, for every visitor, on the one card the
+   * page exists to show. Nothing renders from the clock now; the effect below
+   * fills these in once, in the browser, where the clock is the guest's own.
+   */
+  const [checkIn, setCheckIn] = useState<Date | undefined>()
+  const [checkOut, setCheckOut] = useState<Date | undefined>()
   const [guestsOpen, setGuestsOpen] = useState(false)
   const [serviceAnimalOpen, setServiceAnimalOpen] = useState(false)
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 })
@@ -77,9 +120,42 @@ export function AvailabilityCard({ className }: Props) {
   // Mirrors the house's rule in the calendar itself. The server is still the
   // authority — this only stops the guest picking something it would refuse.
   const [minNights, setMinNights] = useState(1)
+  /**
+   * Whether the guest has touched the dates.
+   *
+   * A ref and not state: nothing renders differently because of it, and it has
+   * to be readable inside a fetch callback that closes over the mount-time
+   * render.
+   */
+  const guestPicked = useRef(false)
   const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
 
+  /**
+   * Clearing the arrival clears the stay.
+   *
+   * A departure with no arrival is not a shorter stay, it is not a stay: the
+   * calendar would show nothing selected while the header still read a date,
+   * and the next click would drop it without saying so. Only the departure can
+   * go on its own, which leaves a half-picked range the calendar can draw.
+   */
+  const clearStay = useCallback(() => {
+    guestPicked.current = true
+    setCheckIn(undefined)
+    setCheckOut(undefined)
+  }, [])
+
+  const clearDeparture = useCallback(() => {
+    guestPicked.current = true
+    setCheckOut(undefined)
+  }, [])
+
   useEffect(() => {
+    const today = new Date()
+    // A provisional stay so the card is not blank while the rates travel. The
+    // response below moves it to the first stretch that is actually free.
+    setCheckIn(addDays(today, 1))
+    setCheckOut(addDays(today, 1 + DEFAULT_NIGHTS))
+
     getBlockedDateRanges().then(setBlockedRanges)
     fetchStayLimits().then((terms) => {
       setMinNights(terms.minNights)
@@ -99,17 +175,24 @@ export function AvailabilityCard({ className }: Props) {
       // Opening on dates that are already sold sends the guest to a 409 at the
       // end of a form. The default was tomorrow-plus-three regardless of who
       // was in the house then, so it moves to the first free stretch instead.
+      //
+      // The pair moves together, and that is the whole point. Deciding each
+      // end on its own let them come from different stretches: if the default
+      // arrival was sold and the default departure was not, the arrival jumped
+      // to the free stretch and the departure stayed behind. The card opened
+      // reading "9/8/2026 → 9/8/2026 · $120 for 0 nights" — two ends that were
+      // never a range, and nothing a guest clicked could argue with it.
+      //
+      // Guarded on whether the guest has chosen rather than on whether the old
+      // dates survive inspection, because that is what this is: a default. Once
+      // someone has picked, a late-arriving fetch has no business overruling
+      // them.
       const stay = findFirstFreeStay(nights, DEFAULT_NIGHTS)
-      if (stay) {
-        setCheckIn((current) =>
-          current && !taken.has(format(current, 'yyyy-MM-dd')) ? current : stay.from,
-        )
-        setCheckOut((current) =>
-          current && !taken.has(format(current, 'yyyy-MM-dd')) ? current : stay.to,
-        )
+      if (stay && !guestPicked.current) {
+        setCheckIn(stay.from)
+        setCheckOut(stay.to)
       }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const [quote, setQuote] = useState<BookingQuote | null>(null)
@@ -253,39 +336,30 @@ export function AvailabilityCard({ className }: Props) {
             </div>
 
             <div className="grid grid-cols-2 divide-x divide-slate-300 overflow-hidden rounded-[10px] border border-slate-800">
-              {(
-                [
-                  [copy.arrival, checkIn, () => setCheckIn(undefined)],
-                  [copy.departure, checkOut, () => setCheckOut(undefined)],
-                ] as const
-              ).map(([label, value, clear], index) => (
-                <div key={index} className="flex items-center gap-3 px-3 py-2">
-                  <div className="min-w-20">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-800">
-                      {label}
-                    </p>
-                    <p className="text-sm text-slate-700">
-                      {value ? format(value, 'd/M/yyyy') : '—'}
-                    </p>
-                  </div>
-                  {value && (
-                    <button
-                      type="button"
-                      onClick={clear}
-                      aria-label={`${copy.clearDates}: ${label}`}
-                      className="shrink-0 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {/* Written out rather than mapped over a tuple array. Two boxes
+                  are two boxes; threading label, value and handler through
+                  `[a, b, c] as const` obscured which callback belonged to which
+                  date, and it read as render-time use of a handler that only
+                  ever fires on a click. */}
+              <DateBox
+                label={copy.arrival}
+                value={checkIn}
+                onClear={clearStay}
+                clearLabel={copy.clearDates}
+              />
+              <DateBox
+                label={copy.departure}
+                value={checkOut}
+                onClear={clearDeparture}
+                clearLabel={copy.clearDates}
+              />
             </div>
           </div>
 
           <StayCalendar
             value={{ from: checkIn, to: checkOut }}
             onChange={(range: StayRange) => {
+              guestPicked.current = true
               setCheckIn(range.from)
               setCheckOut(range.to)
             }}

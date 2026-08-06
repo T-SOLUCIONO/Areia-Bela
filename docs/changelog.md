@@ -5491,3 +5491,103 @@ Producción será otra cuenta y otro proyecto, con su propio trigger.
 prueba completa ✅ (7/7 pasos, 5m21s)
 web 200   api 200   /admin/login 200
 ```
+
+## 85. El cotizador no aceptaba fechas
+
+Tres fallos distintos se sumaban en la misma tarjeta, y ninguno se veía como un
+error: la página no se rompía, simplemente no obedecía.
+
+### 1. Una noche era imposible
+
+`StayCalendar` pasaba `min={minNights + 1}` a react-day-picker, con este
+comentario: _«`min` cuenta días seleccionados, y la salida es una mañana, así
+que una noche es un rango de dos días»_. Es falso. `addToRange` compara
+`differenceInCalendarDays(to, from)`, que **ya son noches**.
+
+La casa acepta una noche, así que el `+1` exigía dos. Y fallaba en silencio:
+elegir la salida al día siguiente devolvía `{ from: clicado, to: undefined }` —
+el rango se descartaba y la llegada saltaba al día recién pulsado. Nada parecía
+roto; las fechas simplemente no se quedaban.
+
+Comprobado llamando a `addToRange` directamente, antes y después:
+
+```
+min = 2   clic llegada 10 sep, clic salida 11 sep  ->  { from: 11 sep }      (rango perdido)
+min = 1   clic llegada 10 sep, clic salida 11 sep  ->  { from: 10, to: 11 }  (una noche)
+```
+
+### 2. La tarjeta abría con cero noches
+
+Al llegar las tarifas, la llegada y la salida se decidían **por separado**:
+cada una se quedaba si su día estaba libre y saltaba al primer hueco si no. Dos
+decisiones independientes pueden caer en rangos distintos, o en el mismo día.
+En QA abría literalmente `9/8/2026 → 9/8/2026 · $120 por 0 noches`.
+
+La comprobación además solo miraba los **extremos**, así que un rango con
+noches vendidas en medio pasaba por libre.
+
+Ahora el par se mueve junto, y la guarda es _«¿ha elegido ya el huésped?»_ en
+vez de _«¿sobreviven las fechas viejas?»_ — porque eso es lo que son: un valor
+por defecto. Una respuesta que llega tarde no tiene por qué pisar a nadie.
+
+### 3. Desajuste de hidratación, en producción
+
+Las fechas iniciales salían de `addDays(new Date(), 1)` **durante el render**,
+también en el servidor. Cloud Run corre en UTC y los huéspedes están en Florida:
+
+```
+servidor : Thu, 06 Aug 2026 01:56 GMT
+navegador: Wed Aug  5 09:56 PM EDT
+```
+
+Desde las 8 de la tarde local, el servidor manda un HTML con una fecha y el
+navegador calcula otra. React lo llama `#418`, tira el marcado del servidor y
+repinta — cada tarde, para cada visitante, en la única tarjeta por la que la
+página existe. Nadie lo vio porque el segundo pintado trae las fechas buenas.
+
+Nada se deriva ya del reloj durante el render. Queda una prueba
+(`e2e/hydration.spec.ts`) que carga el sitio con el navegador en husos a ambos
+lados de la línea de cambio de fecha, para que uno siempre discrepe de la
+máquina que la ejecuta. Verificada en los dos sentidos: el QA desplegado falla
+con `#418` en `Pacific/Midway`, el código nuevo pasa.
+
+### Y borrar la llegada dejaba una salida huérfana
+
+Sin llegada no hay estancia más corta: no hay estancia. El calendario mostraba
+nada seleccionado mientras la cabecera seguía leyendo una fecha, y el siguiente
+clic la tiraba sin avisar. Borrar la llegada borra las dos; la salida sí puede
+irse sola, porque eso deja medio rango que el calendario sabe dibujar.
+
+## 86. El idioma, junto a la hamburguesa
+
+En móvil el selector vivía dentro de la hoja lateral, como una rejilla de dos
+columnas con cinco idiomas: «Deutsch» quedaba solo en la última fila, porque
+cinco no se divide entre dos. Y los botones medían **38px de alto** contra los
+44 recomendados para un objetivo táctil.
+
+Ahora es un desplegable al lado del botón de menú. Cambiar de idioma es una
+decisión que un visitante toma al llegar, y enterrarla tras la hamburguesa
+pedía dos toques y adivinar dónde estaba.
+
+**Una sola implementación para los dos tamaños.** Había dos —un desplegable
+para pantallas anchas y la rejilla del móvil— y ya habían divergido: la del
+móvil marcaba el idioma actual rellenándolo de azul, que gritaba más que el
+botón de reservar justo encima. `compact` solo cambia el tamaño del disparador;
+lo que abre es idéntico. Disparador de 44px, opciones de 44px, y la marca lleva
+el estado en vez del relleno.
+
+### Un patrón que engañaba al linter y a quien leía
+
+Los dos recuadros de fecha se generaban mapeando `[[etiqueta, valor, borrar]]
+as const`. Con la lógica nueva, `react-hooks` lo marcaba como acceso a una
+`ref` durante el render — y tenía razón en no poder distinguir una flecha
+creada en el render de una que solo corre al hacer clic. Dos recuadros son dos
+recuadros: ahora es un componente `DateBox` invocado dos veces.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (326)   format:check ✅
+```
+
+Verificado en 360, 390, 768 y 1440px, y en los cinco idiomas: sin
+desbordamiento horizontal en ninguno.

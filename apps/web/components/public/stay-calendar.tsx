@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useState, useSyncExternalStore } from 'react'
 import { format, isWithinInterval, startOfDay, startOfMonth } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
@@ -83,7 +83,10 @@ export function StayCalendar({
 }: Props) {
   const locale = DATE_LOCALES[language]
   const twoMonths = useTwoMonths()
-  const today = new Date()
+  // Read once per mount, not once per render. `startMonth`, `defaultMonth` and
+  // the `before` matcher are all derived from it, so a fresh Date on every
+  // render handed react-day-picker new bounds each time for no reason.
+  const [today] = useState(() => new Date())
   const todayStart = startOfDay(today)
 
   const taken = (date: Date) => unavailable.has(format(date, 'yyyy-MM-dd'))
@@ -103,10 +106,17 @@ export function StayCalendar({
         // back past the month we are in.
         startMonth={startOfMonth(today)}
         defaultMonth={value.from && value.from > today ? startOfMonth(value.from) : undefined}
-        // react-day-picker's `min` counts selected days, and check-out is a
-        // departure morning rather than a night — so one night is a two-day
-        // range.
-        min={minNights + 1}
+        // Nights, not days. This read `minNights + 1` on the belief that
+        // react-day-picker counts selected days and a one-night stay spans
+        // two of them. It does not: `addToRange` compares
+        // `differenceInCalendarDays(to, from)`, which is already a night count.
+        //
+        // The `+1` made a house that accepts one night demand two, and it
+        // failed in the worst way — silently. Picking a departure one night
+        // out returned `{ from: clicked, to: undefined }`, so the calendar
+        // threw the range away and moved the arrival to the day just clicked.
+        // Nothing looked broken; the dates simply refused to stick.
+        min={minNights}
         // Each month shows only its own days. With the default, September ends
         // with October's first days and October starts with September's last —
         // the same date twice, side by side.
