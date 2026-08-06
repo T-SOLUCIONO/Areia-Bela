@@ -8,8 +8,10 @@ const SETTINGS = {
   whatsapp: '17275553043',
   notifyEmail: '',
   notifyWhatsapp: '',
+  notifyTelegram: '',
   notifyOnBooking: true,
   notifyOnCancel: true,
+  notifyOnChange: true,
   notifyOnMessage: true,
 }
 
@@ -149,11 +151,13 @@ describe('NotificationsService', () => {
   })
 
   describe('status', () => {
-    it('reports email on and WhatsApp off without credentials', async () => {
+    it('reports email on and the rest off without credentials', async () => {
       await expect(build().status()).resolves.toEqual({
         email: true,
         whatsapp: false,
         whatsappConfigured: false,
+        telegram: false,
+        telegramConfigured: false,
       })
     })
 
@@ -161,6 +165,23 @@ describe('NotificationsService', () => {
       await expect(build(TWILIO).status()).resolves.toMatchObject({
         whatsapp: true,
         whatsappConfigured: true,
+      })
+    })
+
+    it('separates “no chat id” from “no bot token”', async () => {
+      // Two different problems with two different owners: the host can add a
+      // chat id, and only a deploy can add the token. One flag for both would
+      // send them looking in the wrong place.
+      prisma.siteSettings.findUnique.mockResolvedValue({ ...SETTINGS, notifyTelegram: '' })
+      await expect(build({ TELEGRAM_BOT_TOKEN: 'bot-token' }).status()).resolves.toMatchObject({
+        telegram: false,
+        telegramConfigured: true,
+      })
+
+      prisma.siteSettings.findUnique.mockResolvedValue({ ...SETTINGS, notifyTelegram: '12345' })
+      await expect(build({ TELEGRAM_BOT_TOKEN: 'bot-token' }).status()).resolves.toMatchObject({
+        telegram: true,
+        telegramConfigured: true,
       })
     })
   })

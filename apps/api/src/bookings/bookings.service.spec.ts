@@ -76,7 +76,7 @@ const BOOKING_ROW = {
     // Null on a first-time guest; a returning one already has theirs.
     stripeCustomerId: null as string | null,
   },
-  extras: [{ extra: { name: 'Mascota' } }],
+  extras: [{ extraId: 'extra-pet', quantity: 1, extra: { name: 'Mascota' } }],
   property: { slug: 'areia-bela', checkInTime: '16:00', checkOutTime: '10:00' },
 }
 
@@ -111,6 +111,8 @@ describe('BookingsService', () => {
     paymentNotCompleted: jest.Mock
     guestConfirmation: jest.Mock
     guestCancellation: jest.Mock
+    bookingChanged: jest.Mock
+    guestChange: jest.Mock
   }
   let service: BookingsService
 
@@ -147,6 +149,8 @@ describe('BookingsService', () => {
       paymentNotCompleted: jest.fn().mockResolvedValue(undefined),
       guestConfirmation: jest.fn().mockResolvedValue(undefined),
       guestCancellation: jest.fn().mockResolvedValue(undefined),
+      bookingChanged: jest.fn().mockResolvedValue(undefined),
+      guestChange: jest.fn().mockResolvedValue(undefined),
     }
 
     service = new BookingsService(
@@ -669,6 +673,121 @@ describe('BookingsService', () => {
           where: expect.objectContaining({
             NOT: { status: 'PENDING', expiresAt: { lt: expect.any(Date) } },
           }),
+        }),
+      )
+    })
+  })
+
+  describe('moving a stay that already exists', () => {
+    /** A paid stay, so a change leaves a balance behind. */
+    const PAID = { ...BOOKING_ROW, status: 'CONFIRMED' as const, paidAt: new Date('2026-08-01') }
+
+    beforeEach(() => {
+      prisma.booking.findUnique.mockResolvedValue(PAID)
+      prisma.property.findUnique.mockResolvedValue({
+        slug: 'areia-bela',
+        checkInTime: '16:00',
+        checkOutTime: '10:00',
+      })
+    })
+
+    it('recomputes the total on the server', async () => {
+      // Whatever a caller believes the new price is, this is where it comes
+      // from. The DTO has no field for a total, and this is the reason.
+      properties.getQuote.mockResolvedValue({ ...QUOTE, total: 3100 })
+      prisma.booking.update.mockResolvedValue({ ...PAID, totalPrice: new Prisma.Decimal(3100) })
+
+      const result = await service.update('booking-1', { checkOut: '2026-09-10' })
+
+      expect(properties.getQuote).toHaveBeenCalledWith(
+        'areia-bela',
+        expect.objectContaining({ checkIn: '2026-09-01', checkOut: '2026-09-10' }),
+      )
+      expect(result.quote.total).toBe(3100)
+      // The frozen bill is rewritten: it was describing a stay nobody is having.
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ totalPrice: 3100 }) }),
+      )
+    })
+
+    it('reports the difference and moves no money', async () => {
+      properties.getQuote.mockResolvedValue({ ...QUOTE, total: 3100 })
+      prisma.booking.update.mockResolvedValue({ ...PAID, totalPrice: new Prisma.Decimal(3100) })
+
+      const result = await service.update('booking-1', { checkOut: '2026-09-10' })
+
+      expect(result.previousTotal).toBe(2800)
+      expect(result.difference).toBe(300)
+      // Charging a saved card needs the guest to authorise it, and refunding
+      // automatically would bypass the policy ladder. Neither belongs in a PATCH.
+      expect(payments.checkoutUrlFor).not.toHaveBeenCalled()
+    })
+
+    it('keeps what the caller left out', async () => {
+      await service.update('booking-1', { checkOut: '2026-09-10' })
+
+      expect(properties.getQuote).toHaveBeenCalledWith(
+        'areia-bela',
+        expect.objectContaining({
+          // Untouched by this request, so they come off the existing row.
+          guests: { adults: 4, children: 2, infants: 1, pets: 1 },
+          extraIds: ['extra-pet'],
+          extraUnits: { 'extra-pet': 1 },
+        }),
+      )
+    })
+
+    it('refuses dates another booking already holds', async () => {
+      // The same 23P01 that protects a new booking protects a moved one: the
+      // constraint does not care which row wants the week.
+      prisma.booking.update.mockRejectedValue(
+        Object.assign(new Error('exclusion'), { code: 'P2010', meta: { code: '23P01' } }),
+      )
+
+      await expect(service.update('booking-1', { checkIn: '2026-09-05' })).rejects.toThrow(
+        ConflictException,
+      )
+    })
+
+    it('refuses dates the host has blocked', async () => {
+      prisma.blockedDate.findFirst.mockResolvedValue({ id: 'blocked-1' })
+
+      await expect(service.update('booking-1', { checkIn: '2026-12-24' })).rejects.toThrow(
+        ConflictException,
+      )
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('refuses to change a cancelled stay', async () => {
+      // Its nights are back on sale, so "changing" it would quietly re-take
+      // them without anyone deciding to.
+      prisma.booking.findUnique.mockResolvedValue({ ...PAID, status: 'CANCELLED' })
+
+      await expect(service.update('booking-1', { checkIn: '2026-09-05' })).rejects.toThrow(
+        ConflictException,
+      )
+    })
+
+    it('tells the host and the guest, with the old dates', async () => {
+      properties.getQuote.mockResolvedValue({ ...QUOTE, total: 3100 })
+      prisma.booking.update.mockResolvedValue({
+        ...PAID,
+        totalPrice: new Prisma.Decimal(3100),
+        checkOut: new Date('2026-09-10'),
+      })
+
+      await service.update('booking-1', { checkOut: '2026-09-10', reason: 'Vuelo retrasado' })
+
+      expect(notifications.bookingChanged).toHaveBeenCalledWith(
+        expect.objectContaining({ difference: 300, paid: true, reason: 'Vuelo retrasado' }),
+      )
+      // The guest gets both, because a message with only the new dates reads
+      // like a booking they do not remember making.
+      expect(notifications.guestChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          previousCheckIn: '2026-09-01',
+          previousCheckOut: '2026-09-08',
+          checkOut: '2026-09-10',
         }),
       )
     })

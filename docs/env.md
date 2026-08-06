@@ -30,6 +30,7 @@ cp apps/web/.env.example apps/web/.env
 | `STRIPE_SECRET_KEY`     | sí              | Abre la sesión de pago de Stripe. Sin ella `POST /bookings/:slug/hold` responde 503 y nadie puede reservar.                                                                                                                               |
 | `TWILIO_ACCOUNT_SID`    | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
 | `TWILIO_AUTH_TOKEN`     | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
+| `TELEGRAM_BOT_TOKEN`    | no              | Avisos por Telegram. El chat de destino se pone en el panel, no aquí.                                                                                                                                                                     |
 | `TWILIO_WHATSAPP_FROM`  | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
 ### Almacenamiento de imágenes (Vercel Blob)
@@ -321,3 +322,33 @@ las cookies de terceros —Safari y las ventanas privadas incluidas.
 
 El precio: cualquier subdominio de ese padre puede leer la cookie de sesión.
 Conviene saberlo antes de apuntar un tercer servicio al mismo dominio.
+
+## Avisos al anfitrión: qué canal elegir
+
+Tres canales, y no son equivalentes.
+
+**Correo** funciona con `BREVO_API_KEY` y es el mínimo. Llega siempre, y llega
+tarde: nadie mira el correo a las tres de la mañana.
+
+**Telegram** (`TELEGRAM_BOT_TOKEN`) es el recomendado para avisos. Sin ventanas
+de tiempo, sin plantillas que aprobar, sin coste y entrega inmediata. Montarlo:
+
+1. Hablar con `@BotFather`, `/newbot`, guardar el token.
+2. Escribirle **cualquier cosa** al bot recién creado. Sin ese primer mensaje
+   Telegram no le permite responder, que es también lo que impide que un bot
+   escriba a desconocidos.
+3. Abrir `https://api.telegram.org/bot<TOKEN>/getUpdates` y copiar
+   `result[0].message.chat.id`.
+4. Pegar ese id en el panel, en Ajustes → Avisos. **No es un teléfono**, y puede
+   ser negativo si es un grupo.
+
+**WhatsApp** (las tres variables de Twilio) arrastra la regla de las 24 horas:
+fuera de una ventana que el destinatario haya abierto escribiendo él, solo
+entregan plantillas aprobadas por Meta. Un aviso de reserva es, por definición,
+iniciado por el negocio. Con el sandbox de Twilio la ventana caduca y hay que
+reabrirla; en producción hace falta remitente de WhatsApp Business y aprobación
+de plantillas. Tiene coste por mensaje.
+
+El panel distingue **«falta el chat id»** de **«falta el token en el API»**: son
+dos problemas con dueños distintos, y una sola señal para ambos mandaría a la
+anfitriona a buscar donde no es.

@@ -56,8 +56,10 @@ export interface SiteSettings {
   logoUrl: string | null
   notifyEmail: string
   notifyWhatsapp: string
+  notifyTelegram: string
   notifyOnBooking: boolean
   notifyOnCancel: boolean
+  notifyOnChange: boolean
   notifyOnMessage: boolean
 }
 
@@ -171,9 +173,13 @@ export const cms = {
 
   /** Which channels can actually reach the host right now. */
   notificationStatus: () =>
-    apiFetch<{ email: boolean; whatsapp: boolean; whatsappConfigured: boolean }>(
-      '/notifications/status',
-    ),
+    apiFetch<{
+      email: boolean
+      whatsapp: boolean
+      whatsappConfigured: boolean
+      telegram: boolean
+      telegramConfigured: boolean
+    }>('/notifications/status'),
 
   settings: () => apiFetch<SiteSettings | null>('/cms/settings'),
   saveSettings: (body: SiteSettings) =>

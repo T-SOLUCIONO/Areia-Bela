@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common'
 
 /**
- * How the host is reached. Two implementations today, chosen by what is
- * configured, so adding a third is a class rather than a rewrite.
+ * How the host is reached. Three implementations, chosen by what is configured,
+ * so adding a fourth is a class rather than a rewrite.
  */
 export interface NotificationChannel {
   readonly name: string
@@ -73,6 +73,73 @@ export class WhatsAppChannel implements NotificationChannel {
     return true
   }
 }
+
+// --- Telegram ----------------------------------------------------------------
+
+interface TelegramError {
+  description?: string
+}
+
+/**
+ * Telegram, through the Bot API.
+ *
+ * Added because WhatsApp is the wrong tool for this particular job. Meta's
+ * 24-hour rule means a business-initiated message only arrives if the recipient
+ * wrote first or if the exact wording was approved as a template — and a booking
+ * alert at three in the morning is business-initiated by definition. Twilio's
+ * sandbox window expires and has to be reopened by hand.
+ *
+ * Telegram has no window, no templates and no approval, and it costs nothing. A
+ * bot from @BotFather and the host's chat id is the whole setup. For reaching
+ * *one known person* reliably, that is a better fit than a channel designed for
+ * consumer marketing.
+ *
+ * The chat id is not a phone number. It comes from
+ * `api.telegram.org/bot<TOKEN>/getUpdates` after the host says anything to the
+ * bot once — which is also what authorises the bot to write to them, so there is
+ * no way to message a stranger by guessing.
+ */
+export class TelegramChannel implements NotificationChannel {
+  readonly name = 'Telegram'
+
+  constructor(private readonly botToken: string) {}
+
+  async send(to: string, subject: string, body: string): Promise<boolean> {
+    const chatId = to.trim()
+    if (!chatId) throw new Error('No Telegram chat id configured')
+
+    const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        // Telegram has no subject line, so it becomes the first bold line — the
+        // same shape the WhatsApp channel uses, for one recognisable format.
+        text: `*${escapeMarkdown(subject)}*\n\n${escapeMarkdown(body)}`,
+        parse_mode: 'MarkdownV2',
+        // Alerts are read, not browsed: a map preview of the house under every
+        // booking would push the numbers off the screen.
+        link_preview_options: { is_disabled: true },
+      }),
+    })
+
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as TelegramError | null
+      throw new Error(`Telegram: ${detail?.description ?? response.statusText}`)
+    }
+    return true
+  }
+}
+
+/**
+ * Escapes what MarkdownV2 reserves.
+ *
+ * Telegram rejects the whole message — 400, nothing delivered — if a reserved
+ * character appears unescaped. Guest names and cancellation reasons are free
+ * text, so a guest called "J. Smith-Doe" or a note with a hyphen would silently
+ * cost the host their alert.
+ */
+const escapeMarkdown = (text: string) => text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&')
 
 // --- Email -------------------------------------------------------------------
 

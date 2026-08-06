@@ -31,6 +31,7 @@ import { apiFetch } from '@/lib/api-client'
 import { useAdminLanguage } from '@/components/admin/admin-language-provider'
 import { adminCopy, fill } from '@/lib/admin-i18n'
 import { RefundDialog } from '@/components/admin/refund-dialog'
+import { EditBookingDialog } from '@/components/admin/edit-booking-dialog'
 import { NewBookingDialog } from '@/components/admin/new-booking-dialog'
 import { Pagination, usePagination } from '@/components/admin/pagination'
 import { cn } from '@/lib/utils'
@@ -76,6 +77,7 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [cancelling, setCancelling] = useState<Reservation | null>(null)
+  const [editing, setEditing] = useState<Reservation | null>(null)
   const [refunding, setRefunding] = useState<Reservation | null>(null)
   const [creating, setCreating] = useState(false)
   const [reason, setReason] = useState('')
@@ -283,17 +285,25 @@ export default function ReservationsPage() {
                 {copy.refund}
               </Button>
             )}
+            {/* A cancelled stay is not editable: its nights are back on sale,
+                so "changing" it would quietly re-take them. The API refuses it
+                too — this only keeps the host from asking. */}
             {row.status !== 'CANCELLED' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setCancelling(row)
-                  setReason('')
-                }}
-              >
-                {copy.cancel}
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditing(row)}>
+                  {copy.change}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCancelling(row)
+                    setReason('')
+                  }}
+                >
+                  {copy.cancel}
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -339,6 +349,8 @@ export default function ReservationsPage() {
           />
         </section>
       )}
+
+      <EditBookingDialog booking={editing} onClose={() => setEditing(null)} onSaved={load} />
 
       <Dialog open={cancelling !== null} onOpenChange={(open) => !open && setCancelling(null)}>
         <DialogContent>

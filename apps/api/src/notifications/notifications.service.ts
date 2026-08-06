@@ -6,20 +6,24 @@ import { renderEmail } from '../mail/email-layout'
 import {
   deliver,
   EmailChannel,
+  TelegramChannel,
   WhatsAppChannel,
   type Destination,
   type NotificationChannel,
 } from './notification-channels'
 
 /** What the host can be told about, and which switch turns each one off. */
-export type NotificationEvent = 'booking' | 'cancellation' | 'message'
+export type NotificationEvent = 'booking' | 'cancellation' | 'change' | 'message'
 
-const SWITCH: Record<NotificationEvent, 'notifyOnBooking' | 'notifyOnCancel' | 'notifyOnMessage'> =
-  {
-    booking: 'notifyOnBooking',
-    cancellation: 'notifyOnCancel',
-    message: 'notifyOnMessage',
-  }
+const SWITCH: Record<
+  NotificationEvent,
+  'notifyOnBooking' | 'notifyOnCancel' | 'notifyOnChange' | 'notifyOnMessage'
+> = {
+  booking: 'notifyOnBooking',
+  cancellation: 'notifyOnCancel',
+  change: 'notifyOnChange',
+  message: 'notifyOnMessage',
+}
 
 export interface BookingNotice {
   reference: string
@@ -32,6 +36,27 @@ export interface BookingNotice {
   total: number
   extras?: string[]
   note?: string
+}
+
+/** A stay that moved: what it was, what it is, and what that costs. */
+export interface ChangeNotice {
+  before: BookingNotice
+  after: BookingNotice
+  /** New total minus old. Positive means the guest owes more. */
+  difference: number
+  /** Whether there is money already taken, and therefore a balance to settle. */
+  paid: boolean
+  reason?: string
+}
+
+/** The guest's copy of a change. Their language, and their old dates. */
+export interface GuestChange extends BookingNotice {
+  locale: string
+  checkInTime: string
+  checkOutTime: string
+  previousCheckIn: string
+  previousCheckOut: string
+  reason?: string
 }
 
 /** The guest's own copy. Their language, unlike the host alerts. */
@@ -90,6 +115,18 @@ export class NotificationsService {
     private readonly mail: MailService,
   ) {}
 
+  /**
+   * Telegram, if a bot token is configured.
+   *
+   * The token is an environment variable and the chat id a setting: one belongs
+   * to the deployment and the other to whoever is on call, and the host can
+   * change where alerts land without anyone touching the service.
+   */
+  private get telegram(): NotificationChannel | null {
+    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN')
+    return token ? new TelegramChannel(token) : null
+  }
+
   private get whatsapp(): NotificationChannel | null {
     const sid = this.config.get<string>('TWILIO_ACCOUNT_SID')
     const token = this.config.get<string>('TWILIO_AUTH_TOKEN')
@@ -122,6 +159,16 @@ export class NotificationsService {
     const number = settings.notifyWhatsapp.trim() || settings.whatsapp.trim()
     const whatsapp = this.whatsapp
     if (number && whatsapp) destinations.push({ channel: whatsapp, to: number })
+
+    // No public fallback, unlike email and WhatsApp: a chat id is not something
+    // a guest is ever given, so there is no second field to fall back to.
+    // `?.` a propósito: la columna es nueva. Un API desplegado contra una base
+    // sin migrar leería `undefined` y una alerta entera moriría por un `.trim()`
+    // — el pipeline migra antes de desplegar, pero un canal ausente es mejor
+    // fallo que un aviso perdido.
+    const chatId = settings.notifyTelegram?.trim() ?? ''
+    const telegram = this.telegram
+    if (chatId && telegram) destinations.push({ channel: telegram, to: chatId })
 
     if (destinations.length === 0) {
       this.logger.warn(`Nothing configured to notify about a ${event}`)
@@ -220,6 +267,91 @@ export class NotificationsService {
         }`,
       )
     }
+  }
+
+  /**
+   * Tells the host a stay moved, and what it left owing.
+   *
+   * The difference is spelled out in words rather than left as a signed number:
+   * "the guest owes 180 more" and "180 is due back" are different jobs, and a
+   * `-180` at the end of a line is the kind of thing that gets read backwards at
+   * seven in the morning.
+   */
+  async bookingChanged(notice: ChangeNotice): Promise<void> {
+    const { before, after, difference } = notice
+    const moved = before.checkIn !== after.checkIn || before.checkOut !== after.checkOut
+
+    const lines = [`Cambió la reserva de ${after.guestName}.`, `Referencia: ${after.reference}`, '']
+    if (notice.reason) lines.push(`Motivo: ${notice.reason}`, '')
+    if (moved) {
+      lines.push(`Antes: ${before.checkIn} → ${before.checkOut} (${before.nights} noches)`)
+      lines.push(`Ahora: ${after.checkIn} → ${after.checkOut} (${after.nights} noches)`)
+    }
+    if (before.guests !== after.guests) {
+      lines.push(`Huéspedes: ${before.guests} → ${after.guests}`)
+    }
+    lines.push('', `Total: ${before.total} → ${after.total}`)
+
+    if (difference === 0) {
+      lines.push('El precio no cambia.')
+    } else if (!notice.paid) {
+      // Nothing has been taken yet, so there is nothing to settle: the guest
+      // pays whatever the stay now costs.
+      lines.push(`La reserva aún no está pagada, así que se cobrará ${after.total}.`)
+    } else if (difference > 0) {
+      lines.push(`El huésped debe ${difference} más. Hay que cobrarlo aparte.`)
+    } else {
+      lines.push(`Hay que devolver ${Math.abs(difference)}. Usa el reembolso del panel.`)
+    }
+
+    await deliver(
+      await this.destinationsFor('change'),
+      `Reserva modificada · ${after.reference}`,
+      lines.join('\n'),
+      this.logger,
+    )
+  }
+
+  /**
+   * Tells the guest their stay moved.
+   *
+   * Always sent and not switchable, like the confirmation: someone whose dates
+   * changed needs to know before they turn up. It repeats the old dates on
+   * purpose — a message with only the new ones reads like a booking they do not
+   * remember making.
+   *
+   * It states the new total and says nothing about settling it. What the guest
+   * owes or is owed is arranged by the host, and a mail promising a refund the
+   * system has not issued would be a promise nobody made.
+   */
+  async guestChange(notice: GuestChange): Promise<void> {
+    const copy = GUEST_CHANGE_COPY[notice.locale] ?? GUEST_CHANGE_COPY.en
+    const body = [
+      copy.greeting(notice.guestName.split(' ')[0]),
+      '',
+      copy.reference(notice.reference),
+      '',
+      copy.was(notice.previousCheckIn, notice.previousCheckOut),
+      copy.now(notice.checkIn, notice.checkInTime, notice.checkOut, notice.checkOutTime),
+      copy.guests(notice.guests),
+      copy.total(notice.total),
+      ...(notice.reason ? ['', copy.reason(notice.reason)] : []),
+      '',
+      copy.closing,
+    ].join('\n')
+
+    const sent = await this.mail.send({
+      to: notice.guestEmail,
+      toName: notice.guestName,
+      subject: copy.subject(notice.reference),
+      text: body,
+      html: `<pre style="font:inherit;white-space:pre-wrap">${escapeHtml(body)}</pre>`,
+    })
+    if (!sent) {
+      this.logger.warn(`Could not send the change notice for ${notice.reference} — not delivered`)
+      return
+    }
+    this.logger.log(`Told the guest booking ${notice.reference} changed`)
   }
 
   /**
@@ -442,6 +574,11 @@ export class NotificationsService {
         (settings?.notifyWhatsapp.trim() || settings?.whatsapp.trim()) && this.whatsapp,
       ),
       whatsappConfigured: this.whatsapp !== null,
+      // Two separate facts, deliberately: "there is a chat id" and "the service
+      // has a bot token". A host who filled in the id needs to know the missing
+      // half is not theirs to fix.
+      telegram: Boolean(settings?.notifyTelegram?.trim() && this.telegram),
+      telegramConfigured: this.telegram !== null,
     }
   }
 }
@@ -601,6 +738,56 @@ const REFUND_COPY: Record<
     arn: (reference) =>
       `Falls Ihre Bank sie nicht findet, geben Sie diese Referenznummer an: ${reference}`,
     closing: 'Falls etwas nicht stimmt, antworten Sie einfach auf diese E-Mail.',
+  },
+}
+
+/**
+ * The change notice, in the guest's language.
+ *
+ * Bilingual because the product is: a Spanish-speaking guest told in English
+ * that their dates moved is a guest who phones to ask what happened. Only the
+ * two languages the booking flow itself writes in — the rest of the site is
+ * translated, the transactional mail is not, and that gap is declared rather
+ * than papered over with a machine translation of a date change.
+ */
+const GUEST_CHANGE_COPY: Record<
+  string,
+  {
+    subject: (reference: string) => string
+    greeting: (name: string) => string
+    reference: (reference: string) => string
+    was: (checkIn: string, checkOut: string) => string
+    now: (checkIn: string, checkInTime: string, checkOut: string, checkOutTime: string) => string
+    guests: (count: number) => string
+    total: (amount: number) => string
+    reason: (reason: string) => string
+    closing: string
+  }
+> = {
+  es: {
+    subject: (reference) => `Cambiamos las fechas de tu reserva · ${reference}`,
+    greeting: (name) => `Hola ${name}, hemos actualizado tu reserva.`,
+    reference: (reference) => `Referencia: ${reference}`,
+    was: (checkIn, checkOut) => `Antes: ${checkIn} → ${checkOut}`,
+    now: (checkIn, checkInTime, checkOut, checkOutTime) =>
+      `Ahora: llegada el ${checkIn} desde las ${checkInTime}\n       salida el ${checkOut} antes de las ${checkOutTime}`,
+    guests: (count) => `Huéspedes: ${count}`,
+    total: (amount) => `Nuevo total: $${amount}`,
+    reason: (reason) => `Motivo: ${reason}`,
+    closing:
+      'Si algo de esto no coincide con lo que acordamos, responde a este correo y lo revisamos.',
+  },
+  en: {
+    subject: (reference) => `We updated your booking · ${reference}`,
+    greeting: (name) => `Hi ${name}, your booking has been updated.`,
+    reference: (reference) => `Reference: ${reference}`,
+    was: (checkIn, checkOut) => `Before: ${checkIn} → ${checkOut}`,
+    now: (checkIn, checkInTime, checkOut, checkOutTime) =>
+      `Now: arriving ${checkIn} from ${checkInTime}\n     leaving ${checkOut} before ${checkOutTime}`,
+    guests: (count) => `Guests: ${count}`,
+    total: (amount) => `New total: $${amount}`,
+    reason: (reason) => `Reason: ${reason}`,
+    closing: "If any of this does not match what we agreed, reply to this email and we'll sort it.",
   },
 }
 

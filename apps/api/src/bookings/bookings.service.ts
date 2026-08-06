@@ -19,6 +19,7 @@ import { PropertiesService } from '../properties/properties.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { CreateManualBookingDto } from './dto/manual-booking.dto'
+import { UpdateBookingDto } from './dto/update-booking.dto'
 import { PaymentsService } from './payments.service'
 import { GuestService, type MyBooking } from '../guest/guest.service'
 
@@ -46,7 +47,24 @@ export interface ManualBookingResult {
   expiresAt: string | null
 }
 
-type BookingWithGuest = Booking & { customer: Customer; extras: Array<{ extra: { name: string } }> }
+type BookingWithGuest = Booking & {
+  customer: Customer
+  extras: Array<{ extraId: string; quantity: number; extra: { name: string } }>
+}
+
+/**
+ * What changed, and what it now costs.
+ *
+ * `difference` is the figure the host has to act on, and it is reported rather
+ * than settled: see the note on `update`.
+ */
+export interface UpdateBookingResult {
+  booking: ReturnType<BookingsService['noticeFor']>
+  quote: QuoteBreakdown
+  /** New total minus old. Positive means the guest owes more. */
+  difference: number
+  previousTotal: number
+}
 
 const iso = (date: Date): string => date.toISOString().slice(0, 10)
 
@@ -778,6 +796,150 @@ export class BookingsService {
       specialRequests: booking.specialRequests,
       createdAt: booking.createdAt.toISOString(),
     }))
+  }
+
+  /**
+   * The host moves a stay that already exists.
+   *
+   * A guest phones to shift a weekend or add a child, and until now the only
+   * answer was to cancel and rebook — which loses the reference, the history and
+   * any refund arithmetic already done.
+   *
+   * ## The price is recomputed, never accepted
+   *
+   * The new total comes from `getQuote`, same as a fresh booking. A caller
+   * sending a total gets it ignored, because the field does not exist on the
+   * DTO. The frozen bill is rewritten because it is no longer describing the
+   * stay the guest is having.
+   *
+   * ## But money is not moved
+   *
+   * A change on a paid stay leaves a difference, and this reports it rather than
+   * settling it. Charging a card again needs the guest's authorisation — a saved
+   * payment method and an SCA challenge they have to answer — and refunding
+   * automatically would bypass the policy ladder that `proposeRefund` exists to
+   * apply. Both are decisions with an owner, and that owner is not a PATCH.
+   *
+   * So the response carries `difference`, the host is told, and settling it
+   * stays a deliberate act through the tools already built for it.
+   */
+  async update(id: string, dto: UpdateBookingDto): Promise<UpdateBookingResult> {
+    const existing = await this.prisma.booking.findUnique({
+      where: { id },
+      include: { customer: true, extras: { include: { extra: true } } },
+    })
+    if (!existing) throw new NotFoundException('Booking not found')
+    if (existing.status === 'CANCELLED') {
+      throw new ConflictException('A cancelled stay cannot be changed. Create a new one.')
+    }
+
+    const property = await this.prisma.property.findUnique({
+      where: { id: existing.propertyId },
+      select: { slug: true, checkInTime: true, checkOutTime: true },
+    })
+    if (!property) throw new NotFoundException('Property not found')
+
+    // What is sent replaces; what is omitted stays as it was.
+    const checkIn = dto.checkIn ?? iso(existing.checkIn)
+    const checkOut = dto.checkOut ?? iso(existing.checkOut)
+    const guests = dto.guests ?? {
+      adults: existing.adults,
+      children: existing.children,
+      infants: existing.infants,
+      pets: existing.pets,
+    }
+    const extraIds = dto.extraIds ?? existing.extras.map((line) => line.extraId)
+    const extraUnits =
+      dto.extraUnits ??
+      Object.fromEntries(existing.extras.map((line) => [line.extraId, line.quantity]))
+
+    const quote = await this.properties.getQuote(property.slug, {
+      checkIn,
+      checkOut,
+      guests,
+      extraIds,
+      extraUnits,
+    })
+
+    // Same reasoning as a manual booking: a blocked range is not a booking, so
+    // the exclusion constraint knows nothing about it.
+    const blocked = await this.prisma.blockedDate.findFirst({
+      where: {
+        propertyId: existing.propertyId,
+        startDate: { lt: new Date(checkOut) },
+        endDate: { gt: new Date(checkIn) },
+      },
+    })
+    if (blocked) throw new ConflictException('Those dates are blocked. Free them first.')
+
+    const before = this.noticeFor(existing)
+    const previousTotal = Number(existing.totalPrice)
+
+    let updated: BookingWithGuest
+    try {
+      updated = await this.prisma.booking.update({
+        where: { id },
+        data: {
+          checkIn: new Date(checkIn),
+          checkOut: new Date(checkOut),
+          adults: guests.adults,
+          children: guests.children,
+          infants: guests.infants,
+          pets: guests.pets ?? 0,
+          totalPrice: quote.total,
+          nightsSubtotal: quote.subtotal,
+          weeklyDiscount: quote.weeklyDiscount,
+          extrasTotal: quote.extrasTotal,
+          additionalGuestFee: quote.additionalGuestFee,
+          cleaningFee: quote.cleaningFee,
+          serviceFee: quote.serviceFee,
+          taxes: quote.taxes,
+          ...(dto.specialRequests !== undefined ? { specialRequests: dto.specialRequests } : {}),
+          extras: {
+            // Replaced wholesale: a diff of extras would have to reason about
+            // quantities changing both ways, and the quote already decided what
+            // the stay includes.
+            deleteMany: {},
+            create: quote.extras.map((extra) => ({
+              extraId: extra.id,
+              quantity: extra.quantity,
+            })),
+          },
+        },
+        include: { customer: true, extras: { include: { extra: true } } },
+      })
+    } catch (error) {
+      // The same 23P01 that protects a new booking protects a moved one: the
+      // constraint does not care which row is trying to occupy the week.
+      if (this.isOverlap(error)) {
+        throw new ConflictException('Those dates are already taken')
+      }
+      throw error
+    }
+
+    const after = this.noticeFor(updated)
+    const difference = Number((quote.total - previousTotal).toFixed(2))
+
+    await this.notifications.bookingChanged({
+      before,
+      after,
+      difference,
+      // Only a paid stay leaves money to settle. On an unpaid hold the guest
+      // simply pays the new figure.
+      paid: Boolean(existing.paidAt),
+      reason: dto.reason,
+    })
+    await this.notifications.guestChange({
+      ...after,
+      previousCheckIn: before.checkIn,
+      previousCheckOut: before.checkOut,
+      locale: updated.locale,
+      checkInTime: property.checkInTime,
+      checkOutTime: property.checkOutTime,
+      reason: dto.reason,
+    })
+
+    return { booking: after, quote, difference, previousTotal }
   }
 
   /** The host cancels a stay from the panel. The nights go back on sale. */

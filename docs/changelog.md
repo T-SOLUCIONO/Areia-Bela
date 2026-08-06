@@ -5776,3 +5776,89 @@ Los tests de móvil medían 1440px: el `beforeEach` del archivo llamaba a
 pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (326)
 e2e calendario ✅ (6/6, dos de ellas en teléfono)
 ```
+
+## 91. Avisos al anfitrión: Telegram, y las reservas ya se pueden cambiar
+
+Pedido como «que llegue un mensaje cuando se haga una reserva, se cancele o se
+haga algún cambio». La mitad ya funcionaba y conviene decirlo: el anfitrión
+recibía reserva, cancelación, reembolso enviado, pago de fechas ya vendidas y
+mensaje del formulario, con interruptores por tipo en el panel. Lo que faltaba
+era un canal decente y el evento «cambio», que no existía porque **cambiar una
+reserva no era posible**.
+
+### Telegram, y por qué no solo WhatsApp
+
+`WhatsAppChannel` ya estaba programado y sin configurar. Se deja, pero el canal
+recomendado es otro, y el motivo es de producto y no de gusto:
+
+**WhatsApp tiene la regla de las 24 horas.** Fuera de una ventana que el
+destinatario haya abierto escribiendo él, solo entregan plantillas aprobadas por
+Meta. Un aviso de reserva a las tres de la mañana es, por definición, iniciado
+por el negocio. El sandbox de Twilio caduca y hay que reabrirlo a mano; en
+producción son días de papeleo y coste por mensaje.
+
+**Telegram no tiene ninguna de esas restricciones**: un bot de `@BotFather`, el
+chat id, un POST. Para avisar a **una persona conocida**, que es exactamente el
+caso, encaja mejor que un canal diseñado para marketing de consumo.
+
+El token es variable de entorno y el chat id un ajuste del panel: uno pertenece
+al despliegue y el otro a quien esté de guardia. Y el panel distingue «falta el
+chat id» de «falta el token en el API», porque son dos problemas con dueños
+distintos.
+
+Un detalle que habría fallado en silencio: **MarkdownV2 rechaza el mensaje
+entero** —400, nada entregado— si un carácter reservado llega sin escapar. Los
+nombres de huésped y los motivos de cancelación son texto libre, así que una
+huésped llamada «J. Smith-Doe» le habría costado al anfitrión su aviso completo,
+no una palabra mal puesta. Cubierto con un test que recoge los caracteres sin
+escapar en una lista.
+
+### Modificar una reserva
+
+`PATCH /bookings/:id` mueve fechas, huéspedes y extras de una estancia que ya
+existe. Antes la única respuesta a un huésped que llamaba para correr un fin de
+semana era cancelar y volver a reservar, lo que pierde la referencia, el
+historial y cualquier cuenta de reembolso ya hecha.
+
+**El precio se recalcula, nunca se acepta.** El DTO no tiene campo para un
+total, así que no hay nada que un llamante pueda afirmar. La factura congelada
+se reescribe porque ha dejado de describir la estancia que el huésped va a
+tener.
+
+**Pero el dinero no se mueve.** Un cambio sobre una estancia pagada deja una
+diferencia, y esto la **informa** en vez de liquidarla. Volver a cobrar una
+tarjeta necesita que el huésped lo autorice —un método guardado y un desafío SCA
+que tiene que responder— y reembolsar automáticamente saltaría la escalera de
+política que `proposeRefund` existe para aplicar. Las dos son decisiones con
+dueño, y ese dueño no es un `PATCH`.
+
+Lo que sí hereda: la misma restricción de exclusión que protege una reserva
+nueva protege una movida —al `23P01` le da igual qué fila quiere la semana—, la
+comprobación de fechas bloqueadas, y el rechazo de cambiar una estancia
+cancelada, cuyas noches ya volvieron a estar a la venta.
+
+Lo que se omite se conserva: mover solo la salida no obliga a reenviar el grupo.
+
+### Los dos avisos del cambio
+
+Al anfitrión, con la diferencia **en palabras** y no como número con signo: «el
+huésped debe 180 más» y «hay que devolver 180» son trabajos distintos, y un
+`-180` al final de una línea es de las cosas que se leen al revés a las siete de
+la mañana.
+
+Al huésped, con **las fechas viejas incluidas**: un mensaje con solo las nuevas
+se lee como una reserva que no recuerda haber hecho. Bilingüe, y dice el total
+nuevo sin prometer nada sobre liquidarlo — una promesa que el sistema no ha
+cumplido no se manda.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (341, 15 nuevos)
+```
+
+### Pendiente del usuario
+
+- `TELEGRAM_BOT_TOKEN` en el servicio, y el chat id en el panel.
+- Correr la migración `20260806020000_host_notifications`. El pipeline lo hace
+  solo al mergear, y el código lee `notifyTelegram?.trim()` a propósito: un API
+  contra una base sin migrar pierde un canal, no una alerta entera.

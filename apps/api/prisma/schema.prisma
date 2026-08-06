@@ -542,8 +542,14 @@ model SiteSettings {
   // field, so a host who only has one address does not have to type it twice.
   notifyEmail     String   @default("")
   notifyWhatsapp  String   @default("")
+  // A Telegram chat id, not a phone number: it comes from `getUpdates` after the
+  // host writes to the bot once, which is also what authorises the bot to reply.
+  // No public fallback exists because a chat id is never given to a guest.
+  notifyTelegram  String   @default("")
   notifyOnBooking Boolean  @default(true)
   notifyOnCancel  Boolean  @default(true)
+  // Changes to a stay that is already sold: dates moved, guest count edited.
+  notifyOnChange  Boolean  @default(true)
   notifyOnMessage Boolean  @default(true)
   seoTitle        String
   seoDescription  String

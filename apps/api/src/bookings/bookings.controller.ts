@@ -25,6 +25,7 @@ import { CreateHoldDto } from './dto/create-hold.dto'
 import { CancelBookingDto } from './dto/cancel-booking.dto'
 import { IssueRefundDto } from './dto/issue-refund.dto'
 import { CreateManualBookingDto } from './dto/manual-booking.dto'
+import { UpdateBookingDto } from './dto/update-booking.dto'
 import { RefundsService } from './refunds.service'
 import { BookingPdfService } from '../guest/booking-pdf.service'
 
@@ -187,6 +188,23 @@ export class BookingsController {
   @Patch(':id/cancel')
   async cancel(@Param('id') id: string, @Body() dto: CancelBookingDto) {
     await this.bookings.cancel(id, dto.reason)
+  }
+
+  /**
+   * Moves a stay that already exists: dates, party or extras.
+   *
+   * Not `@Public()` and behind the same two roles as cancelling, for the same
+   * reason: it rewrites what a guest owes. The total is recomputed on the
+   * server — the DTO has no field for one, so there is nothing for a caller to
+   * assert.
+   *
+   * Answers with the difference against the old total. It does **not** charge or
+   * refund: see `BookingsService.update`.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateBookingDto) {
+    return this.bookings.update(id, dto)
   }
 
   /**

@@ -26,8 +26,10 @@ const BLANK: Settings = {
   logoUrl: null,
   notifyEmail: '',
   notifyWhatsapp: '',
+  notifyTelegram: '',
   notifyOnBooking: true,
   notifyOnCancel: true,
+  notifyOnChange: true,
   notifyOnMessage: true,
 }
 
@@ -41,6 +43,8 @@ export function SiteSettings() {
     email: boolean
     whatsapp: boolean
     whatsappConfigured: boolean
+    telegram: boolean
+    telegramConfigured: boolean
   } | null>(null)
 
   const load = useCallback(async () => {
@@ -184,6 +188,21 @@ export function SiteSettings() {
               {status?.whatsappConfigured ? t.site.notifyWhatsappOn : t.site.notifyWhatsappOff}
             </p>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="notifyTelegram">{t.site.notifyTelegram}</Label>
+            <Input
+              id="notifyTelegram"
+              inputMode="numeric"
+              value={draft.notifyTelegram}
+              // A chat id can be negative — a group's is — so the minus sign
+              // survives while everything else that is not a digit does not.
+              onChange={(e) => edit({ notifyTelegram: e.target.value.replace(/[^\d-]/g, '') })}
+            />
+            <p className="text-xs text-muted-foreground">
+              {status?.telegramConfigured ? t.site.notifyTelegramOn : t.site.notifyTelegramOff}
+            </p>
+            <p className="text-xs text-muted-foreground">{t.site.notifyTelegramHint}</p>
+          </div>
         </div>
 
         <div className="space-y-2 rounded-xl border bg-muted/30 p-4">
@@ -191,6 +210,7 @@ export function SiteSettings() {
             [
               ['notifyOnBooking', t.site.notifyOnBooking],
               ['notifyOnCancel', t.site.notifyOnCancel],
+              ['notifyOnChange', t.site.notifyOnChange],
               ['notifyOnMessage', t.site.notifyOnMessage],
             ] as const
           ).map(([key, label]) => (
