@@ -5424,3 +5424,70 @@ remitente se lea de cualquiera de los dos nombres con el documentado ganando.
 pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (326 tests, 4 nuevos)
 ```
+
+## 84. Despliegue continuo a QA
+
+La sección de diferidos decía: _«Sin CD. Automatizarlo antes de tener un dominio
+y un servidor definidos sería automatizar una decisión que no está tomada.»_ Ya
+están los dos.
+
+Un merge en `main` dispara `cloudbuild.deploy.yaml`:
+
+```
+build-api ─→ push-api ─┐
+build-web ─→ push-web ─┴→ migrate → deploy-api → deploy-web
+```
+
+**Cloud Build y no GitHub Actions**, aunque el CI viva en Actions: los
+`cloudbuild.*.yaml` ya existían, y Actions necesitaría Workload Identity
+Federation o —peor— una clave de cuenta de servicio en el repositorio. Actions
+comprueba en cada rama, Cloud Build despliega desde `main`.
+
+### Copias de seguridad primero
+
+La instancia de Cloud SQL **no tenía copias**, y no solo guarda las reservas de
+Areia Bela: es la misma que usa otra aplicación del usuario. Automatizar
+migraciones sobre una base sin copias es convertir un fallo pequeño en pérdida
+de datos, así que se activaron antes de tocar el pipeline: diarias más
+recuperación a un punto en el tiempo, 7 días. Activar PITR reinicia la
+instancia; se hizo con esa consecuencia declarada y aceptada.
+
+### El trigger que ya existía y no servía
+
+Había uno apuntando a `main`, creado automáticamente un segundo antes del
+primer despliegue manual del API. Tenía `autodetect: true` —buildpacks, sin
+`Dockerfile`—, que en este monorepo no construye lo que queremos. Solo un
+`approvalRequired: true` había evitado que se disparase.
+
+Se reescribió en lugar de crear otro: la API nueva de Cloud Build no tiene este
+repositorio registrado, y ese trigger conservaba la conexión antigua de la
+GitHub App, que sí funciona.
+
+### Dos cosas que habrían roto el primer despliegue
+
+**`DATABASE_URL` conecta por socket Unix, no por TCP.** El primer intento
+levantaba el proxy en un puerto, y la migración no habría encontrado la base.
+El proxy escucha ahora en la misma ruta que monta Cloud Run, así que el mismo
+secreto vale sin tocarlo en los dos sitios — dos formas de la misma cadena
+acaban divergiendo sin que nadie lo note.
+
+**La lista `images:` se sube al terminar todos los pasos.** El primer intento
+falló en `deploy-api` con `Image '.../api:prueba1' not found`: la imagen
+existía en el disco del build y no en el registro. El `push` pasó a ser un paso
+propio, antes de desplegar, y `images:` se eliminó para que no haya dos sitios
+que suban lo mismo.
+
+Las dos salieron de probar el pipeline a mano antes de que un merge dependiera
+de él.
+
+### Lo que el pipeline no toca
+
+`gcloud run deploy` recibe solo `--image`. Variables y secretos son del entorno,
+no del repositorio: un despliegue no debe poder reescribirlos por descuido.
+
+Producción será otra cuenta y otro proyecto, con su propio trigger.
+
+```
+prueba completa ✅ (7/7 pasos, 5m21s)
+web 200   api 200   /admin/login 200
+```

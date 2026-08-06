@@ -153,9 +153,8 @@ antes que el API, la web, los tests y el typecheck.
   tests. Sobra peso en la imagen, no rompe nada; se limpia excluyéndolos del
   `tsconfig.build.json` del API.
 
-- **Sin CD.** El CI comprueba; desplegar sigue siendo manual. Automatizarlo
-  antes de tener un dominio y un servidor definidos sería automatizar una
-  decisión que no está tomada.
+- **CD solo para QA.** Producción es otra cuenta y otro proyecto, así que
+  tendrá su propio trigger cuando exista. Ver «Despliegue continuo» abajo.
 
 ## Google Cloud
 
@@ -423,3 +422,68 @@ es el de ese endpoint.
 En local, en lugar de un túnel: `stripe listen --forward-to
 localhost:3001/bookings/stripe-webhook`. Da su propio `whsec_` temporal y no se
 renombra solo, que es exactamente lo que pasó cuatro veces con el túnel rápido.
+
+### Despliegue continuo
+
+Un merge en `main` despliega QA entero. Lo dispara un trigger de Cloud Build
+conectado a GitHub, que corre `cloudbuild.deploy.yaml`.
+
+**Cloud Build y no GitHub Actions**, aunque el CI viva en Actions. Los
+`cloudbuild.*.yaml` ya existían, y Actions necesitaría Workload Identity
+Federation o —peor— una clave de cuenta de servicio guardada en el repositorio.
+El reparto queda: Actions comprueba en cada rama, Cloud Build despliega desde
+`main`.
+
+El orden de los pasos importa, y es este:
+
+```
+build-api  ─┐
+build-web  ─┴→ migrate → deploy-api → deploy-web
+```
+
+- Las dos imágenes **en paralelo**: no dependen entre sí.
+- **Migrar después de construir.** Un build que falla es lo más común de los
+  fallos, y no hay razón para haber tocado ya el esquema cuando ocurre.
+- **El API antes que la web.** Al revés, durante unos segundos la web habla con
+  un API que todavía no entiende el esquema nuevo.
+
+Las imágenes se etiquetan con `$SHORT_SHA` además de `latest`, para saber qué
+commit corre sin cruzar fechas con el historial.
+
+#### La migración va por un socket, no por un puerto
+
+Cloud Build no tiene IP fija, así que autorizar una red no sirve: la conexión
+va por el Cloud SQL Auth Proxy, autenticado con la cuenta de servicio del build.
+
+El proxy escucha en un **socket Unix, en la misma ruta que monta Cloud Run**.
+Eso no es un detalle de estilo: `DATABASE_URL` termina en
+`?host=/cloudsql/INSTANCIA`, así que el mismo secreto vale sin tocarlo en los
+dos sitios. Con el proxy en TCP haría falta una segunda forma de la cadena, y
+dos formas de la misma cadena acaban divergiendo sin que nadie lo note.
+
+Permisos que necesita la cuenta del build, además de los que ya tenía por
+construir imágenes: `roles/cloudsql.client`, y `secretAccessor` **sobre el
+secreto** `areia-database-url`, no sobre el proyecto.
+
+#### Lo que el trigger no toca
+
+`gcloud run deploy` recibe solo `--image`. Las variables de entorno y los
+secretos son del entorno, no del repositorio: un despliegue no debe poder
+reescribirlos por descuido, y cambiarlos sigue siendo un comando aparte.
+
+#### Correr el pipeline a mano
+
+`$SHORT_SHA` lo pone el trigger. En una ejecución manual hay que pasarlo, o la
+etiqueta de la imagen sale vacía:
+
+```bash
+gcloud builds submit --config cloudbuild.deploy.yaml \
+  --substitutions=SHORT_SHA=manual,_API_URL=...,_SITE_URL=...,_SQL_INSTANCE=...
+```
+
+#### Copias de seguridad, antes que nada de esto
+
+Automatizar migraciones sin copias es convertir un fallo pequeño en pérdida de
+datos. La instancia tiene copias diarias y recuperación a un punto en el tiempo
+(7 días); activar PITR reinicia la instancia, así que no es un cambio para
+hacer con tráfico encima.
