@@ -1,0 +1,176 @@
+# Despliegue continuo a QA: de un merge en `main` a los dos servicios en línea.
+#
+# Lo dispara un trigger de Cloud Build conectado a GitHub. Los `cloudbuild.api`
+# y `cloudbuild.web` de al lado siguen existiendo para construir una sola
+# imagen a mano; esto es el camino completo.
+#
+# ## Por qué un solo archivo y no dos triggers
+#
+# Los pasos no son independientes. Las migraciones tienen que aplicarse **antes**
+# de que arranque el código que las espera, y la web no debe salir si el API que
+# la sirve no llegó a desplegarse. Dos triggers en paralelo no pueden garantizar
+# ninguna de las dos cosas.
+#
+# ## El orden, y por qué es ese
+#
+#   1. Construir las dos imágenes  (en paralelo: no dependen entre sí)
+#   2. Subirlas al registro        (en paralelo)
+#   3. Migrar la base
+#   4. Desplegar el API
+#   5. Desplegar la web
+#
+# Migrar **después** de construir y subir no es casual: un build que falla es el
+# fallo más común, y no hay razón para haber tocado ya el esquema cuando pasa.
+#
+# ## Por qué las imágenes se suben en un paso y no en `images:`
+#
+# La lista `images:` del final existe, pero Cloud Build la sube **cuando todos
+# los pasos han terminado**. Un `gcloud run deploy` dentro del mismo build no
+# encuentra ahí nada:
+#
+#   ERROR: Image '.../api:prueba1' not found.
+#
+# Por eso el `push` es un paso propio, antes de desplegar.
+#
+# ## La web se construye con la URL del API, no con la del build
+#
+# `NEXT_PUBLIC_API_URL` se compila dentro del bundle del navegador, así que es un
+# `build arg`. Viene de una sustitución del trigger, no se deduce: el API vive en
+# un dominio propio y su URL de `run.app` no es la que debe acabar en el bundle.
+
+steps:
+  # --- 1. Las dos imágenes, a la vez -----------------------------------------
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=apps/api/Dockerfile
+      # El SHA del commit como etiqueta: identifica qué código corre en
+      # producción sin tener que cruzar fechas con el historial.
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$SHORT_SHA
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:latest
+      - .
+
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    # Sin `waitFor` heredaría el paso anterior; así arrancan juntas.
+    waitFor: ['-']
+    args:
+      - build
+      - --file=apps/web/Dockerfile
+      - --build-arg=NEXT_PUBLIC_API_URL=${_API_URL}
+      - --build-arg=NEXT_PUBLIC_SITE_URL=${_SITE_URL}
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:latest
+      - .
+
+  # --- 2. Al registro, antes de que nadie las despliegue ----------------------
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['build-api']
+    args: ['push', '--all-tags', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api']
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['build-web']
+    args: ['push', '--all-tags', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web']
+
+  # --- 3. El esquema ----------------------------------------------------------
+  #
+  # Cloud Build no tiene IP fija, así que autorizar una red no es una opción:
+  # la conexión va por el Cloud SQL Auth Proxy, que se autentica con la cuenta
+  # de servicio del build en vez de con una contraseña en tránsito.
+  #
+  # El proxy escucha en un **socket Unix**, no en un puerto, y en la misma ruta
+  # que monta Cloud Run. Así `DATABASE_URL` —que termina en
+  # `?host=/cloudsql/INSTANCIA`— vale tal cual en los dos sitios: un solo
+  # secreto, una sola forma de la cadena, y ninguna posibilidad de que la del
+  # despliegue y la de la migración se separen sin que nadie lo note.
+  #
+  # `migrate deploy` (no `migrate dev`) aplica lo pendiente y nada más: no
+  # genera migraciones ni reinicia la base si detecta una divergencia.
+  - id: migrate
+    name: node:22-alpine
+    waitFor: ['push-api', 'push-web']
+    entrypoint: sh
+    secretEnv: ['DATABASE_URL']
+    args:
+      - -c
+      - |
+        set -e
+        apk add --no-cache curl >/dev/null
+        curl -sSLo /usr/local/bin/cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /usr/local/bin/cloud-sql-proxy
+
+        mkdir -p /cloudsql
+        cloud-sql-proxy --unix-socket /cloudsql "${_SQL_INSTANCE}" &
+
+        # Esperar al socket en lugar de dormir un rato fijo: un `sleep` acertado
+        # hoy falla el día que el proxy tarda un segundo más.
+        for i in $(seq 1 30); do
+          [ -S "/cloudsql/${_SQL_INSTANCE}/.s.PGSQL.5432" ] && break
+          sleep 1
+        done
+        if [ ! -S "/cloudsql/${_SQL_INSTANCE}/.s.PGSQL.5432" ]; then
+          echo "El proxy de Cloud SQL no abrio el socket en 30s" >&2
+          exit 1
+        fi
+
+        corepack enable
+        pnpm install --frozen-lockfile --filter @areia-bela/api...
+        pnpm --filter @areia-bela/api exec prisma migrate deploy
+
+  # --- 4 y 5. Los servicios ---------------------------------------------------
+  #
+  # El API primero: si la web sale antes, durante unos segundos habla con un API
+  # que todavía no entiende el esquema nuevo.
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ['migrate']
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - areia-bela-api
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$SHORT_SHA
+      - --region=${_REGION}
+      # Solo la imagen: las variables y los secretos son del entorno, no del
+      # repositorio, y un deploy no debe poder reescribirlos por descuido.
+      - --quiet
+
+  - id: deploy-web
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ['deploy-api']
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - areia-bela-web
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$SHORT_SHA
+      - --region=${_REGION}
+      - --quiet
+
+availableSecrets:
+  secretManager:
+    # La misma versión que lee el servicio. Nunca un valor en este archivo:
+    # el repositorio es público.
+    - versionName: projects/$PROJECT_ID/secrets/areia-database-url/versions/latest
+      env: DATABASE_URL
+
+substitutions:
+  _REGION: us-central1
+  _REPO: areia-bela
+  # Sin valor por defecto útil a propósito. Construir la web apuntando a
+  # localhost produce una imagen que parece correcta y no habla con nada, y un
+  # `_SQL_INSTANCE` vacío migraría contra la base equivocada o ninguna.
+  _API_URL: ''
+  _SITE_URL: ''
+  _SQL_INSTANCE: ''
+
+options:
+  # El build por defecto se queda corto para un `pnpm install` de un monorepo.
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 2400s
