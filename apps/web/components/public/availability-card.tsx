@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { ChevronDown, ShieldCheck, X } from 'lucide-react'
@@ -16,7 +16,6 @@ import {
   saveQuoteToStorage,
   serializeQuoteToSearchParams,
   type BookingQuote,
-  type NightRate,
 } from '@/lib/booking'
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { GuestPicker } from '@/components/public/guest-picker'
@@ -30,27 +29,6 @@ import { cn } from '@/lib/utils'
 
 type Props = {
   className?: string
-}
-
-/** How long the card proposes before the guest touches anything. */
-const DEFAULT_NIGHTS = 3
-
-/**
- * The first run of free nights long enough for the default stay.
- *
- * Returns the check-out date too, which is the morning after the last night —
- * so a three-night stay needs three free nights, not four.
- */
-function findFirstFreeStay(nights: NightRate[], wanted: number): { from: Date; to: Date } | null {
-  let run = 0
-  for (let index = 0; index < nights.length; index += 1) {
-    run = nights[index].available ? run + 1 : 0
-    if (run === wanted) {
-      const first = nights[index - wanted + 1].date
-      return { from: parseISO(first), to: addDays(parseISO(nights[index].date), 1) }
-    }
-  }
-  return null
 }
 
 /** One end of the stay, with the button that clears it. */
@@ -91,17 +69,19 @@ export function AvailabilityCard({ className }: Props) {
   const copy = translations[language].availability
   const locale = { es, en: enUS, pt: ptBR, fr, de }[language]
   /**
-   * Empty until the browser says what day it is.
+   * Empty until the guest picks.
    *
-   * These used to start at `addDays(new Date(), 1)`, computed while rendering —
-   * on the server too. Cloud Run runs in UTC and the guests are in Florida, so
-   * from 8pm local onwards the server was already on tomorrow: it shipped HTML
-   * reading 7/8/2026 to a browser that had just worked out 6/8/2026.
+   * These used to open on a proposed stay, and it did more harm than good. The
+   * proposal was computed from `new Date()` while rendering — on the server
+   * too, where the clock is UTC and the guests are in Florida, so every evening
+   * the markup disagreed with the browser and React threw it away (#418).
    *
-   * React calls that a hydration mismatch (#418), throws the server's markup
-   * away and repaints — every evening, for every visitor, on the one card the
-   * page exists to show. Nothing renders from the clock now; the effect below
-   * fills these in once, in the browser, where the clock is the guest's own.
+   * And a pre-filled range made the calendar feel broken: with both ends
+   * already set, the first tap on an arrival only moved the departure, so
+   * choosing a stay took two taps and looked like one had been ignored.
+   *
+   * Nothing here reads the clock now, and an empty card asks a clear question
+   * instead of answering one nobody asked.
    */
   const [checkIn, setCheckIn] = useState<Date | undefined>()
   const [checkOut, setCheckOut] = useState<Date | undefined>()
@@ -120,14 +100,6 @@ export function AvailabilityCard({ className }: Props) {
   // Mirrors the house's rule in the calendar itself. The server is still the
   // authority — this only stops the guest picking something it would refuse.
   const [minNights, setMinNights] = useState(1)
-  /**
-   * Whether the guest has touched the dates.
-   *
-   * A ref and not state: nothing renders differently because of it, and it has
-   * to be readable inside a fetch callback that closes over the mount-time
-   * render.
-   */
-  const guestPicked = useRef(false)
   const [policy, setPolicy] = useState<CancellationPolicy>('MODERATE')
 
   /**
@@ -139,23 +111,16 @@ export function AvailabilityCard({ className }: Props) {
    * go on its own, which leaves a half-picked range the calendar can draw.
    */
   const clearStay = useCallback(() => {
-    guestPicked.current = true
     setCheckIn(undefined)
     setCheckOut(undefined)
   }, [])
 
   const clearDeparture = useCallback(() => {
-    guestPicked.current = true
     setCheckOut(undefined)
   }, [])
 
   useEffect(() => {
     const today = new Date()
-    // A provisional stay so the card is not blank while the rates travel. The
-    // response below moves it to the first stretch that is actually free.
-    setCheckIn(addDays(today, 1))
-    setCheckOut(addDays(today, 1 + DEFAULT_NIGHTS))
-
     getBlockedDateRanges().then(setBlockedRanges)
     fetchStayLimits().then((terms) => {
       setMinNights(terms.minNights)
@@ -171,27 +136,6 @@ export function AvailabilityCard({ className }: Props) {
 
       const taken = new Set(nights.filter((night) => !night.available).map((n) => n.date))
       setUnavailable(taken)
-
-      // Opening on dates that are already sold sends the guest to a 409 at the
-      // end of a form. The default was tomorrow-plus-three regardless of who
-      // was in the house then, so it moves to the first free stretch instead.
-      //
-      // The pair moves together, and that is the whole point. Deciding each
-      // end on its own let them come from different stretches: if the default
-      // arrival was sold and the default departure was not, the arrival jumped
-      // to the free stretch and the departure stayed behind. The card opened
-      // reading "9/8/2026 → 9/8/2026 · $120 for 0 nights" — two ends that were
-      // never a range, and nothing a guest clicked could argue with it.
-      //
-      // Guarded on whether the guest has chosen rather than on whether the old
-      // dates survive inspection, because that is what this is: a default. Once
-      // someone has picked, a late-arriving fetch has no business overruling
-      // them.
-      const stay = findFirstFreeStay(nights, DEFAULT_NIGHTS)
-      if (stay && !guestPicked.current) {
-        setCheckIn(stay.from)
-        setCheckOut(stay.to)
-      }
     })
   }, [])
 
@@ -324,14 +268,18 @@ export function AvailabilityCard({ className }: Props) {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[22px] font-semibold leading-tight text-slate-900">
-                {nights === 1
-                  ? copy.nightSelected
-                  : fill(copy.nightsSelected, { count: String(nights) })}
+                {nights === 0
+                  ? copy.pickDates
+                  : nights === 1
+                    ? copy.nightSelected
+                    : fill(copy.nightsSelected, { count: String(nights) })}
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 {checkIn && checkOut
                   ? `${format(checkIn, 'd MMM yyyy', { locale })} - ${format(checkOut, 'd MMM yyyy', { locale })}`
-                  : copy.pickDates}
+                  : checkIn
+                    ? format(checkIn, 'd MMM yyyy', { locale })
+                    : ''}
               </p>
             </div>
 
@@ -359,7 +307,6 @@ export function AvailabilityCard({ className }: Props) {
           <StayCalendar
             value={{ from: checkIn, to: checkOut }}
             onChange={(range: StayRange) => {
-              guestPicked.current = true
               setCheckIn(range.from)
               setCheckOut(range.to)
             }}

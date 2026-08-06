@@ -5591,3 +5591,84 @@ pnpm typecheck ✅   pnpm test ✅ (326)   format:check ✅
 
 Verificado en 360, 390, 768 y 1440px, y en los cinco idiomas: sin
 desbordamiento horizontal en ninguno.
+
+## 87. Por qué el calendario pedía dos clics
+
+El primer toque en un día no hacía nada; el segundo sí. La causa no estaba en
+ningún manejador, y encontrarla necesitó medir en vez de leer.
+
+Un clic sintético (`el.click()` desde la consola) funcionaba a la primera. Uno
+real, no. La diferencia es el ratón, y ahí estaba todo:
+
+```
+un solo hover  ->  60 renders del calendario
+tras el hover  ->  el nodo del dia ya no es el mismo objeto
+```
+
+`onDayMouseEnter` estaba conectado directo al `setHoverDate` del padre y le
+entregaba un `Date` **nuevo** cada vez. React nunca descarta un cambio de
+estado cuyo valor es un objeto nuevo, así que: el puntero entra en el día →
+render → el nodo bajo el cursor se sustituye → `mouseenter` se dispara sobre el
+sustituto → otra vez. El `mousedown` caía en un elemento y el `mouseup` en su
+reemplazo, y un navegador **solo emite `click` cuando ambos golpean el mismo
+nodo**. El segundo clic funcionaba porque el hover ya había ocurrido.
+
+Tres cosas mantenían el bucle vivo, y las tres eran identidades que cambiaban
+sin que nada cambiara de verdad:
+
+- `components={{ DayButton: (props) => ... }}` **escrito en línea**: un tipo de
+  componente nuevo por render, así que React desmontaba y volvía a montar los
+  61 botones en lugar de actualizarlos. Ahora es un `useMemo`, y `hoverDate`
+  queda deliberadamente fuera de sus dependencias.
+- `todayStart`, `taken`, `blocked` y el array `disabled`, todos recreados en
+  cada render — y todos dependencias de ese memo.
+- `defaultMonth`, recalculado en cada render. Un _mes por defecto_ es un valor
+  inicial; cambiarlo a mitad de sesión reconstruía la rejilla.
+
+Y dos guardas para que el bucle no pueda arrancar: el hover solo se sigue
+mientras hay una estancia a medio elegir —fuera de eso no hay banda de vista
+previa que dibujar— y el mismo día nunca se reporta dos veces.
+
+### Las fechas empiezan vacías
+
+La tarjeta ya no propone una estancia. Proponerla obligaba a que el primer
+toque del huésped **corrigiera** algo en vez de elegirlo, y con los dos
+extremos puestos ese toque solo movía la salida.
+
+### Y reelegir borra lo anterior
+
+Con un rango completo, react-day-picker arrastra el extremo más cercano: con
+10–14 elegido, clicar el 20 daba 10–20. Nadie quiere decir eso al tocar otro
+día — está eligiendo de nuevo. Ahora un clic sobre una estancia terminada
+empieza otra desde ahí, y el huésped no tiene que borrar antes de repetir.
+
+Cuatro pruebas en `e2e/quote-calendar.spec.ts`, con el gesto que hace una
+persona —pasar el ratón y luego pulsar—, porque el `click()` atómico de
+Playwright es más duro que cualquier mano.
+
+## 88. El favicon
+
+`public/images/favicon.png` es una estrella de mar cian sobre transparencia,
+1536×1024. Un favicon es cuadrado, así que se recorta por el alfa y se centra
+con un margen.
+
+Dos versiones, porque el cian sobre blanco da un contraste de **1,9:1** —
+perfecto en una pestaña oscura, casi invisible en una clara. La variante clara
+se recolorea al azul de la marca y se le recorta el halo: a 32px un resplandor
+suave no es atmósfera, es desenfoque. El icono de Apple lleva su propio fondo
+azul, porque iOS compone sobre un mosaico sólido y un PNG transparente queda
+mal.
+
+Se eliminó `/icon.svg`: era el marcador de posición de la plantilla de Next
+—un cuadrado negro redondeado— y los navegadores prefieren SVG cuando se les
+ofrece, así que era **el que se estaba mostrando**.
+
+El panel no declara metadatos propios, así que hereda los del layout raíz: web
+y `/admin` comparten la marca sin duplicar nada. Verificado en el HTML servido
+de `/es` y de `/admin/login`.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (326)   format:check ✅
+e2e calendario ✅ (4/4)   e2e hidratacion ✅ (2/2)
+```
