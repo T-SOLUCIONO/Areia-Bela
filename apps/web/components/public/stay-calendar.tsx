@@ -1,43 +1,53 @@
 'use client'
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { format, isWithinInterval, startOfDay, startOfMonth } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
 import { Calendar, CalendarDayButton } from '@areia-bela/ui/calendar'
 import { type Language } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/lib/use-media-query'
 
 const DATE_LOCALES = { es, en: enUS, pt: ptBR, fr, de }
 
 /** Two months need roughly this much width at the cell size below. */
 const TWO_MONTH_QUERY = '(min-width: 46rem)'
 
-/**
- * Whether two months fit side by side.
- *
- * `useSyncExternalStore` rather than an effect: the viewport is an external
- * system React should subscribe to, and this is the API for that. It also
- * takes a server value, so the first paint is not a guess that then jumps.
- *
- * The breakpoint is measured, not chosen. Two months at 3rem cells need about
- * 700px and the dialog they live in is capped at 768px minus its padding, so
- * below this the second month overflowed and the page grew a horizontal
- * scrollbar to show a calendar.
- */
-function useTwoMonths(): boolean {
-  const subscribe = useCallback((notify: () => void) => {
-    const query = window.matchMedia(TWO_MONTH_QUERY)
-    query.addEventListener('change', notify)
-    return () => query.removeEventListener('change', notify)
-  }, [])
+/** How far ahead the stacked calendar lets a guest scroll in one go. */
+const STACKED_MONTHS = 12
 
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(TWO_MONTH_QUERY).matches,
-    // On the server, assume the roomy case: a desktop reader gets the right
-    // layout immediately and a phone corrects on hydration, rather than every
-    // desktop flashing a single month first.
-    () => true,
+/**
+ * The weekday row, drawn once above a stacked calendar.
+ *
+ * The stacked layout hides react-day-picker's own copy — twelve identical rows
+ * between twelve months is noise — so this stands in, pinned to the top of the
+ * sheet where it stays useful while the guest scrolls into next spring.
+ *
+ * Built from the locale rather than hard-coded: Spanish weeks start on Monday
+ * and English ones on Sunday, and a header that disagrees with the grid beneath
+ * it is worse than no header.
+ */
+export function StayCalendarWeekdays({ language }: { language: Language }) {
+  const locale = DATE_LOCALES[language]
+  const firstDay = locale.options?.weekStartsOn ?? 0
+  // Any week will do; this one starts on a Sunday.
+  const reference = new Date(2026, 0, 4)
+
+  return (
+    <div className="flex" aria-hidden>
+      {Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(reference)
+        date.setDate(reference.getDate() + ((firstDay + index) % 7))
+        return (
+          <div
+            key={index}
+            className="flex-1 text-center text-[11px] font-medium uppercase tracking-wide text-slate-500"
+          >
+            {format(date, 'EEEEE', { locale })}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -59,6 +69,13 @@ interface Props {
   hoverDate?: Date
   onHoverDate?: (date?: Date) => void
   className?: string
+  /**
+   * `stacked` is the phone layout: months one under another, scrolled rather
+   * than paged, each grid filling the screen's width. A month at a time inside
+   * a popover means a guest comparing two weekends has to remember the first
+   * one — scrolling lets them look.
+   */
+  layout?: 'paged' | 'stacked'
 }
 
 /**
@@ -80,9 +97,13 @@ export function StayCalendar({
   hoverDate,
   onHoverDate,
   className,
+  layout = 'paged',
 }: Props) {
   const locale = DATE_LOCALES[language]
-  const twoMonths = useTwoMonths()
+  const stacked = layout === 'stacked'
+  // Assume the roomy case on the server: a desktop reader gets the right
+  // layout at once and a phone corrects itself on hydration.
+  const twoMonths = useMediaQuery(TWO_MONTH_QUERY, true)
   // Read once per mount, not once per render. `startMonth`, `defaultMonth` and
   // the `before` matcher are all derived from it, so a fresh Date on every
   // render handed react-day-picker new bounds each time for no reason.
@@ -205,7 +226,7 @@ export function StayCalendar({
       <Calendar
         mode="range"
         selected={value.from ? { from: value.from, to: value.to } : undefined}
-        numberOfMonths={twoMonths ? 2 : 1}
+        numberOfMonths={stacked ? STACKED_MONTHS : twoMonths ? 2 : 1}
         // A month that is entirely behind us is a month nobody can book. The
         // dialog used to open on the current month and show the stay in the
         // second pane; when the stay was in August that meant a full grid of
@@ -287,12 +308,39 @@ export function StayCalendar({
           range_middle: 'rounded-none bg-[#174d7a]/10',
           range_start: 'rounded-l-full bg-[#174d7a]/10',
           range_end: 'rounded-r-full bg-[#174d7a]/10',
+          // --- Solo en el modo apilado -------------------------------------
+          // El calendario compartido es `w-fit`, que es lo correcto dentro de
+          // un popover y lo que impide llenar una pantalla.
+          ...(stacked
+            ? {
+                root: 'w-full',
+                // Un mes debajo de otro, con aire suficiente para que el
+                // nombre del siguiente no parezca el pie del anterior.
+                months: 'flex flex-col gap-9',
+                month: 'flex w-full flex-col gap-3',
+                // Alineado a la izquierda como un encabezado, no centrado como
+                // un control: aquí no hay nada que pulsar, se desplaza.
+                month_caption: 'px-1 justify-start h-auto',
+                caption_label: 'text-[17px] font-semibold text-slate-900',
+                // Las flechas sobran cuando el gesto es deslizar, y ocupan el
+                // sitio del nombre del mes.
+                nav: 'hidden',
+                // La fila de días de la semana se dibuja una sola vez, fija en
+                // la cabecera de la hoja. Repetirla doce veces es ruido.
+                weekdays: 'hidden',
+              }
+            : {}),
         }}
         onDayMouseEnter={isPicking ? handleDayEnter : undefined}
         onDayMouseLeave={isPicking ? handleDayLeave : undefined}
         // Fluid rather than fixed: at a flat 3rem, two months needed more
         // width than the dialog had.
-        className="w-full [--cell-size:clamp(2.25rem,7vw,3rem)]"
+        className={cn(
+          'w-full',
+          // Siete columnas exactas del ancho disponible: es lo que hace que la
+          // rejilla llegue a los dos bordes en vez de quedarse en el centro.
+          stacked ? '[--cell-size:calc((100vw-2rem)/7)]' : '[--cell-size:clamp(2.25rem,7vw,3rem)]',
+        )}
         components={components}
       />
     </div>

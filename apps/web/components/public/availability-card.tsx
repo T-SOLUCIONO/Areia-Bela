@@ -8,6 +8,14 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@areia-bela/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@areia-bela/ui/sheet'
+import {
   currency,
   fetchNightRates,
   fetchQuote,
@@ -20,12 +28,17 @@ import {
 import { PriceBreakdownCard } from '@/components/public/price-breakdown-card'
 import { GuestPicker } from '@/components/public/guest-picker'
 import { ServiceAnimalDialog } from '@/components/public/service-animal-dialog'
-import { StayCalendar, type StayRange } from '@/components/public/stay-calendar'
+import {
+  StayCalendar,
+  StayCalendarWeekdays,
+  type StayRange,
+} from '@/components/public/stay-calendar'
 import { useLanguage } from '@/components/language-provider'
 import { fill, fullRefundDeadline, type CancellationPolicy } from '@areia-bela/shared'
 import { translations } from '@/lib/i18n'
 import { propertyData } from '@/lib/property-data'
 import { cn } from '@/lib/utils'
+import { PHONE_QUERY, useMediaQuery } from '@/lib/use-media-query'
 
 type Props = {
   className?: string
@@ -90,6 +103,9 @@ export function AvailabilityCard({ className }: Props) {
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 })
   const { adults, children, infants, pets } = guests
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  // Assume desktop on the server: a wide reader gets the popover at once and a
+  // phone switches to the full-screen sheet on hydration.
+  const isPhone = useMediaQuery(PHONE_QUERY, false)
   const [blockedRanges, setBlockedRanges] = useState<Array<{ from: Date; to: Date }>>([])
   const [rates, setRates] = useState<Map<string, number>>(new Map())
   // Nights already taken, by a booking or by the host. The endpoint has always
@@ -205,6 +221,38 @@ export function AvailabilityCard({ className }: Props) {
     : ''
   const nights = checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0
 
+  /**
+   * The one control that opens the calendar, whichever container holds it.
+   *
+   * It briefly opened by setting state from a plain `onClick`, outside Radix's
+   * trigger. That takes two taps: the layer that has just mounted treats the
+   * very click that opened it as an interaction outside itself and closes it
+   * again. Wrapping it in each container's own `Trigger` is what makes one tap
+   * enough — and it also gets the `aria-expanded` and focus return for free.
+   */
+  const dateTrigger = (
+    <button
+      type="button"
+      className="mt-5 grid w-full grid-cols-2 divide-x divide-slate-200 overflow-hidden rounded-t-[14px] border border-b-0 border-slate-300 text-left"
+    >
+      {(
+        [
+          [copy.arrival, checkIn],
+          [copy.departure, checkOut],
+        ] as const
+      ).map(([label, value], index) => (
+        <span key={index} className="block px-4 py-2.5 transition hover:bg-slate-50">
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-800">
+            {label}
+          </span>
+          <span className="mt-0.5 block text-sm text-slate-700">
+            {value ? format(value, 'd/M/yyyy') : copy.addDate}
+          </span>
+        </span>
+      ))}
+    </button>
+  )
+
   return (
     <aside
       className={cn(
@@ -235,107 +283,158 @@ export function AvailabilityCard({ className }: Props) {
         </span>
       </div>
 
-      <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-        <PopoverTrigger asChild>
-          {/* One bordered box divided in two, sharing its middle rule with the
-              guest row below — the shape the reference uses. */}
-          <button
-            type="button"
-            className="mt-5 grid w-full grid-cols-2 divide-x divide-slate-200 overflow-hidden rounded-t-[14px] border border-b-0 border-slate-300 text-left"
+      {/* One trigger, two presentations.
+
+          On a phone the calendar takes the screen: months stacked and scrolled
+          instead of paged, each grid spanning both edges. A single month inside
+          a popover, at cells barely wider than a fingertip, asked a guest
+          comparing two weekends to remember the first one. Scrolling lets them
+          look.
+
+          Desktop keeps the popover, where two months already fit beside the
+          card that produced them. */}
+      {isPhone ? (
+        <Sheet open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+          <SheetTrigger asChild>{dateTrigger}</SheetTrigger>
+          <SheetContent
+            side="bottom"
+            className="flex h-[100dvh] w-full flex-col gap-0 rounded-none border-0 p-0 sm:max-w-none"
           >
-            {(
-              [
-                [copy.arrival, checkIn],
-                [copy.departure, checkOut],
-              ] as const
-            ).map(([label, value], index) => (
-              <span key={index} className="block px-4 py-2.5 transition hover:bg-slate-50">
-                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-800">
-                  {label}
-                </span>
-                <span className="mt-0.5 block text-sm text-slate-700">
-                  {value ? format(value, 'd/M/yyyy') : copy.addDate}
-                </span>
-              </span>
-            ))}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[min(100vw-1rem,760px)] rounded-[22px] border-slate-200 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
-          align="end"
-          sideOffset={10}
-        >
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[22px] font-semibold leading-tight text-slate-900">
+            <SheetHeader className="gap-1 border-b border-slate-200 px-4 pb-3 pt-4 text-left">
+              <SheetTitle className="text-[19px] font-semibold text-slate-900">
                 {nights === 0
                   ? copy.pickDates
                   : nights === 1
                     ? copy.nightSelected
                     : fill(copy.nightsSelected, { count: String(nights) })}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
+              </SheetTitle>
+              <SheetDescription className="text-sm text-slate-500">
                 {checkIn && checkOut
                   ? `${format(checkIn, 'd MMM yyyy', { locale })} - ${format(checkOut, 'd MMM yyyy', { locale })}`
                   : checkIn
                     ? format(checkIn, 'd MMM yyyy', { locale })
-                    : ''}
-              </p>
+                    : copy.addDate}
+              </SheetDescription>
+              {/* Pinned here rather than repeated above each of twelve months,
+                  and still on screen when the guest reaches next spring. */}
+              <div className="pt-2">
+                <StayCalendarWeekdays language={language} />
+              </div>
+            </SheetHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+              <StayCalendar
+                layout="stacked"
+                value={{ from: checkIn, to: checkOut }}
+                onChange={(range: StayRange) => {
+                  setCheckIn(range.from)
+                  setCheckOut(range.to)
+                }}
+                unavailable={unavailable}
+                blockedRanges={blockedRanges}
+                rates={rates}
+                minNights={minNights}
+                language={language}
+                hoverDate={hoverDate}
+                onHoverDate={setHoverDate}
+              />
             </div>
 
-            <div className="grid grid-cols-2 divide-x divide-slate-300 overflow-hidden rounded-[10px] border border-slate-800">
-              {/* Written out rather than mapped over a tuple array. Two boxes
+            <div className="flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={clearStay}
+                className="text-sm font-medium text-slate-700 underline underline-offset-4 disabled:text-slate-300 disabled:no-underline"
+                disabled={!checkIn && !checkOut}
+              >
+                {copy.clearDates}
+              </button>
+              <Button
+                type="button"
+                onClick={() => setIsCalendarOpen(false)}
+                className="min-h-11 rounded-xl px-7"
+              >
+                {copy.close}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+          <PopoverTrigger asChild>{dateTrigger}</PopoverTrigger>
+          <PopoverContent
+            className="w-[min(100vw-1rem,760px)] rounded-[22px] border-slate-200 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
+            align="end"
+            sideOffset={10}
+          >
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-[22px] font-semibold leading-tight text-slate-900">
+                  {nights === 0
+                    ? copy.pickDates
+                    : nights === 1
+                      ? copy.nightSelected
+                      : fill(copy.nightsSelected, { count: String(nights) })}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {checkIn && checkOut
+                    ? `${format(checkIn, 'd MMM yyyy', { locale })} - ${format(checkOut, 'd MMM yyyy', { locale })}`
+                    : checkIn
+                      ? format(checkIn, 'd MMM yyyy', { locale })
+                      : ''}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 divide-x divide-slate-300 overflow-hidden rounded-[10px] border border-slate-800">
+                {/* Written out rather than mapped over a tuple array. Two boxes
                   are two boxes; threading label, value and handler through
                   `[a, b, c] as const` obscured which callback belonged to which
                   date, and it read as render-time use of a handler that only
                   ever fires on a click. */}
-              <DateBox
-                label={copy.arrival}
-                value={checkIn}
-                onClear={clearStay}
-                clearLabel={copy.clearDates}
-              />
-              <DateBox
-                label={copy.departure}
-                value={checkOut}
-                onClear={clearDeparture}
-                clearLabel={copy.clearDates}
-              />
+                <DateBox
+                  label={copy.arrival}
+                  value={checkIn}
+                  onClear={clearStay}
+                  clearLabel={copy.clearDates}
+                />
+                <DateBox
+                  label={copy.departure}
+                  value={checkOut}
+                  onClear={clearDeparture}
+                  clearLabel={copy.clearDates}
+                />
+              </div>
             </div>
-          </div>
-
-          <StayCalendar
-            value={{ from: checkIn, to: checkOut }}
-            onChange={(range: StayRange) => {
-              setCheckIn(range.from)
-              setCheckOut(range.to)
-            }}
-            unavailable={unavailable}
-            blockedRanges={blockedRanges}
-            rates={rates}
-            minNights={minNights}
-            language={language}
-            hoverDate={hoverDate}
-            onHoverDate={setHoverDate}
-          />
-
-          <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setCheckIn(undefined)
-                setCheckOut(undefined)
+            <StayCalendar
+              value={{ from: checkIn, to: checkOut }}
+              onChange={(range: StayRange) => {
+                setCheckIn(range.from)
+                setCheckOut(range.to)
               }}
-              className="text-sm font-medium text-slate-700 underline underline-offset-4 hover:text-slate-900"
-            >
-              {copy.clearDates}
-            </button>
-            <Button type="button" onClick={() => setIsCalendarOpen(false)} className="rounded-lg">
-              {copy.close}
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
+              unavailable={unavailable}
+              blockedRanges={blockedRanges}
+              rates={rates}
+              minNights={minNights}
+              language={language}
+              hoverDate={hoverDate}
+              onHoverDate={setHoverDate}
+            />
+
+            <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={clearStay}
+                className="text-sm font-medium text-slate-700 underline underline-offset-4 hover:text-slate-900"
+              >
+                {copy.clearDates}
+              </button>
+              <Button type="button" onClick={() => setIsCalendarOpen(false)} className="rounded-lg">
+                {copy.close}
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
 
       <Popover open={guestsOpen} onOpenChange={setGuestsOpen}>
         <PopoverTrigger asChild>

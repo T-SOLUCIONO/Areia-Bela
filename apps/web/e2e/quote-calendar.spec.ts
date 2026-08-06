@@ -41,8 +41,12 @@ async function pickDay(page: Page, offsetDays: number) {
   await page.waitForTimeout(400)
 }
 
+// Declarado con `test.use` y no con `setViewportSize` en un `beforeEach`: el
+// segundo se aplica también a los tests de móvil de abajo y les impone 1440px,
+// que es exactamente lo que no queremos medir ahí.
+test.use({ viewport: { width: 1440, height: 900 } })
+
 test.beforeEach(async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/es', { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
 })
@@ -93,4 +97,69 @@ test('clicking a new day replaces a finished stay', async ({ page }) => {
   const [arrival, departure] = await chosenDates(page)
   expect(departure, 'the old range should be gone').toBe(EMPTY)
   expect(arrival, 'and the arrival should move to the day just clicked').not.toBe(firstArrival)
+})
+
+/**
+ * The phone layout.
+ *
+ * A single month inside a popover, at cells barely wider than a fingertip,
+ * asked a guest comparing two weekends to remember the first one. On a phone
+ * the calendar takes the screen instead: months stacked and scrolled, each grid
+ * spanning both edges.
+ */
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('fills the screen and stacks the months', async ({ page }) => {
+    await page.locator('text=/LLEGADA/i').first().click()
+    await page.waitForTimeout(1000)
+
+    const layout = await page.evaluate(() => {
+      const grid = document.querySelector('table')?.getBoundingClientRect()
+      const cell = document.querySelector('button[data-day]')?.getBoundingClientRect()
+      return {
+        months: document.querySelectorAll('table').length,
+        gridWidth: grid ? Math.round(grid.width) : 0,
+        cellWidth: cell ? Math.round(cell.width) : 0,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      }
+    })
+
+    // Several months, not one: the point of scrolling instead of paging.
+    expect(layout.months).toBeGreaterThan(6)
+    // Edge to edge bar the sheet's own padding. A `w-fit` calendar — the shared
+    // component's default, and right inside a popover — sat in the middle of
+    // the screen with the week squeezed into two thirds of it.
+    expect(layout.gridWidth).toBeGreaterThan(340)
+    // Seven equal columns of whatever is left.
+    expect(Math.abs(layout.cellWidth - layout.gridWidth / 7)).toBeLessThan(2)
+    expect(layout.overflow, 'la hoja no debe empujar la página a lo ancho').toBe(0)
+  })
+
+  test('picks a stay months ahead without paging', async ({ page }) => {
+    await page.locator('text=/LLEGADA/i').first().click()
+    await page.waitForTimeout(1000)
+
+    await page.mouse.move(195, 500)
+    for (let i = 0; i < 6; i += 1) {
+      await page.mouse.wheel(0, 700)
+      await page.waitForTimeout(120)
+    }
+    await page.waitForTimeout(500)
+
+    const days = page.locator('button[data-day]:not([disabled])')
+    const start = Math.floor((await days.count()) * 0.55)
+    for (const index of [start, start + 2]) {
+      const day = days.nth(index)
+      await day.scrollIntoViewIfNeeded()
+      await day.hover()
+      await page.waitForTimeout(150)
+      await day.click()
+      await page.waitForTimeout(350)
+    }
+
+    const [arrival, departure] = await chosenDates(page)
+    expect(arrival).not.toBe(EMPTY)
+    expect(departure).not.toBe(EMPTY)
+  })
 })

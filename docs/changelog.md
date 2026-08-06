@@ -5723,3 +5723,56 @@ pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (326)   format:check ✅
 e2e ✅ (8/8: portada, calendario, hidratacion)
 ```
+
+## 90. El calendario, a pantalla completa en el móvil
+
+Pedido con capturas de Airbnb como referencia de **disposición**, no de estilo:
+la paleta y la tipografía siguen siendo las de la casa.
+
+En el teléfono el calendario se lleva la pantalla: los meses se apilan y se
+recorren con el dedo en lugar de pasar página, y cada rejilla llega a los dos
+bordes. Un mes dentro de un popover, con celdas apenas más anchas que una yema,
+obligaba a quien comparaba dos fines de semana a **recordar** el primero. Al
+desplazarse puede mirarlo.
+
+Doce meses de una vez, sin «cargar más fechas»: son doce rejillas, no doce
+peticiones.
+
+### Lo que había que tocar
+
+- El calendario compartido es `w-fit`. Correcto dentro de un popover, y
+  justamente lo que impide llenar una pantalla; en modo apilado pasa a
+  `w-full` con `--cell-size` a un séptimo exacto del ancho disponible.
+- Las flechas de mes sobran cuando el gesto es deslizar, y ocupaban el sitio
+  del nombre del mes.
+- La fila de días de la semana se dibuja **una sola vez**, fija en la cabecera
+  de la hoja, y se construye desde el locale: la semana española empieza en
+  lunes y la inglesa en domingo, y una cabecera que no coincide con la rejilla
+  es peor que ninguna.
+- El detector de viewport, que estaba escrito a mano dentro del calendario, es
+  ahora `lib/use-media-query.ts` y lo usan los dos componentes.
+
+### Y un fallo que introduje por el camino
+
+Al separar móvil de escritorio saqué el botón fuera del `Trigger` de Radix y lo
+dejé abriendo por estado desde un `onClick`. Eso **cuesta dos toques**: la capa
+recién montada interpreta el mismo clic que la abrió como una interacción fuera
+de sí misma y se cierra otra vez.
+
+El botón vuelve a ser el `Trigger` de cada contenedor —`SheetTrigger` en el
+teléfono, `PopoverTrigger` en el escritorio—, que además trae el `aria-expanded`
+y la devolución del foco sin escribirlos.
+
+Lo reportó el usuario y lo confirmaron las dos pruebas nuevas al fallar.
+
+### Y otro en la propia prueba
+
+Los tests de móvil medían 1440px: el `beforeEach` del archivo llamaba a
+`setViewportSize` y pisaba el viewport de todos, incluidos los de dentro del
+`describe`. Con `test.use` cada bloque declara el suyo.
+
+```
+390px: 12 meses · rejilla 358px de 390 · celda 51px · desbordamiento 0
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (326)
+e2e calendario ✅ (6/6, dos de ellas en teléfono)
+```
