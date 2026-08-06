@@ -487,3 +487,20 @@ Automatizar migraciones sin copias es convertir un fallo pequeño en pérdida de
 datos. La instancia tiene copias diarias y recuperación a un punto en el tiempo
 (7 días); activar PITR reinicia la instancia, así que no es un cambio para
 hacer con tráfico encima.
+
+### El sitio queda en blanco si faltan dos semillas
+
+`seed` crea el administrador y `seed:taxes` las jurisdicciones. Faltan dos, y
+sin ellas la home sale sin contenido:
+
+```bash
+pnpm --filter @areia-bela/api seed:cms       # secciones, textos, FAQs
+pnpm --filter @areia-bela/api seed:landing   # la portada
+```
+
+Se ejecutan como las migraciones: con el Cloud SQL Auth Proxy y el mismo
+`DATABASE_URL` del servicio. Son idempotentes.
+
+El código ya no depende de ello para no romperse —una respuesta vacía del CMS
+hace que la web use los textos que trae compilados—, pero hasta sembrarlas la
+anfitriona no tiene nada que editar desde el panel.

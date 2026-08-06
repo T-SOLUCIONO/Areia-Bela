@@ -82,7 +82,7 @@ export function Footer() {
             </h3>
             <div className="flex flex-col gap-3 text-sm text-muted-foreground">
               <Link
-                href="#photos"
+                href="#gallery"
                 className="inline-flex items-center justify-between rounded-full border border-border/70 px-4 py-2 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {copy.photos} <ArrowUpRight className="h-4 w-4" />

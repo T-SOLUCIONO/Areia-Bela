@@ -5672,3 +5672,54 @@ pnpm build ✅   pnpm lint ✅ (0 errores)
 pnpm typecheck ✅   pnpm test ✅ (326)   format:check ✅
 e2e calendario ✅ (4/4)   e2e hidratacion ✅ (2/2)
 ```
+
+## 89. La home sin sus secciones
+
+Reportado como «no veo los demás módulos». Lo primero fue comprobar si lo había
+roto yo: el QA desplegado, con el código anterior a los últimos cambios, servía
+**49 KB y dos `<section>`**. No era una regresión, llevaba así desde el
+despliegue.
+
+### El CMS de QA está vacío
+
+```
+pages: 0   sections: 0   reviews: 0   faqs: 0   images: 0   settings: null
+```
+
+`seed:cms` y `seed:landing` nunca se corrieron: el despliegue ejecutó `seed` y
+`seed:taxes` y ahí quedó. Documentado ahora en `docs/deployment.md`.
+
+### Pero el código convertía «falta contenido» en «página en blanco»
+
+`getSiteContent` marcaba `available: true` en cuanto el API respondía, y la
+página trata esa bandera como _«manda el CMS»_: cada sección se pinta solo si
+el CMS trae una. Con la base vacía el resultado era una portada con héroe,
+tarjeta de reserva y nada más. Sin error, sin aviso, sin recurso.
+
+Un CMS sin sembrar no es una anfitriona que borró todas las secciones; es un
+CMS que no tiene nada que decir. `available` pasa a significar **que hay
+contenido**, no que la petición no falló, y sin él la web usa los textos que
+trae compilados — que es justo lo que el `catch` de al lado ya hacía.
+
+### Y dos entradas del menú no llevaban a ninguna parte
+
+La prueba nueva las encontró sola: `#amenities` estaba en la navegación desde
+el principio y **ningún elemento lo definía**, así que «Servicios» hacía saltar
+al principio de la página como un enlace muerto. El pie apuntaba a `#photos`,
+que tampoco existe — la galería es `#gallery`.
+
+Las tres anclas que sí existían aterrizaban **debajo** de la cabecera fija de
+80px, con el título tapado. Ahora llevan `scroll-mt-24`.
+
+Resultado, sobre la misma página: de 49 KB y 2 secciones a **137 KB y 7**, con
+las cinco anclas resolviendo.
+
+Dos pruebas en `e2e/home-sections.spec.ts`: que la portada traiga sus secciones
+—con CMS sembrado o sin él— y que ningún enlace de ancla apunte al vacío. La
+segunda es la que destapó `#amenities` y `#photos`.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (326)   format:check ✅
+e2e ✅ (8/8: portada, calendario, hidratacion)
+```

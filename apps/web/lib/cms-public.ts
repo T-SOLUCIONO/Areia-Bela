@@ -85,7 +85,20 @@ export async function getSiteContent(locale: string = DEFAULT_LOCALE): Promise<S
       faqs: data.faqs,
       images: data.images,
       settings: data.settings,
-      available: true,
+      /**
+       * Whether there is content, not whether the request succeeded.
+       *
+       * This was `true` for any answer the API managed to give, and the page
+       * treats `available` as "the CMS is in charge now": every section renders
+       * only if the CMS has one. So an empty database — a fresh environment
+       * where `seed:cms` had not been run — produced a homepage with a hero, a
+       * booking card and nothing else. No error, no fallback, no clue.
+       *
+       * An unseeded CMS is not an editor who deleted every section; it is a
+       * CMS with nothing to say. In that case the bundled copy is the better
+       * answer, which is exactly what the `catch` below already believes.
+       */
+      available: data.sections.length > 0 || data.pages.length > 0,
     }
   } catch {
     return EMPTY

@@ -154,7 +154,10 @@ export default function HomePage() {
       <HomeHero images={galleryImages} />
 
       {shows(features) && (
-        <section id="gallery" className="relative overflow-hidden py-10 sm:py-12 lg:py-14">
+        <section
+          id="gallery"
+          className="scroll-mt-24 relative overflow-hidden py-10 sm:py-12 lg:py-14"
+        >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_32%),linear-gradient(180deg,rgba(247,242,234,0.96)_0%,rgba(247,242,234,0.9)_100%)]" />
 
           <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
@@ -215,32 +218,38 @@ export default function HomePage() {
           structure, both headed "Everything…", read as the page repeating
           itself — and they answer one question between them: what is here and
           what should I know. */}
-      <HouseDetails
-        amenities={
-          shows(amenities)
-            ? {
-                label: text(amenities, 'eyebrow', ui.amenities),
-                tags:
-                  amenityTags.length > 0
-                    ? amenityTags.map((tag) => ({
-                        key: tag.id,
-                        icon: tag.icon,
-                        label: tag.label,
-                      }))
-                    : propertyInfo.amenities
-                        .slice(0, 18)
-                        .map((amenity) => ({ key: amenity, icon: '', label: amenity })),
-              }
-            : undefined
-        }
-      />
+      {/* The anchor the header's "Services" item and the footer both point at.
+          It lived nowhere: `#amenities` was in the navigation from the start and
+          no element ever claimed it, so the menu item scrolled to the top of the
+          page and looked like a dead link. */}
+      <div id="amenities" className="scroll-mt-24">
+        <HouseDetails
+          amenities={
+            shows(amenities)
+              ? {
+                  label: text(amenities, 'eyebrow', ui.amenities),
+                  tags:
+                    amenityTags.length > 0
+                      ? amenityTags.map((tag) => ({
+                          key: tag.id,
+                          icon: tag.icon,
+                          label: tag.label,
+                        }))
+                      : propertyInfo.amenities
+                          .slice(0, 18)
+                          .map((amenity) => ({ key: amenity, icon: '', label: amenity })),
+                }
+              : undefined
+          }
+        />
+      </div>
 
       {/* The whole block disappears when the host unpublishes it — an empty
           testimonials frame is worse than no testimonials. */}
       {shows(reviewsSection) && (
         <section
           id="reviews"
-          className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
+          className="scroll-mt-24 mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
         >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -391,7 +400,7 @@ export default function HomePage() {
       {shows(location) && (
         <section
           id="location"
-          className="mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16"
+          className="scroll-mt-24 mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16"
         >
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
             <div>
