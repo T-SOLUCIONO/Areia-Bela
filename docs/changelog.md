@@ -5917,3 +5917,46 @@ pnpm typecheck ✅   pnpm test ✅ (349, 8 nuevos)
 Para usar Meta: `META_WHATSAPP_TOKEN` y `META_WHATSAPP_PHONE_NUMBER_ID` en el
 servicio, y elegirlo en el panel. Ese id **no es el número de teléfono**, es el
 que Meta le asigna.
+
+## 93. Guardar los ajustes del sitio nunca había funcionado
+
+Reportado al intentar guardar el chat id de Telegram:
+
+```
+PATCH /cms/settings  ->  400
+  property id should not exist
+  property notifyTelegram should not exist
+  property whatsappProvider should not exist
+  property notifyOnChange should not exist
+  property updatedAt should not exist
+```
+
+Tres de esos cinco son culpa mía y de la sección 91: añadí las columnas al
+esquema, al panel y al servicio, y **no al DTO**. Con `forbidNonWhitelisted` un
+campo que falta ahí no se ignora, se rechaza nombrándolo.
+
+**Pero los otros dos llevaban ahí desde siempre.** `id` y `updatedAt` vienen en
+cada lectura, y el panel devuelve tal cual lo que recibe — así que ese formulario
+respondía `400` en cada intento desde que existe. Nadie lo vio porque nadie había
+llegado a pulsar guardar con algo que quisiera conservar.
+
+### Los dos lados
+
+En el DTO, los tres campos que faltaban. `whatsappProvider` con `@IsEnum` y no
+como cadena suelta: el valor va directo a una columna enum de Prisma, así que
+cualquier otra cosa sería un 500 de la base en vez de un 400 que nombra el campo.
+
+Y en el cliente, la causa de fondo: **`saveSettings` elige qué manda** en lugar
+de reenviar el objeto entero. TypeScript no puede ayudar aquí —un objeto más
+ancho satisface un tipo más estrecho, y la comprobación de propiedades sobrantes
+solo aplica a literales—, así que tiene que hacerlo el borde. El modo de fallo
+pasa a ser «un campo no se guarda» en lugar de «el formulario deja de funcionar
+entero».
+
+Cinco tests que validan el DTO contra **la carga real que envía el panel**,
+incluido el que comprueba que `id` y `updatedAt` siguen rechazándose: que el
+cliente ya no los mande no significa que el API deba aceptarlos.
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (354, 5 nuevos)
+```

@@ -186,8 +186,44 @@ export const cms = {
     }>('/notifications/status'),
 
   settings: () => apiFetch<SiteSettings | null>('/cms/settings'),
+  /**
+   * Sends only what the host can edit.
+   *
+   * The panel loads the whole row and sends it straight back, and the row
+   * carries `id` and `updatedAt` — which the API rejects, because
+   * `forbidNonWhitelisted` is on and neither belongs in a DTO the browser
+   * fills. Saving the site settings had therefore **never worked**: every
+   * attempt came back 400 naming fields nobody had typed.
+   *
+   * Picking here rather than trusting the caller is deliberate. TypeScript
+   * cannot help — a wider object satisfies a narrower type, and excess property
+   * checks only apply to literals — so the boundary has to do it. And the
+   * failure mode of forgetting a field is that one field does not save, not
+   * that the whole form stops working.
+   */
   saveSettings: (body: SiteSettings) =>
-    apiFetch<SiteSettings>('/cms/settings', { method: 'PATCH', body: JSON.stringify(body) }),
+    apiFetch<SiteSettings>('/cms/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        contactEmail: body.contactEmail,
+        contactPhone: body.contactPhone,
+        whatsapp: body.whatsapp,
+        seoTitle: body.seoTitle,
+        seoDescription: body.seoDescription,
+        instagramUrl: body.instagramUrl,
+        facebookUrl: body.facebookUrl,
+        airbnbUrl: body.airbnbUrl,
+        logoUrl: body.logoUrl,
+        notifyEmail: body.notifyEmail,
+        notifyWhatsapp: body.notifyWhatsapp,
+        notifyTelegram: body.notifyTelegram,
+        whatsappProvider: body.whatsappProvider,
+        notifyOnBooking: body.notifyOnBooking,
+        notifyOnCancel: body.notifyOnCancel,
+        notifyOnChange: body.notifyOnChange,
+        notifyOnMessage: body.notifyOnMessage,
+      }),
+    }),
 
   property: () => apiFetch<PropertySettings>(`/properties/${PROPERTY_SLUG}`),
   saveProperty: (body: PropertyUpdate) =>

@@ -10,7 +10,13 @@ import {
   Min,
   MinLength,
 } from 'class-validator'
-import { CMSPageSlug, ContentItemKind, ContentSectionKey, FAQCategory } from '@prisma/client'
+import {
+  CMSPageSlug,
+  ContentItemKind,
+  ContentSectionKey,
+  FAQCategory,
+  WhatsAppProvider,
+} from '@prisma/client'
 
 /**
  * Bilingual fields are required in both languages on purpose: a half-translated
@@ -71,7 +77,18 @@ export class UpdateSiteSettingsDto {
   @IsOptional() @IsString() notifyWhatsapp?: string
   @IsOptional() @IsBoolean() notifyOnBooking?: boolean
   @IsOptional() @IsBoolean() notifyOnCancel?: boolean
+  @IsOptional() @IsString() notifyTelegram?: string
+  @IsOptional() @IsBoolean() notifyOnChange?: boolean
   @IsOptional() @IsBoolean() notifyOnMessage?: boolean
+
+  /**
+   * Which company carries the WhatsApp message.
+   *
+   * `@IsEnum` and not a plain string: the value goes straight into a Prisma
+   * enum column, so anything else is a 500 from the database instead of a 400
+   * naming the field.
+   */
+  @IsOptional() @IsEnum(WhatsAppProvider) whatsappProvider?: WhatsAppProvider
 }
 
 // --- Landing page content ----------------------------------------------------
