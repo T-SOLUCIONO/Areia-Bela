@@ -26,7 +26,12 @@ import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language
 import { fill } from '@/lib/admin-i18n'
 import { cn } from '@/lib/utils'
 
-export function GalleryManager() {
+interface Props {
+  /** Lets the rail refresh its count after an add or a delete. */
+  onChanged?: () => void | Promise<void>
+}
+
+export function GalleryManager({ onChanged }: Props) {
   const t = useAdminCopy()
   const copyRef = useAdminCopyRef()
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -67,6 +72,7 @@ export function GalleryManager() {
     setUploading(null)
     if (added > 0) {
       await load()
+      await onChanged?.()
       toast.success(fill(t.content.galleryUploaded, { count: String(added) }))
     }
   }
@@ -76,6 +82,7 @@ export function GalleryManager() {
     try {
       await run()
       await load()
+      await onChanged?.()
       if (success) toast.success(success)
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.content.saveFailed)

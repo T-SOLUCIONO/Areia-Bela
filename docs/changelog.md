@@ -5960,3 +5960,74 @@ cliente ya no los mande no significa que el API deba aceptarlos.
 ```
 pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (354, 5 nuevos)
 ```
+
+## 94. El CMS, ordenado como el sitio y no como la base
+
+Reportado como «está muy desordenado, un usuario nuevo se pierde». Con las
+capturas del panel delante, el problema tenía nombre.
+
+### Un menú dentro de un menú
+
+Eran cinco pestañas —Portada, Textos, Reseñas, Preguntas, Fotos— y dentro de dos
+de ellas **otra** lista: ocho secciones y doce páginas. Veinte y pico cosas
+editables tras dos niveles de navegación, y las pestañas nombradas por su forma
+en la base de datos, que es el modelo del programador. El de una anfitriona es
+otro: «la página que recorre un visitante» y «las listas que la alimentan».
+
+Ahora hay un solo carril con esos tres grupos. La capa de pestañas desaparece, y
+`landing-editor` y `pages-editor` dejan de traer cada uno el suyo.
+
+### Los números dicen algo
+
+Las secciones de la portada van numeradas del 1 al 8 porque un visitante las
+encuentra **en ese orden** — el número responde «dónde en la página», que es la
+pregunta que se hace quien ve algo raro en el sitio. Nada más lleva número,
+porque nada más es una secuencia.
+
+### El estado, sin entrar
+
+Oculta, vacía y «cuántas hay» solo se descubrían abriendo cada cosa una por una.
+Ahora se ven en el carril.
+
+### Dos ambigüedades que solo se ven mirando la pantalla
+
+**«Reseñas» aparecía dos veces**: como sección 4 de la portada y como
+biblioteca. Son cosas distintas —el bloque en la página y las reseñas en sí— con
+la misma palabra, así que las bibliotecas pasan a llamarse «Reseñas de
+huéspedes», «Preguntas frecuentes» y «Fotos de la galería».
+
+Y los iconos junto a esas tres filas se quitaron: la etiqueta ya dice qué es y el
+número es el dato. Un icono que repite la etiqueta es ruido.
+
+### Y dos fallos que las capturas destaparon
+
+**Las preguntas se veían duplicadas.** `faqs-manager` pintaba `faq.question` dos
+veces, y su tipo `Draft` declaraba `'question' | 'question' | 'answer' |
+'answer'`. Residuo de cuando había campos separados por idioma que se
+unificaron: la comprobación de completitud también comparaba lo mismo consigo
+mismo.
+
+**Cuatro pantallas decían su nombre dos veces.** La cabecera pone «Reservas /
+Todas las reservas, pasadas y próximas» y el contenido repetía «Reservas» debajo.
+Se retira el `<h1>` duplicado en Reservas, Huéspedes, Pagos e Impuestos y se
+conserva su línea de apoyo, que en varios casos dice algo que la cabecera no
+—«Cancelar libera las noches al instante»— y borrarla sería quitar información.
+
+### En el teléfono, una hoja
+
+Veinte filas encima del formulario que alguien vino a rellenar no es navegación.
+El carril pasa a una hoja lateral, y su disparador dice dónde estás.
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (354)
+```
+
+**Verificado en el navegador, y con un límite que conviene declarar:** el carril
+se comprobó en una página temporal con datos de prueba —estructura, estado,
+plegado, cero desbordamiento— porque `/admin/content` exige sesión y el API local
+no alcanza la base. La conexión con datos reales no está probada por mí.
+
+### Pendiente de la misma tanda
+
+Cupones y Mantenimiento muestran cifras inventadas con un aviso, y Cupones está
+además sin traducir: su interfaz está en inglés dentro de un panel en español.

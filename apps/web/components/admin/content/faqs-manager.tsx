@@ -33,7 +33,7 @@ import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language
 
 const CATEGORIES: FAQCategory[] = ['GENERAL', 'PETS', 'POOL', 'TRASH', 'PARTIES']
 
-type Draft = Pick<FAQ, 'question' | 'question' | 'answer' | 'answer' | 'category' | 'published'>
+type Draft = Pick<FAQ, 'question' | 'answer' | 'category' | 'published'>
 
 const EMPTY_DRAFT: Draft = {
   question: '',
@@ -42,7 +42,12 @@ const EMPTY_DRAFT: Draft = {
   published: true,
 }
 
-export function FaqsManager() {
+interface Props {
+  /** Lets the rail refresh its count after an add or a delete. */
+  onChanged?: () => void | Promise<void>
+}
+
+export function FaqsManager({ onChanged }: Props) {
   const t = useAdminCopy()
   const copyRef = useAdminCopyRef()
   const [faqs, setFaqs] = useState<FAQ[]>([])
@@ -90,6 +95,7 @@ export function FaqsManager() {
       else await cms.createFaq(draft)
       setDraft(null)
       await load()
+      await onChanged?.()
       toast.success(t.content.saved)
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.content.saveFailed)
@@ -103,6 +109,7 @@ export function FaqsManager() {
     try {
       await run()
       await load()
+      await onChanged?.()
       toast.success(success)
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.content.saveFailed)
@@ -124,9 +131,7 @@ export function FaqsManager() {
     void act(next[target].id, () => cms.reorderFaqs(next.map((f) => f.id)), t.content.saved)
   }
 
-  const isComplete = Boolean(
-    draft?.question.trim() && draft.question.trim() && draft.answer.trim() && draft.answer.trim(),
-  )
+  const isComplete = Boolean(draft?.question.trim() && draft.answer.trim())
 
   if (isLoading) {
     return (
@@ -191,8 +196,7 @@ export function FaqsManager() {
                   <Badge variant="secondary">{t.content.categories[faq.category]}</Badge>
                   {!faq.published && <Badge variant="outline">{t.content.hidden}</Badge>}
                 </div>
-                <p className="font-medium">{faq.question}</p>
-                <p className="line-clamp-2 pt-1 text-sm text-muted-foreground">{faq.answer}</p>
+                <p className="line-clamp-2 text-sm text-muted-foreground">{faq.answer}</p>
               </div>
 
               <div className="flex gap-1">

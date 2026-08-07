@@ -339,8 +339,7 @@ export default function GuestsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-serif text-2xl text-foreground">{copy.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{copy.lead}</p>
+          <p className="text-sm text-muted-foreground">{copy.lead}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">

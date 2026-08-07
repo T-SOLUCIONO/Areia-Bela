@@ -44,11 +44,17 @@ function blankPage(slug: CMSPageSlug, title: string): CMSPage {
   }
 }
 
-export function PagesEditor() {
+interface Props {
+  /** Which page to edit. The rail above owns the choice now. */
+  selected: CMSPageSlug
+  /** Lets the rail refresh its badges after a save fills one in. */
+  onSaved?: () => void | Promise<void>
+}
+
+export function PagesEditor({ selected, onSaved }: Props) {
   const t = useAdminCopy()
   const copyRef = useAdminCopyRef()
   const [pages, setPages] = useState<Record<string, CMSPage>>({})
-  const [selected, setSelected] = useState<CMSPageSlug>('ABOUT_SPACE')
   const [draft, setDraft] = useState<CMSPage | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -101,87 +107,52 @@ export function PagesEditor() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,15rem)_1fr]">
-        <Skeleton className="h-96" />
-        <Skeleton className="h-96" />
-      </div>
-    )
-  }
+  if (isLoading) return <Skeleton className="h-96" />
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,16rem)_1fr]">
-      <nav className="space-y-1" aria-label={t.content.pages}>
-        {SLUGS.map((slug) => {
-          const page = pages[slug]
-          const isSelected = slug === selected
-          return (
-            <button
-              key={slug}
-              type="button"
-              onClick={() => setSelected(slug)}
-              className={cn(
-                'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
-                isSelected
-                  ? 'bg-primary/10 font-medium text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
-              aria-current={isSelected ? 'page' : undefined}
-            >
-              <span className="truncate">{t.content.slugs[slug]}</span>
-              {page?.body.trim() ? (
-                <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
-              ) : null}
-            </button>
-          )
-        })}
-      </nav>
-
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" aria-hidden />
-            <h2 className="font-serif text-lg">{t.content.slugs[selected]}</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <Label className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
-              <Switch
-                checked={current.published}
-                onCheckedChange={(published) => edit({ published })}
-              />
-              {current.published ? t.content.published : t.content.hidden}
-            </Label>
-            <Button onClick={() => void save()} disabled={!isDirty || !isComplete || isSaving}>
-              {isSaving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              {isSaving ? t.common.saving : t.common.save}
-            </Button>
-          </div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" aria-hidden />
+          <h2 className="font-serif text-lg">{t.content.slugs[selected]}</h2>
         </div>
-
-        <div className="space-y-4 rounded-xl border bg-card p-4">
-          <TranslatableField
-            id="page-title"
-            label={t.content.pageTitle}
-            value={current.title}
-            onChange={(title) => edit({ title })}
-          />
-          <TranslatableField
-            id="page-body"
-            label={t.content.pageBody}
-            multiline
-            rows={16}
-            value={current.body}
-            onChange={(body) => edit({ body })}
-          />
+        <div className="flex items-center gap-3">
+          <Label className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
+            <Switch
+              checked={current.published}
+              onCheckedChange={(published) => edit({ published })}
+            />
+            {current.published ? t.content.published : t.content.hidden}
+          </Label>
+          <Button onClick={() => void save()} disabled={!isDirty || !isComplete || isSaving}>
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+            {isSaving ? t.common.saving : t.common.save}
+          </Button>
         </div>
-
-        {isDirty && (
-          <p className="text-sm text-muted-foreground">
-            {isComplete ? t.content.unsaved : t.content.pageIncomplete}
-          </p>
-        )}
       </div>
+
+      <div className="space-y-4 rounded-xl border bg-card p-4">
+        <TranslatableField
+          id="page-title"
+          label={t.content.pageTitle}
+          value={current.title}
+          onChange={(title) => edit({ title })}
+        />
+        <TranslatableField
+          id="page-body"
+          label={t.content.pageBody}
+          multiline
+          rows={16}
+          value={current.body}
+          onChange={(body) => edit({ body })}
+        />
+      </div>
+
+      {isDirty && (
+        <p className="text-sm text-muted-foreground">
+          {isComplete ? t.content.unsaved : t.content.pageIncomplete}
+        </p>
+      )}
     </div>
   )
 }

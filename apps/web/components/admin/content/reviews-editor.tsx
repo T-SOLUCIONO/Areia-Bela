@@ -17,7 +17,12 @@ import { TranslatableField } from '@/components/admin/content/translatable-field
 import { ImageField } from '@/components/admin/content/image-field'
 import { cn } from '@/lib/utils'
 
-export function ReviewsEditor() {
+interface Props {
+  /** Lets the rail refresh its count after an add or a delete. */
+  onChanged?: () => void | Promise<void>
+}
+
+export function ReviewsEditor({ onChanged }: Props) {
   const t = useAdminCopy()
   const copyRef = useAdminCopyRef()
   const [reviews, setReviews] = useState<Review[] | null>(null)
@@ -61,6 +66,7 @@ export function ReviewsEditor() {
     try {
       await action()
       await load()
+      await onChanged?.()
       if (success) toast.success(success)
       return true
     } catch (err) {
@@ -99,6 +105,7 @@ export function ReviewsEditor() {
         text: t.content.reviewNewText,
       })
       await load()
+      await onChanged?.()
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.content.saveFailed)
     } finally {
