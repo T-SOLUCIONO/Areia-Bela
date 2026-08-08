@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
@@ -41,25 +41,46 @@ export function HomeHero({ images }: HeroProps) {
     return () => window.clearInterval(id)
   }, [total])
 
-  const slides = useMemo(() => images.slice(0, 5), [images])
+  /**
+   * Every gallery photo rotates, but only three are ever in the page.
+   *
+   * The bug: `images.slice(0, 5)` was rendered while the timer counted
+   * `images.length`. With twelve photos the index walked to eleven, no slide
+   * matched it, and the hero went **blank** from the sixth turn onwards — a
+   * booking page showing a plain background every thirty seconds. Two numbers
+   * that had to agree, and did not.
+   *
+   * Mounting all twelve fixes that and costs too much: measured at **3.3 MB** on
+   * first load, because `loading="lazy"` does nothing for images that are in the
+   * viewport — an opacity of zero still counts as visible.
+   *
+   * So the window is previous, current and next. The next one has the full turn
+   * to load before it is needed, and the previous stays until its fade is over.
+   * Rotation covers every photo; the network only ever sees three.
+   */
+  const visible = (slide: number) =>
+    slide === index || slide === (index + 1) % total || slide === (index - 1 + total) % total
 
   return (
     <section className="relative isolate w-full overflow-hidden bg-[#f7f2ea] text-[#173a57]">
       <div className="absolute inset-0">
-        {slides.map((src, slideIndex) => (
-          <Image
-            key={src}
-            src={src}
-            alt={copy.ui.heroAlt}
-            fill
-            priority={slideIndex === 0}
-            className={cn(
-              'object-cover transition-opacity duration-1000 ease-in-out motion-reduce:transition-none',
-              slideIndex === index ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.04]',
-            )}
-            sizes="100vw"
-          />
-        ))}
+        {images.map((src, slideIndex) =>
+          !visible(slideIndex) ? null : (
+            <Image
+              key={src}
+              src={src}
+              alt={copy.ui.heroAlt}
+              fill
+              priority={slideIndex === 0}
+              loading={slideIndex === 0 ? undefined : 'lazy'}
+              className={cn(
+                'object-cover transition-opacity duration-1000 ease-in-out motion-reduce:transition-none',
+                slideIndex === index ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.04]',
+              )}
+              sizes="100vw"
+            />
+          ),
+        )}
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(247,242,234,0.98)_0%,rgba(247,242,234,0.76)_18%,rgba(247,242,234,0.24)_50%,rgba(247,242,234,0.08)_100%)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(255,255,255,0.58),transparent_24%),radial-gradient(circle_at_74%_20%,rgba(255,255,255,0.18),transparent_28%)]" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-[linear-gradient(180deg,transparent_0%,rgba(247,242,234,0.12)_35%,rgba(247,242,234,0.9)_100%)]" />

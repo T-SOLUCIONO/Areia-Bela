@@ -6179,3 +6179,57 @@ parecería arreglado y las imágenes seguirían muriendo en cada despliegue.
 texto del botón, logo, derechos reservados— es la tanda siguiente. Hoy
 `publicNavItems` está en código y el pie tiene sus textos incrustados, así que
 hace falta esquema, endpoints y pantalla. No es un ajuste de estilo.
+
+## 97. El héroe se quedaba en blanco, y la galería arrastraba solo con ratón
+
+### Dos números que tenían que coincidir
+
+```
+total  = images.length      -> 12   (lo que contaba el temporizador)
+slides = images.slice(0, 5) ->  5   (lo que se dibujaba)
+```
+
+El índice caminaba hasta once, ninguna diapositiva coincidía, todas quedaban en
+`opacity-0` — y la portada de un sitio de reservas mostraba **fondo liso** a
+partir del sexto turno, cada treinta segundos.
+
+Ahora rotan las doce. Comprobado en el navegador durante ocho turnos: ocho fotos
+distintas, siempre una a la vista.
+
+**Pero montarlas todas costaba 3,3 MB en la primera carga**, porque
+`loading="lazy"` no hace nada con imágenes que están en el viewport: una opacidad
+de cero sigue contando como visible. Así que en el DOM viven tres —anterior,
+actual y siguiente—: la siguiente tiene el turno entero para cargar y la anterior
+se queda hasta que termina su fundido. La rotación cubre todas; la red solo ve
+tres.
+
+Y una precisión sobre el peso, porque la medición lo dejó claro: **el grueso no
+era del héroe.** Con la ventana el DOM baja de 12 diapositivas a 3, pero la página
+sigue pidiendo 12 imágenes — las de la rejilla de la galería, que es su trabajo
+mostrarlas. El héroe reutiliza esas URLs y el navegador ya las tiene.
+
+### La galería sí tenía arrastre, del que no sirve
+
+Estaba con la API nativa de HTML5 (`draggable`, `onDragStart`, `onDrop`), y eso
+explica que pareciera ausente:
+
+- **No funciona en táctil.** Esos eventos no se disparan en navegadores móviles.
+- **No funciona con teclado.**
+- La tarjeta entera era arrastrable, y debajo hay un campo de pie de foto y un
+  interruptor: intentar escribir podía iniciar un arrastre.
+
+Pasa a `@dnd-kit`, la misma que las insignias, con `rectSortingStrategy` porque
+esto es una rejilla y las fotos se mueven en dos ejes. El asa es su propio
+control y se une a los botones que ya flotan sobre la imagen. Las flechas se
+quedan, y arrastrar escribe por el mismo endpoint que ellas.
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (354)   format:check ✅
+```
+
+**Verificado y no verificado, para que quede claro:** la rotación del héroe y el
+recolocado de las insignias se comprobaron en el navegador con medidas. **El
+arrastre dentro del panel no**, porque `/admin` exige sesión y no tengo la
+contraseña — el código compila y pasa lint, pero la interacción la tienes que
+probar tú.
