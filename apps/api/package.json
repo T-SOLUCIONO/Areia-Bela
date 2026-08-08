@@ -22,6 +22,7 @@
   "dependencies": {
     "@areia-bela/shared": "workspace:*",
     "@areia-bela/types": "workspace:*",
+    "@google-cloud/storage": "^7.21.0",
     "@nestjs/common": "^11.1.0",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.0",
