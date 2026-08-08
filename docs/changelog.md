@@ -6284,3 +6284,79 @@ fallo—, no las dos pantallas montadas con sus datos.
 ```
 pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (354)
 ```
+
+## 99. Las fotos van a Google Cloud Storage
+
+El fallo de la §96: sin almacenamiento configurado, el API escribía la imagen en
+`apps/web/public/uploads` **de su propio contenedor** y devolvía `/uploads/<n>`,
+una ruta que sirve la web. Dos contenedores distintos. La subida contestaba bien,
+la base guardaba la URL y la foto daba 404 para siempre — galería, imágenes de
+tarjeta, retratos de reseña y logo.
+
+Se elige Google Cloud Storage sobre Vercel Blob porque todo lo demás ya vive en
+Google Cloud: sin cuenta nueva, y en Cloud Run se autentica con la misma cuenta
+de servicio con la que el API ya corre. **Ningún fichero de claves en ninguna
+parte**, gracias a Application Default Credentials.
+
+### Tres destinos, y el orden es una decisión
+
+```
+GCS_BUCKET             -> Cloud Storage
+BLOB_READ_WRITE_TOKEN  -> Vercel Blob   (sigue funcionando; estaba antes)
+ninguno                -> disco local   (solo `pnpm dev`)
+```
+
+Que Cloud Storage gane cuando ambos están puestos importa: durante una mudanza
+entre los dos, la respuesta tiene que ser una de ellos y no «el que el código
+mire primero». Hay un test para eso.
+
+Un `GCS_BUCKET` en blanco cuenta como no definido: una cadena vacía es como un
+despliegue «quita» una variable, y no puede dejar el servicio en un modo que no
+funciona.
+
+### La postura del bucket
+
+```
+allUsers                  roles/storage.legacyObjectReader
+cuenta del API            roles/storage.objectAdmin
+```
+
+**`legacyObjectReader` y no `objectViewer`**, porque el segundo también concede
+listar. Comprobado sin credenciales:
+
+```
+leer un objeto     200
+listar el bucket   401
+```
+
+Los objetos se guardan `immutable` a un año. Es seguro porque el nombre lleva
+doce bytes aleatorios: una URL siempre devuelve la misma foto y un reemplazo
+genera un nombre nuevo, así que no hay caché rancia que invalidar.
+
+Y `remove()` solo borra lo que es suyo: la galería sembrada apunta al listing de
+origen, y un borrado desde el panel no debe mandar una petición de borrado al
+servidor de otro.
+
+### El panel avisa cuando las fotos no van a durar
+
+`GET /cms/storage` dice qué destino está activo, y el CMS muestra una franja
+cuando es el disco local. Ese fallo es silencioso por construcción —la subida
+dice que fue bien— y así es como alguien llena una galería una tarde y se entera
+semanas después. Desaparece en cuanto hay almacenamiento: una franja permanente
+deja de leerse.
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (367, 13 nuevos)
+```
+
+### Verificado y no verificado
+
+Comprobado de verdad: el bucket existe, la lectura pública funciona, el listado
+está cerrado, la política concede `objectAdmin` a la cuenta del API, y
+`GCS_BUCKET` está en la revisión que sirve.
+
+**No comprobado por mí: una subida real desde el panel.** Requiere sesión de
+administrador y no tengo la contraseña. Tampoco pude confirmar la escritura
+suplantando la cuenta de servicio — mi usuario no tiene
+`iam.serviceAccounts.getAccessToken` sobre ella, que es un límite de mi permiso y
+no del suyo.
