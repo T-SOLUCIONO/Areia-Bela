@@ -6031,3 +6031,68 @@ no alcanza la base. La conexión con datos reales no está probada por mí.
 
 Cupones y Mantenimiento muestran cifras inventadas con un aviso, y Cupones está
 además sin traducir: su interfaz está en inglés dentro de un panel en español.
+
+## 95. Cupones y Mantenimiento dejan de inventar
+
+Las dos pantallas mostraban cifras que no existen, con un aviso pequeño encima
+que decía «datos de ejemplo». Cupones además estaba **en inglés dentro de un
+panel en español**: «Create Coupon», «Total Redemptions», «Code / Description /
+Type / Discount / Validity / Usage / Status».
+
+Y no era solo estilo. **Ninguna de las dos tiene modelo, endpoint ni datos:**
+
+```
+apps/api/src        -> ningún módulo de cupones ni de mantenimiento
+schema.prisma       -> ningún model Coupon ni Maintenance
+```
+
+Cupones anunciaba 4 códigos activos, **254 canjes y $20.500 de ahorro**.
+Mantenimiento, cinco tareas con responsables inventados — «Carlos» con un
+desagüe, «Marta» con un filtro de cafetera — y tres contadores encima.
+
+`CLAUDE.md` es explícito: _«Si un dato no existe, se declara el hueco en vez de
+inventar un valor plausible — inventar cifras de precio o traducciones es peor
+que dejarlas pendientes»_. Una anfitriona que lee $20.500 de ahorro ha recibido
+una afirmación falsa sobre su propio negocio, y un nombre al lado de una tarea es
+peor: implica a una persona a la que nadie preguntó.
+
+El panel ya tenía el patrón correcto. `/admin/reports` hizo exactamente esto
+cuando sustituyó 339 líneas de ingresos inventados por un estado vacío que
+explica el hueco. Cupones y Mantenimiento pasan a seguirlo, en los dos idiomas.
+
+El texto de Cupones dice además **dónde va el descuento** cuando se construya:
+en `computeQuote`, del lado del servidor. No es adorno — es la regla que impide
+que el navegador decida lo que cuesta una estancia, y quien retome esto tiene que
+saberlo antes de empezar.
+
+### Residuos del carril
+
+Quitar los dos carriles internos dejó imports y constantes sin usar —`ORDER`,
+`SLUGS`, `EyeOff`, `cn`, `Check`, `Badge`— que se limpian aquí. Y `pages-editor`
+declaraba `onSaved` sin llamarlo: ahora avisa al carril al guardar, que es lo que
+refresca sus marcas de «vacía».
+
+```
+pnpm build ✅   pnpm lint ✅ (0 errores)
+pnpm typecheck ✅   pnpm test ✅ (354)   format:check ✅
+```
+
+### Diferido, y por qué
+
+**Construir cupones de verdad es otra tanda.** Un cupón cambia lo que paga un
+huésped, así que toca el precio: modelo, endpoint, validación de vigencia y de
+usos, y el descuento aplicado en `computeQuote` antes de impuestos. Por las
+reglas del propio proyecto eso es una fase con aprobación, no un añadido.
+
+**Mantenimiento es más pequeño** —tareas con zona, responsable, prioridad y
+fecha— y no toca dinero.
+
+**Y el texto de `/admin/reports` ya no es cierto.** Dice que los informes esperan
+al sistema de reservas «porque todavía no se guarda ninguna», y hoy hay once
+reservas guardadas. Esa pantalla se puede construir; su estado vacío quedó
+obsoleto.
+
+**En `house-details.tsx`** el cuerpo de `ColumnHeading` está comentado, así que
+recibe `label` y `count` y no usa ninguno, y su comentario describe un
+comportamiento que el código ya no tiene. Se deja como está: es del sitio
+público y parece una prueba a medias de alguien.

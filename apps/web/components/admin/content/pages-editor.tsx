@@ -1,37 +1,18 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Check, FileText, Loader2 } from 'lucide-react'
+import { FileText, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '@areia-bela/ui/badge'
 import { Button } from '@areia-bela/ui/button'
-import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Switch } from '@areia-bela/ui/switch'
-import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { cms, type CMSPage, type CMSPageSlug } from '@/lib/cms-client'
 import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
-import { cn } from '@/lib/utils'
 
 /** The twelve slugs, in the order the guest site reads them. */
-const SLUGS: CMSPageSlug[] = [
-  'ABOUT_SPACE',
-  'ACCOMMODATION',
-  'LIVING_AREAS',
-  'KITCHEN_DINING',
-  'BEDROOMS_BATHROOMS',
-  'OUTDOOR_LIFE',
-  'AMENITIES',
-  'LOCATION',
-  'GUEST_ACCESS',
-  'HOUSE_RULES',
-  'FAQS',
-  'POLICIES',
-]
-
 /** A slug with no row yet: the PATCH endpoint upserts it on first save. */
 function blankPage(slug: CMSPageSlug, title: string): CMSPage {
   return {
@@ -99,6 +80,7 @@ export function PagesEditor({ selected, onSaved }: Props) {
       })
       setPages((prev) => ({ ...prev, [saved.slug]: saved }))
       setDraft(null)
+      await onSaved?.()
       toast.success(t.content.saved)
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.content.saveFailed)

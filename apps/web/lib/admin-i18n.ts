@@ -515,7 +515,23 @@ export const adminCopy = {
       nonRefundable: 'Non-refundable',
       noSeasonRules: 'No season rules yet. Every night is charged at the base rate.',
     },
+    coupons: {
+      title: 'Coupons',
+      lead: 'Discount codes for direct bookings',
+      emptyTitle: 'No coupons yet',
+      emptyBody:
+        'Coupons change what a guest pays, so they are not something to mock up. This screen showed invented codes and $20,500 of savings that never happened.',
+      emptyWhat:
+        'Building them means a discount the server applies when it prices a stay — never a figure the browser sends. Until that exists, there is nothing here to manage.',
+      seePricing: 'See pricing',
+      seeReservations: 'See bookings',
+    },
     maintenance: {
+      emptyTitle: 'Nothing to fix yet',
+      emptyBody:
+        'Maintenance tasks are not stored anywhere yet, so this screen showed invented ones. It waits for the real thing rather than pretending.',
+      emptyWhat:
+        'When it is built it will hold: what needs doing, where in the house, who is on it and by when.',
       comingSoon: 'Maintenance tasks are not built yet — this button does nothing on purpose.',
       addTask: 'Add task',
       areaTitle: 'By area of the house',
@@ -1323,7 +1339,23 @@ export const adminCopy = {
       nonRefundable: 'No reembolsable',
       noSeasonRules: 'Aún no hay temporadas. Todas las noches se cobran a la tarifa base.',
     },
+    coupons: {
+      title: 'Cupones',
+      lead: 'Códigos de descuento para reservas directas',
+      emptyTitle: 'Todavía no hay cupones',
+      emptyBody:
+        'Un cupón cambia lo que paga un huésped, así que no es algo que se maquete. Esta pantalla mostraba códigos inventados y $20.500 de ahorro que nunca ocurrió.',
+      emptyWhat:
+        'Construirlos significa un descuento que el servidor aplica al calcular el precio — nunca una cifra que manda el navegador. Hasta que eso exista, aquí no hay nada que gestionar.',
+      seePricing: 'Ver precios',
+      seeReservations: 'Ver reservas',
+    },
     maintenance: {
+      emptyTitle: 'Todavía no hay nada que arreglar',
+      emptyBody:
+        'Las tareas de mantenimiento aún no se guardan en ningún sitio, así que esta pantalla mostraba tareas inventadas. Prefiere esperar a lo real antes que fingir.',
+      emptyWhat:
+        'Cuando se construya guardará: qué hay que hacer, en qué zona de la casa, quién se encarga y para cuándo.',
       comingSoon:
         'Las tareas de mantenimiento no están construidas — este botón no hace nada a propósito.',
       addTask: 'Añadir tarea',

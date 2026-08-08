@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { EyeOff, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@areia-bela/ui/badge'
 import { Button } from '@areia-bela/ui/button'
@@ -20,7 +20,6 @@ import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { ImageField } from '@/components/admin/content/image-field'
 import { ItemsEditor } from '@/components/admin/content/items-editor'
-import { cn } from '@/lib/utils'
 
 /**
  * Which slots each section actually uses. Driving the form from this table
@@ -94,17 +93,6 @@ const LAYOUT: Record<
   },
   FOOTER: { body: true },
 }
-
-const ORDER: ContentSectionKey[] = [
-  'HERO',
-  'FEATURES',
-  'AMENITIES',
-  'REVIEWS',
-  'LOCATION',
-  'DIRECT_BOOKING',
-  'HOST',
-  'FOOTER',
-]
 
 interface Props {
   /** Which section to edit. The rail above owns the choice now. */

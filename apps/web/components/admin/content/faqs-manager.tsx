@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from '@areia-bela/ui/dialog'
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@areia-bela/ui/empty'
-import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import {
   Select,
@@ -25,7 +24,6 @@ import {
 } from '@areia-bela/ui/select'
 import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Switch } from '@areia-bela/ui/switch'
-import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { TranslatableField } from '@/components/admin/content/translatable-field'
 import { cms, type FAQ, type FAQCategory } from '@/lib/cms-client'
