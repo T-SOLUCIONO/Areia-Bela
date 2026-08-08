@@ -705,8 +705,6 @@ export const adminCopy = {
     property: {
       title: 'The house',
       subtitle: 'Capacity, fees and check-in times. These feed every quote.',
-      nameLabel: 'Name shown to guests',
-      descriptionLabel: 'Short description',
       maxGuests: 'Maximum guests',
       bedrooms: 'Bedrooms',
       bathrooms: 'Bathrooms',
@@ -766,6 +764,9 @@ export const adminCopy = {
       seoTitle: 'Page title',
       seoDescription: 'Search description',
       seoHint: 'Around 155 characters is what Google shows.',
+      listingName: 'Name of the house',
+      listingNameHint:
+        'Not shown on the page itself. Google and link previews use it as the name of the property.',
       links: 'Links',
       instagram: 'Instagram',
       facebook: 'Facebook',
@@ -1532,8 +1533,6 @@ export const adminCopy = {
     property: {
       title: 'La casa',
       subtitle: 'Capacidad, cargos y horarios. De aquí sale cada cotización.',
-      nameLabel: 'Nombre que ven los huéspedes',
-      descriptionLabel: 'Descripción corta',
       maxGuests: 'Huéspedes máximo',
       bedrooms: 'Dormitorios',
       bathrooms: 'Baños',
@@ -1593,6 +1592,9 @@ export const adminCopy = {
       seoTitle: 'Título de la página',
       seoDescription: 'Descripción para buscadores',
       seoHint: 'Unos 155 caracteres es lo que muestra Google.',
+      listingName: 'Nombre de la casa',
+      listingNameHint:
+        'No aparece en la página. Google y las vistas previas de enlaces lo usan como nombre de la propiedad.',
       links: 'Enlaces',
       instagram: 'Instagram',
       facebook: 'Facebook',

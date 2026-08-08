@@ -47,6 +47,10 @@ export function SiteSettings() {
   const [stored, setStored] = useState<Settings | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  // Lives on the property row, not on settings, but belongs on this screen: its
+  // only job is being the name in the structured data, next to the other two
+  // fields the search engines read.
+  const [listingName, setListingName] = useState<{ stored: string; draft: string } | null>(null)
   const [status, setStatus] = useState<{
     email: boolean
     whatsapp: boolean
@@ -75,6 +79,11 @@ export function SiteSettings() {
     // Says whether each channel can actually reach anyone, so an address typed
     // here isn't mistaken for a working alert.
     cms.notificationStatus().then(setStatus, () => setStatus(null))
+    cms.property().then(
+      (property) => setListingName({ stored: property.name, draft: property.name }),
+      // Not fatal: the rest of the screen is settings, which loaded on its own.
+      () => setListingName(null),
+    )
   }, [load])
 
   if (!draft || !stored) {
@@ -87,12 +96,21 @@ export function SiteSettings() {
     )
   }
 
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(stored)
+  const isDirty =
+    JSON.stringify(draft) !== JSON.stringify(stored) ||
+    (listingName !== null && listingName.draft !== listingName.stored)
   const edit = (patch: Partial<Settings>) => setDraft({ ...draft, ...patch })
 
   const save = async () => {
     setIsSaving(true)
     try {
+      // Two rows behind one button. The name goes first and only when it
+      // changed, so an untouched field never sends a write, and a rejection
+      // there stops the save instead of reporting a success that was half true.
+      if (listingName && listingName.draft !== listingName.stored) {
+        const property = await cms.saveProperty({ name: listingName.draft })
+        setListingName({ stored: property.name, draft: property.name })
+      }
       const saved = await cms.saveSettings(draft)
       setStored(saved)
       setDraft(saved)
@@ -143,6 +161,17 @@ export function SiteSettings() {
           <p className="text-sm text-muted-foreground">{t.site.seoHint}</p>
         </div>
         <div className="space-y-3 rounded-xl border bg-card p-4">
+          {listingName && (
+            <div className="space-y-1.5">
+              <Label htmlFor="listing-name">{t.site.listingName}</Label>
+              <Input
+                id="listing-name"
+                value={listingName.draft}
+                onChange={(e) => setListingName({ ...listingName, draft: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">{t.site.listingNameHint}</p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="seoTitle">{t.site.seoTitle}</Label>
             <Input

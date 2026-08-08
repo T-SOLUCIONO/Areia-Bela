@@ -7,7 +7,6 @@ import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
 import { Skeleton } from '@areia-bela/ui/skeleton'
-import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
 import { cms, type PropertySettings as Property } from '@/lib/cms-client'
 import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
@@ -78,8 +77,10 @@ export function PropertySettings() {
     setIsSaving(true)
     try {
       const saved = await cms.saveProperty({
-        name: draft.name,
-        description: draft.description,
+        // No `name` here on purpose. It is edited in Contacto y SEO now, and
+        // echoing back the copy this screen loaded would quietly revert a change
+        // made there since. Both fields are optional in the PATCH, so leaving
+        // them out keeps them as they are.
         maxGuests: draft.maxGuests,
         bedrooms: draft.bedrooms,
         bathrooms: draft.bathrooms,
@@ -121,18 +122,18 @@ export function PropertySettings() {
 
   return (
     <div className="space-y-8">
-      <section className="space-y-4">
-        {field('name', t.property.nameLabel, draft.name, (name) => edit({ name }))}
-        <div className="space-y-1.5">
-          <Label htmlFor="description">{t.property.descriptionLabel}</Label>
-          <Textarea
-            id="description"
-            rows={4}
-            value={draft.description}
-            onChange={(e) => edit({ description: e.target.value })}
-          />
-        </div>
-      </section>
+      {/* El nombre y la descripción ya no están aquí.
+      
+          Ninguno de los dos es lo que su etiqueta decía. El nombre no lo ven los
+          huéspedes en la página: es el `name` de los datos estructurados, que
+          leen Google y las vistas previas de enlaces — así que vive en Contacto
+          y SEO, que es su trabajo.
+      
+          La descripción no se usaba en ningún sitio. Su único destino era
+          respaldar la descripción para buscadores cuando esa está vacía, y
+          nunca lo está. Eran cinco mil caracteres invitando a que alguien los
+          editara esperando cambiar el sitio, sin cambiar nada. Se siguen
+          guardando, pero sin fingir que hacen algo aquí. */}
 
       <section className="space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">

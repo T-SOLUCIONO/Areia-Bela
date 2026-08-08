@@ -6360,3 +6360,60 @@ administrador y no tengo la contraseña. Tampoco pude confirmar la escritura
 suplantando la cuenta de servicio — mi usuario no tiene
 `iam.serviceAccounts.getAccessToken` sobre ella, que es un límite de mi permiso y
 no del suyo.
+
+## 41. Los dos campos de «La casa» que no eran lo que decían
+
+Ajustes → La casa abría con dos campos que prometían cosas distintas de las que
+hacían. Los dos salen de esa pantalla, por motivos opuestos.
+
+**«Descripción corta»** no se usaba en ninguna parte. Comparado contra el API en
+producción, eran 5.139 caracteres — un texto largo, cuidado, en un cuadro que
+invita a editarlo. Su único consumidor es
+`apps/web/app/[locale]/(public)/layout.tsx`, y solo como respaldo:
+
+```ts
+description={content.settings?.seoDescription || property.description}
+```
+
+`seoDescription` está poblada, así que el respaldo nunca entra. Se puede editar
+durante una tarde y el sitio no cambia. El campo desaparece del panel; la
+columna se queda con su contenido y el respaldo intacto.
+
+**«Nombre que ven los huéspedes»** es el caso contrario: sí se usa, y la
+etiqueta era la que mentía. Los huéspedes **no** lo ven en la página — está
+únicamente en los datos estructurados (`VacationRental.name`), que es lo que
+leen Google y las vistas previas al compartir el enlace. Ocultarlo habría dejado
+el nombre de la casa en los buscadores sin forma de cambiarlo, así que en vez de
+esconderlo se **movió a Ajustes → Contacto y SEO**, junto al título y la
+descripción para buscadores, con una etiqueta que dice lo que hace: «Nombre de
+la casa — no aparece en la página. Google y las vistas previas de enlaces lo
+usan como nombre de la propiedad.»
+
+### Un conflicto de escritura que había que cerrar
+
+El nombre vive en la fila de `Property` y la pantalla de SEO guarda en
+`SiteSettings`: dos filas detrás de un botón. Se resolvió así:
+
+- La pantalla de SEO escribe el nombre **solo si cambió**, antes de guardar los
+  ajustes. Un campo intacto no manda nada, y si el nombre es rechazado el
+  guardado se detiene en vez de avisar de un éxito a medias.
+- «La casa» **dejó de enviar `name` y `description`** en su PATCH. Los echaba de
+  vuelta tal como los había cargado, así que habría revertido en silencio un
+  nombre cambiado desde SEO. Ambos son opcionales en `UpdatePropertyDto` y el
+  servicio escribe `data: dto`, de modo que omitirlos los deja como están.
+
+### Verificación
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (367)
+```
+
+`property-settings.tsx` conserva capacidad, tarifas, dirección y horarios; su
+PATCH ya no menciona los dos campos retirados. Las claves de traducción que
+quedaron huérfanas (`property.nameLabel`, `property.descriptionLabel`) se
+eliminaron en ES y EN.
+
+**No comprobado por mí:** las dos pantallas en el navegador. Este entorno no
+tiene Docker, así que no pude levantar PostgreSQL ni el API para entrar al panel.
+Queda pendiente confirmar tras el despliegue que el nombre se edita y se guarda
+desde Contacto y SEO.
