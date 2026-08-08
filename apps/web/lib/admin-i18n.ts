@@ -557,6 +557,7 @@ export const adminCopy = {
       laundry: 'Laundry',
     },
     content: {
+      dragToReorder: 'Drag to reorder',
       libraryReviews: 'Guest reviews',
       libraryFaqs: 'Frequently asked questions',
       libraryPhotos: 'Gallery photos',
@@ -1382,6 +1383,7 @@ export const adminCopy = {
       laundry: 'Lavandería',
     },
     content: {
+      dragToReorder: 'Arrastra para cambiar el orden',
       libraryReviews: 'Reseñas de huéspedes',
       libraryFaqs: 'Preguntas frecuentes',
       libraryPhotos: 'Fotos de la galería',

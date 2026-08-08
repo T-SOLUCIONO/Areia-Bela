@@ -129,7 +129,11 @@ export function HouseDetails({
           {sections.length > 0 && (
             <div>
               <ColumnHeading label={copy.house} count={sections.length} />
-              <Accordion type="single" collapsible defaultValue={sections[0]?.slug}>
+              {/* Nada abierto al cargar. Abrir la primera por defecto obliga a quien
+                  llega a cerrarla para ver el índice completo, y da a esa sección
+                  una prominencia que no pidió nadie. Los galones ya avisan de que
+                  se despliegan. */}
+              <Accordion type="single" collapsible>
                 {sections.map(({ slug, icon, page }) => (
                   <AccordionItem key={slug} value={slug} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>

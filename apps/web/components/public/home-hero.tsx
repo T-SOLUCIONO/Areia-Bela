@@ -110,7 +110,17 @@ export function HomeHero({ images }: HeroProps) {
         </div>
 
         {badges.length > 0 && (
-          <div className="relative z-10 mt-auto grid grid-cols-2 gap-3 pb-2 md:grid-cols-3 lg:grid-cols-5 lg:gap-4">
+          /* Flujo centrado y no una rejilla de cinco columnas.
+             
+             Con `lg:grid-cols-5` fijo, quitar una insignia dejaba una celda
+             vacía a la derecha y estiraba las cuatro restantes; con tres, dos
+             celdas. Una píldora que se ensancha porque falta una vecina no se
+             lee como una decisión.
+             
+             Así abrazan su contenido, se centran y siguen funcionando con
+             cualquier número — incluidas más de cinco, que antes habrían roto
+             la fila. */
+          <div className="relative z-10 mt-auto flex flex-wrap justify-center gap-3 pb-2 lg:gap-4">
             {badges.map((badge) => (
               <div
                 key={badge.id}

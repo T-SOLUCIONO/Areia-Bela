@@ -6096,3 +6096,86 @@ obsoleto.
 recibe `label` y `count` y no usa ninguno, y su comentario describe un
 comportamiento que el código ya no tiene. Se deja como está: es del sitio
 público y parece una prueba a medias de alguien.
+
+## 96. Arrastrar para ordenar, insignias que se recolocan, y el acordeón cerrado
+
+Tres de los seis puntos de esta ronda. Los otros tres están abajo, y dos de ellos
+necesitan una decisión.
+
+### Arrastrar y soltar, con las flechas intactas
+
+`ItemsEditor` es compartido, así que una implementación cubre las insignias del
+héroe **y** las etiquetas de servicios.
+
+**Las flechas se quedan.** Son lo único que funciona con teclado y en una
+pantalla táctil, y sustituirlas por un asa habría sido un cambio a peor. Arrastrar
+escribe por el **mismo endpoint** que ellas, así que los dos controles no pueden
+discrepar sobre el orden.
+
+Detalles que evitan que se sienta roto:
+
+- **El asa es su propio control**, no la tarjeta entera. La tarjeta está llena de
+  campos, y una que se arrastra cuando intentas seleccionar texto pelea contigo.
+- **Seis píxeles de recorrido** antes de que empiece un arrastre: sin eso, un clic
+  en cualquier campo se lee como el principio de uno.
+- **Vertical y dentro de la lista.** Una tarjeta que se puede sacar de lado de su
+  contenedor parece un fallo aunque vuelva de un salto.
+- `useSortable` es un hook, así que la fila es un componente aparte — y devuelve
+  las props del asa en vez de dibujarla, para que el agarre viva en la columna que
+  ya tiene las flechas y no se añada una segunda.
+
+Dependencia nueva: `@dnd-kit` (core, sortable, modifiers, utilities). Se justifica
+porque trae orden accesible por teclado y soporte táctil, y hacerlo a mano mal es
+peor que no hacerlo.
+
+### Las insignias se recolocan al quitar una
+
+Eran `lg:grid-cols-5` fijo. Quitar una dejaba **una celda vacía a la derecha** y
+estiraba las cuatro restantes; con tres, dos celdas. Una píldora que se ensancha
+porque le falta una vecina no se lee como una decisión.
+
+Pasan a flujo centrado: abrazan su contenido y se reparten. Medido en el navegador
+quitando insignias de verdad:
+
+```
+5 insignias  margenes 121 / 121   anchos 211 263 204 212 165   1 fila
+4 insignias  margenes 211 / 211   anchos 211 263 204 212       1 fila
+3 insignias  margenes 325 / 325   anchos 211 263 204           1 fila
+2 insignias  margenes 435 / 435   anchos 211 263               1 fila
+```
+
+Y ahora aguanta **más** de cinco, que antes habría roto la fila.
+
+### «Todo sobre la casa» abre cerrado
+
+El acordeón llevaba `defaultValue={sections[0]?.slug}`, así que «Sobre la casa»
+aparecía desplegada. Abrir la primera obliga a cerrarla para ver el índice
+completo, y le da a esa sección una prominencia que nadie pidió. Los galones ya
+avisan de que se despliegan.
+
+El de preguntas frecuentes sigue abriendo la primera: no se pidió, y ahí el
+patrón es defendible — la respuesta a la vista invita a leer las demás.
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (354)
+```
+
+### Lo que queda de esta ronda
+
+**Subir imágenes está roto en todo el panel, y no es del componente.** Sin
+`BLOB_READ_WRITE_TOKEN`, `StorageService` escribe el archivo en
+`<contenedor-del-API>/apps/web/public/uploads/` y devuelve `/uploads/<nombre>` —
+una ruta que sirve **la web**, que es otro contenedor. Comprobado:
+`https://areia.t-soluciono.com/uploads/prueba.jpg` responde `404`. La subida
+contesta bien, el aviso dice «guardado», la base guarda la URL, y la imagen no
+existe nunca. Afecta a Tarjetas, la galería, las fotos de reseñas y el logo.
+
+Necesita elegir almacenamiento, y esa elección no es mía: Vercel Blob (que el
+código ya espera) o Google Cloud Storage (donde ya está todo lo demás, sin cuenta
+nueva, y persiste entre despliegues). Servirlo desde el API sería una trampa:
+parecería arreglado y las imágenes seguirían muriendo en cada despliegue.
+
+**Editar la cabecera y el pie** —nombres y enlaces del menú, enlaces del pie,
+texto del botón, logo, derechos reservados— es la tanda siguiente. Hoy
+`publicNavItems` está en código y el pie tiene sus textos incrustados, así que
+hace falta esquema, endpoints y pantalla. No es un ajuste de estilo.

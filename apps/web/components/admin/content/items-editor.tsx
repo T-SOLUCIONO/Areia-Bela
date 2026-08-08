@@ -1,7 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, Loader2, Plus, Trash2 } from 'lucide-react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
@@ -20,6 +38,50 @@ import { IconPicker } from '@/components/admin/content/icon-picker'
 import { ContentIcon } from '@/lib/content-icons'
 import { ImageField } from '@/components/admin/content/image-field'
 import { cn } from '@/lib/utils'
+
+/**
+ * One row, draggable.
+ *
+ * Split out because `useSortable` is a hook and cannot live inside a `.map`. It
+ * hands the handle's props back rather than rendering the handle itself, so the
+ * grip sits in the column that already holds the arrows instead of adding a
+ * second one.
+ */
+function SortableRow({
+  id,
+  disabled,
+  className,
+  children,
+}: {
+  id: string
+  disabled: boolean
+  className?: string
+  children: (handle: { props: Record<string, unknown>; className: string }) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled,
+  })
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(className, isDragging && 'relative z-10 shadow-lg')}
+    >
+      {children({
+        props: { ...attributes, ...listeners },
+        // The handle is its own control, not the whole card: the card is full of
+        // inputs, and one that drags when you try to select text fights you.
+        className: cn(
+          'flex h-6 w-6 items-center justify-center rounded text-muted-foreground',
+          'hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          disabled ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing',
+        ),
+      })}
+    </li>
+  )
+}
 
 interface Props {
   sectionKey: ContentSectionKey
@@ -103,6 +165,30 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
     }
   }
 
+  /**
+   * Dragging writes through the same endpoint as the arrows.
+   *
+   * One way to persist an order, so the two controls cannot disagree — and the
+   * arrows stay. They are what works with a keyboard and on a touch screen, and
+   * replacing them with a drag handle would be a change for the worse.
+   */
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const from = rows.findIndex((item) => item.id === active.id)
+    const to = rows.findIndex((item) => item.id === over.id)
+    if (from < 0 || to < 0) return
+    const next = arrayMove(rows, from, to)
+    void run(String(active.id), () => landing.reorderItems(next.map((item) => item.id)))
+  }
+
+  const sensors = useSensors(
+    // A few pixels of travel before a drag starts: without it, a click on any
+    // field inside the card is read as the beginning of a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
   const move = (index: number, delta: number) => {
     const target = index + delta
     if (target < 0 || target >= rows.length) return
@@ -136,139 +222,168 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
           {t.content.itemsEmpty}
         </p>
       ) : (
-        <ul className="space-y-3">
-          {rows.map((item, index) => {
-            const draft = draftFor(item)
-            return (
-              <li
-                key={item.id}
-                className={cn(
-                  'rounded-xl border bg-card p-4',
-                  pendingId === item.id && 'opacity-60',
-                  !draft.published && 'border-dashed',
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col gap-1 pt-1">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      aria-label={t.content.moveUp}
-                      disabled={index === 0 || pendingId !== null}
-                      onClick={() => move(index, -1)}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      aria-label={t.content.moveDown}
-                      disabled={index === rows.length - 1 || pendingId !== null}
-                      onClick={() => move(index, 1)}
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-                    </Button>
-                  </div>
-
-                  <div className="min-w-0 flex-1 space-y-4">
-                    <TranslatableField
-                      label={labels.label}
-                      value={draft.label}
-                      onChange={(v) => edit(item, { label: v })}
-                    />
-
-                    {features.body && (
-                      <TranslatableField
-                        label={labels.body ?? t.content.pageBody}
-                        multiline
-                        rows={3}
-                        value={draft.body}
-                        onChange={(v) => edit(item, { body: v })}
-                      />
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          // Vertical and inside the list: a card that can be dragged sideways
+          // out of its own container looks like a bug even when it snaps back.
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+          onDragEnd={onDragEnd}
+        >
+          <SortableContext
+            items={rows.map((item) => item.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="space-y-3">
+              {rows.map((item, index) => {
+                const draft = draftFor(item)
+                return (
+                  <SortableRow
+                    key={item.id}
+                    id={item.id}
+                    disabled={pendingId !== null}
+                    className={cn(
+                      'rounded-xl border bg-card p-4',
+                      pendingId === item.id && 'opacity-60',
+                      !draft.published && 'border-dashed',
                     )}
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {features.icon && (
-                        <div className="space-y-2">
-                          <Label className="text-sm">{t.content.icon}</Label>
-                          <IconPicker
-                            value={draft.icon}
-                            onChange={(icon) => edit(item, { icon })}
-                          />
+                  >
+                    {(handle) => (
+                      <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center gap-1 pt-1">
+                          <button
+                            type="button"
+                            aria-label={t.content.dragToReorder}
+                            className={handle.className}
+                            {...handle.props}
+                          >
+                            <GripVertical className="h-4 w-4" aria-hidden />
+                          </button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            aria-label={t.content.moveUp}
+                            disabled={index === 0 || pendingId !== null}
+                            onClick={() => move(index, -1)}
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            aria-label={t.content.moveDown}
+                            disabled={index === rows.length - 1 || pendingId !== null}
+                            onClick={() => move(index, 1)}
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                          </Button>
                         </div>
-                      )}
-                      {features.value && (
-                        <div className="space-y-2">
-                          <Label className="text-sm" htmlFor={`value-${item.id}`}>
-                            {labels.value ?? t.content.itemValue}
-                          </Label>
-                          <Input
-                            id={`value-${item.id}`}
-                            value={draft.value}
-                            onChange={(event) => edit(item, { value: event.target.value })}
+
+                        <div className="min-w-0 flex-1 space-y-4">
+                          <TranslatableField
+                            label={labels.label}
+                            value={draft.label}
+                            onChange={(v) => edit(item, { label: v })}
                           />
+
+                          {features.body && (
+                            <TranslatableField
+                              label={labels.body ?? t.content.pageBody}
+                              multiline
+                              rows={3}
+                              value={draft.body}
+                              onChange={(v) => edit(item, { body: v })}
+                            />
+                          )}
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {features.icon && (
+                              <div className="space-y-2">
+                                <Label className="text-sm">{t.content.icon}</Label>
+                                <IconPicker
+                                  value={draft.icon}
+                                  onChange={(icon) => edit(item, { icon })}
+                                />
+                              </div>
+                            )}
+                            {features.value && (
+                              <div className="space-y-2">
+                                <Label className="text-sm" htmlFor={`value-${item.id}`}>
+                                  {labels.value ?? t.content.itemValue}
+                                </Label>
+                                <Input
+                                  id={`value-${item.id}`}
+                                  value={draft.value}
+                                  onChange={(event) => edit(item, { value: event.target.value })}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {features.image && (
+                            <ImageField
+                              label={t.content.itemImage}
+                              value={draft.imageUrl}
+                              onChange={(imageUrl) => edit(item, { imageUrl })}
+                            />
+                          )}
+
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                            <Label className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
+                              <Switch
+                                checked={draft.published}
+                                onCheckedChange={(published) => edit(item, { published })}
+                              />
+                              {draft.published ? t.content.published : t.content.hidden}
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive"
+                                disabled={pendingId !== null}
+                                onClick={() =>
+                                  void run(
+                                    item.id,
+                                    () => landing.deleteItem(item.id),
+                                    t.content.itemDeleted,
+                                  )
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                                {t.content.faqDelete}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={!isDirty(item) || pendingId !== null}
+                                onClick={() => void save(item)}
+                              >
+                                {t.common.save}
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    {features.image && (
-                      <ImageField
-                        label={t.content.itemImage}
-                        value={draft.imageUrl}
-                        onChange={(imageUrl) => edit(item, { imageUrl })}
-                      />
-                    )}
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                      <Label className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
-                        <Switch
-                          checked={draft.published}
-                          onCheckedChange={(published) => edit(item, { published })}
-                        />
-                        {draft.published ? t.content.published : t.content.hidden}
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive"
-                          disabled={pendingId !== null}
-                          onClick={() =>
-                            void run(
-                              item.id,
-                              () => landing.deleteItem(item.id),
-                              t.content.itemDeleted,
-                            )
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                          {t.content.faqDelete}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={!isDirty(item) || pendingId !== null}
-                          onClick={() => void save(item)}
-                        >
-                          {t.common.save}
-                        </Button>
+                        {features.icon && (
+                          <ContentIcon
+                            name={draft.icon}
+                            className="mt-1 h-5 w-5 shrink-0 text-primary"
+                          />
+                        )}
                       </div>
-                    </div>
-                  </div>
-
-                  {features.icon && (
-                    <ContentIcon name={draft.icon} className="mt-1 h-5 w-5 shrink-0 text-primary" />
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+                    )}
+                  </SortableRow>
+                )
+              })}
+            </ul>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   )
