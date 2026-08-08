@@ -6233,3 +6233,54 @@ recolocado de las insignias se comprobaron en el navegador con medidas. **El
 arrastre dentro del panel no**, porque `/admin` exige sesión y no tengo la
 contraseña — el código compila y pasa lint, pero la interacción la tienes que
 probar tú.
+
+## 98. Arrastrar con el dedo
+
+Preguntado directamente: «¿el drag and drop no funciona en móviles?». La
+respuesta honesta era «debería, y no lo he comprobado» — y al comprobarlo,
+faltaban dos cosas.
+
+### Lo que faltaba
+
+**`PointerSensor` con una distancia de activación es la configuración equivocada
+para el tacto.** Un dedo que se mueve casi siempre está **desplazando**. Usar
+distancia ahí significa que la lista roba todo desplazamiento que empiece sobre
+una tarjeta, y la anfitriona no puede bajar por la página.
+
+Así que van tres sensores en vez de uno, con reglas distintas:
+
+|         | Regla                              | Por qué                                                  |
+| ------- | ---------------------------------- | -------------------------------------------------------- |
+| Ratón   | 6 px de recorrido                  | Nada más quiere ese gesto                                |
+| Tacto   | mantener 220 ms, tolerancia 8 px   | Un dedo que se mueve está desplazando; y la mano tiembla |
+| Teclado | coordenadas de `@dnd-kit/sortable` | Orden accesible sin ratón                                |
+
+**Y `touch-action: none` en el asa.** dnd-kit lo pone en su propio overlay pero
+**no** en tu asa, y sin eso el navegador reclama el gesto para desplazar antes de
+que el sensor lo vea. Es la pieza que sostiene todo lo demás.
+
+La configuración vive en `use-sortable-sensors.ts`, en un solo sitio: las dos
+listas tienen que sentirse igual, y esto es justo lo que es fácil equivocar.
+
+### Comprobado con un dedo, no razonado
+
+Con emulación de Pixel 7 y eventos táctiles reales —`touchstart`, `touchmove` en
+pasos, `touchend`—:
+
+```
+arrastrar desde el asa      a,b,c,d -> b,a,c,d     reordena
+deslizar sobre la tarjeta   a,b,c,d -> a,b,c,d     no reordena
+touch-action                asa: none · tarjeta: auto · campo: auto
+```
+
+Esa última línea es la que cierra el asunto: el dedo arrastra **solo** desde el
+asa y desplaza desde cualquier otro sitio, incluido el campo de texto.
+
+Una precisión sobre el alcance de la prueba: se ejecutó contra una vista de
+prueba que monta el hook compartido, no contra `/admin`, porque el panel exige
+sesión. Lo verificado es la configuración de sensores —que es donde estaba el
+fallo—, no las dos pantallas montadas con sus datos.
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (354)
+```

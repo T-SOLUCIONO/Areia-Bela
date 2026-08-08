@@ -32,24 +32,14 @@ import { ApiError } from '@/lib/api-client'
 import { cms, type GalleryImage } from '@/lib/cms-client'
 import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { fill } from '@/lib/admin-i18n'
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import { restrictToParentElement } from '@dnd-kit/modifiers'
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  useSortable,
-} from '@dnd-kit/sortable'
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import {
+  DRAG_HANDLE_CLASS,
+  useSortableSensors,
+} from '@/components/admin/content/use-sortable-sensors'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -150,6 +140,8 @@ export function GalleryManager({ onChanged }: Props) {
     }
   }
 
+  const sensors = useSortableSensors()
+
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -163,11 +155,6 @@ export function GalleryManager({ onChanged }: Props) {
       t.content.galleryReordered,
     )
   }
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
 
   const reorder = (from: number, to: number) => {
     if (to < 0 || to >= images.length || from === to) return
@@ -274,7 +261,10 @@ export function GalleryManager({ onChanged }: Props) {
                           <button
                             type="button"
                             aria-label={t.content.dragToReorder}
-                            className="flex h-7 w-7 cursor-grab items-center justify-center rounded-md bg-secondary text-secondary-foreground shadow-sm active:cursor-grabbing"
+                            className={cn(
+                              'flex h-7 w-7 cursor-grab items-center justify-center rounded-md bg-secondary text-secondary-foreground shadow-sm active:cursor-grabbing',
+                              DRAG_HANDLE_CLASS,
+                            )}
                             {...handle.props}
                           >
                             <GripVertical className="h-3.5 w-3.5" aria-hidden />

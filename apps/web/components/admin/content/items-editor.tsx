@@ -2,24 +2,19 @@
 
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, GripVertical, Loader2, Plus, Trash2 } from 'lucide-react'
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import {
   SortableContext,
   arrayMove,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import {
+  DRAG_HANDLE_CLASS,
+  useSortableSensors,
+} from '@/components/admin/content/use-sortable-sensors'
 import { toast } from 'sonner'
 import { Button } from '@areia-bela/ui/button'
 import { Input } from '@areia-bela/ui/input'
@@ -75,6 +70,7 @@ function SortableRow({
         // inputs, and one that drags when you try to select text fights you.
         className: cn(
           'flex h-6 w-6 items-center justify-center rounded text-muted-foreground',
+          DRAG_HANDLE_CLASS,
           'hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           disabled ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing',
         ),
@@ -172,6 +168,8 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
    * arrows stay. They are what works with a keyboard and on a touch screen, and
    * replacing them with a drag handle would be a change for the worse.
    */
+  const sensors = useSortableSensors()
+
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -181,13 +179,6 @@ export function ItemsEditor({ sectionKey, kind, items, features = {}, labels, on
     const next = arrayMove(rows, from, to)
     void run(String(active.id), () => landing.reorderItems(next.map((item) => item.id)))
   }
-
-  const sensors = useSensors(
-    // A few pixels of travel before a drag starts: without it, a click on any
-    // field inside the card is read as the beginning of a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
 
   const move = (index: number, delta: number) => {
     const target = index + delta
