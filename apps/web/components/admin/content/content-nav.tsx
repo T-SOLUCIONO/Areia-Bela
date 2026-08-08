@@ -42,11 +42,6 @@ export type ContentTarget =
   | { kind: 'faqs' }
   | { kind: 'gallery' }
 
-export const sameTarget = (a: ContentTarget, b: ContentTarget) =>
-  a.kind === b.kind &&
-  (a.kind !== 'section' || a.key === (b as { key: ContentSectionKey }).key) &&
-  (a.kind !== 'page' || a.slug === (b as { slug: CMSPageSlug }).slug)
-
 /** What the rail knows without opening anything. */
 export interface ContentState {
   hiddenSections: Set<ContentSectionKey>
