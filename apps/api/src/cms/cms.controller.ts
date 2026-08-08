@@ -200,6 +200,20 @@ export class CmsController {
     return this.cms.getSettings()
   }
 
+  /**
+   * Where uploaded images go, so the panel can say when they will not survive.
+   *
+   * `local` means the API writes into its own container and hands back a path
+   * the web serves — a permanent 404 anywhere the two are separate. That failure
+   * is silent by nature: the upload succeeds and the picture never appears. The
+   * panel warns instead of letting a host find out weeks later.
+   */
+  @Roles(UserRole.SUPERADMIN, UserRole.MANAGER, UserRole.VIEWER)
+  @Get('storage')
+  storageStatus() {
+    return { backend: this.storage.backend }
+  }
+
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Patch('settings')
   updateSettings(@Body() dto: UpdateSiteSettingsDto) {

@@ -201,6 +201,8 @@ export const cms = {
    * failure mode of forgetting a field is that one field does not save, not
    * that the whole form stops working.
    */
+  storageStatus: () => apiFetch<{ backend: 'gcs' | 'blob' | 'local' }>('/cms/storage'),
+
   saveSettings: (body: SiteSettings) =>
     apiFetch<SiteSettings>('/cms/settings', {
       method: 'PATCH',

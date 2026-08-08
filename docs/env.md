@@ -21,6 +21,7 @@ cp apps/web/.env.example apps/web/.env
 | `CORS_ORIGINS`                  | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
 | `ADMIN_SEED_PASSWORD`           | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
 | `NODE_ENV`                      | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
+| `GCS_BUCKET`                    | en despliegue   | Bucket de Google Cloud Storage para las fotos. Sin él ni `BLOB_READ_WRITE_TOKEN`, las subidas dan 404.                                                                                                                                    |
 | `BLOB_READ_WRITE_TOKEN`         | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
 | `DEEPL_API_KEY`                 | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
 | `TRANSLATION_PROVIDER`          | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
@@ -382,3 +383,46 @@ Elegir Meta y que salga por Twilio significaría que el panel dice una cosa y el
 teléfono muestra otra, sin motivo para que nadie lo mire. En su lugar el panel
 señala qué falta y distingue si el otro proveedor está listo para cambiarse —
 porque poner credenciales es un despliegue y cambiar de proveedor es un clic.
+
+## Dónde van las fotos que sube la anfitriona
+
+Tres destinos, y el orden de preferencia es este:
+
+1. **`GCS_BUCKET`** — Google Cloud Storage. Es lo que usa el despliegue.
+2. **`BLOB_READ_WRITE_TOKEN`** — Vercel Blob. Sigue funcionando; estaba antes.
+3. **Nada** — disco local. **Solo para `pnpm dev`.**
+
+El tercero es una trampa fuera de desarrollo y conviene entender por qué: el API
+escribe el archivo en `apps/web/public/uploads` y devuelve `/uploads/<nombre>`,
+una ruta que sirve **la web**. En cualquier despliegue son dos contenedores
+distintos, así que el archivo queda en uno y la URL apunta al otro. La subida
+responde bien, la base guarda la URL y la imagen da 404 para siempre. El panel
+avisa cuando está en ese modo, porque el fallo es silencioso por construcción.
+
+### Montar el bucket
+
+```bash
+gcloud storage buckets create gs://TU-BUCKET \
+  --location=us-central1 --uniform-bucket-level-access
+
+# Los visitantes leen las fotos...
+gcloud storage buckets add-iam-policy-binding gs://TU-BUCKET \
+  --member=allUsers --role=roles/storage.legacyObjectReader
+
+# ...y el API escribe y borra.
+gcloud storage buckets add-iam-policy-binding gs://TU-BUCKET \
+  --member=serviceAccount:LA-CUENTA-DEL-API --role=roles/storage.objectAdmin
+```
+
+**`legacyObjectReader` y no `objectViewer`.** El segundo también concede listar
+el bucket, y nadie de fuera tiene por qué poder enumerar qué hay dentro.
+Comprobado: leer un objeto sin credenciales devuelve `200`, listar devuelve
+`401`.
+
+**Sin fichero de claves.** El cliente usa Application Default Credentials: en
+Cloud Run eso es la propia cuenta de servicio del API, y en local
+`gcloud auth application-default login`. No hay ninguna credencial que filtrar.
+
+Los objetos se guardan con `cache-control: immutable` a un año. Es seguro porque
+el nombre lleva doce bytes aleatorios: una URL siempre responde con la misma
+foto, y reemplazarla genera un nombre nuevo en vez de una caché rancia.

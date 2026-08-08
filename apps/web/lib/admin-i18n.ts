@@ -557,6 +557,9 @@ export const adminCopy = {
       laundry: 'Laundry',
     },
     content: {
+      storageLocalTitle: 'Uploaded images will not appear',
+      storageLocalBody:
+        'No image storage is configured, so the API keeps uploads on its own disk and hands back a path the site cannot serve. The upload will report success and the picture will never load. Set GCS_BUCKET on the API (see docs/env.md).',
       dragToReorder: 'Drag to reorder',
       libraryReviews: 'Guest reviews',
       libraryFaqs: 'Frequently asked questions',
@@ -1383,6 +1386,9 @@ export const adminCopy = {
       laundry: 'Lavandería',
     },
     content: {
+      storageLocalTitle: 'Las imágenes que subas no se verán',
+      storageLocalBody:
+        'No hay almacenamiento de imágenes configurado, así que el API guarda las subidas en su propio disco y devuelve una ruta que el sitio no puede servir. La subida dirá que fue bien y la foto no cargará nunca. Define GCS_BUCKET en el API (ver docs/env.md).',
       dragToReorder: 'Arrastra para cambiar el orden',
       libraryReviews: 'Reseñas de huéspedes',
       libraryFaqs: 'Preguntas frecuentes',

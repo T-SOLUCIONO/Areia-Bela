@@ -18,6 +18,7 @@ import { GalleryManager } from '@/components/admin/content/gallery-manager'
 import { LandingEditor } from '@/components/admin/content/landing-editor'
 import { ReviewsEditor } from '@/components/admin/content/reviews-editor'
 import { TranslationNotice } from '@/components/admin/content/translation-notice'
+import { StorageNotice } from '@/components/admin/content/storage-notice'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
 
 /**
@@ -107,6 +108,7 @@ export default function ContentPage() {
   return (
     <div className="space-y-4">
       <TranslationNotice />
+      <StorageNotice />
 
       {/* On a phone the rail would be twenty rows above the form someone came
           to fill in. It becomes a sheet, and the trigger doubles as the answer
