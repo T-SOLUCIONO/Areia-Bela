@@ -429,6 +429,27 @@ Los objetos se guardan con `cache-control: immutable` a un año. Es seguro porqu
 el nombre lleva doce bytes aleatorios: una URL siempre responde con la misma
 foto, y reemplazarla genera un nombre nuevo en vez de una caché rancia.
 
+### Cuidado al escribir un secreto desde la terminal
+
+`gcloud secrets versions add X --data-file=-` guarda **el Enter que termina el
+pegado** dentro del secreto. Un token que acaba en `\n` construye una cabecera
+`Authorization` malformada, y el error no menciona el salto de línea en ningún
+momento. La forma segura, que además no deja el valor en el historial del shell:
+
+```bash
+printf %s "$(cat)" | gcloud secrets versions add areia-meta-whatsapp-token --data-file=-
+```
+
+Crear el secreto y darle contenido son **dos pasos**. `gcloud secrets create` con
+una entrada vacía deja el contenedor creado y sin versiones, y entonces Cloud Run
+falla con `versions/latest was not found` — que suena a que el secreto no existe
+cuando lo que no existe es su contenido. Se comprueba con
+`gcloud secrets versions list <nombre>`.
+
+Del lado del código, todas las credenciales de avisos se leen recortadas y un
+valor que solo tenga espacios cuenta como no configurado: presente e inservible
+es peor que ausente, porque reportaría un canal listo que no puede enviar.
+
 ### La plantilla de avisos de Meta
 
 Sin plantilla, el canal de Meta manda texto libre, y Meta solo entrega texto

@@ -6573,3 +6573,33 @@ quedado separado de su función por `storageStatus`, documentando la equivocada.
 
 Hasta que los cuatro estén hechos, **Telegram sigue siendo el canal fiable**: no
 tiene ventana de 24 h, ni plantillas, ni aprobación, y no cuesta nada.
+
+## 44. Credenciales recortadas al leerlas
+
+Al mover `META_WHATSAPP_TOKEN` a Secret Manager salieron dos trampas del proceso,
+no del código, y una de ellas merecía blindaje.
+
+**`gcloud secrets create` con entrada vacía** deja el contenedor creado y sin
+versiones. Cloud Run entonces falla con `Secret .../versions/latest was not
+found`, que suena a que el secreto no existe cuando lo que no existe es su
+contenido. Se distingue con `gcloud secrets versions list`.
+
+**`--data-file=-` guarda el Enter que cierra el pegado.** Un token que acaba en
+`\n` construye una cabecera `Authorization` malformada, y el error resultante no
+menciona el salto de línea. Es un fallo cuya causa no se parece a su síntoma, así
+que ahora todas las credenciales de avisos pasan por un `secret()` que las recorta
+y trata un valor de solo espacios como no configurado — presente e inservible es
+peor que ausente, porque reportaría un canal listo que no puede enviar.
+
+Cubre `TELEGRAM_BOT_TOKEN`, las tres de Twilio y las cuatro de Meta.
+
+```
+pnpm test ✅ (381, 2 nuevos)
+```
+
+Los dos tests nuevos usan exactamente la forma en que esto ocurre: un token con
+`\n` al final y un id de teléfono con espacios alrededor, comprobando que la
+cabecera y la URL salen limpias; y una variable con solo espacios, comprobando
+que el canal se reporta como no configurado.
+
+`docs/env.md` documenta la forma segura de escribir el secreto.

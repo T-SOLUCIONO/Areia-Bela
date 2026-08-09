@@ -122,6 +122,23 @@ export class NotificationsService {
   ) {}
 
   /**
+   * A credential from the environment, without the whitespace around it.
+   *
+   * Trimmed because of how these actually get set. A secret written with
+   * `--data-file=-` keeps the newline from the Enter that ended the paste, and a
+   * token ending in `\n` builds an `Authorization` header that is rejected as
+   * malformed — a failure that looks nothing like its cause. Same for a value
+   * copied out of a console with a trailing space.
+   *
+   * Empty becomes `undefined`, so a variable that exists but holds only
+   * whitespace counts as unset rather than putting a channel into a state where
+   * it is configured and cannot possibly work.
+   */
+  private secret(key: string): string | undefined {
+    return this.config.get<string>(key)?.trim() || undefined
+  }
+
+  /**
    * Telegram, if a bot token is configured.
    *
    * The token is an environment variable and the chat id a setting: one belongs
@@ -129,14 +146,14 @@ export class NotificationsService {
    * change where alerts land without anyone touching the service.
    */
   private get telegram(): NotificationChannel | null {
-    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN')
+    const token = this.secret('TELEGRAM_BOT_TOKEN')
     return token ? new TelegramChannel(token) : null
   }
 
   private get twilio(): NotificationChannel | null {
-    const sid = this.config.get<string>('TWILIO_ACCOUNT_SID')
-    const token = this.config.get<string>('TWILIO_AUTH_TOKEN')
-    const from = this.config.get<string>('TWILIO_WHATSAPP_FROM')
+    const sid = this.secret('TWILIO_ACCOUNT_SID')
+    const token = this.secret('TWILIO_AUTH_TOKEN')
+    const from = this.secret('TWILIO_WHATSAPP_FROM')
 
     return sid && token && from ? new WhatsAppChannel(sid, token, from) : null
   }
@@ -159,20 +176,20 @@ export class NotificationsService {
    * typing it in the panel could only ever get it wrong.
    */
   private get metaTemplate(): MetaTemplate | null {
-    const name = this.config.get<string>('META_WHATSAPP_TEMPLATE')?.trim()
+    const name = this.secret('META_WHATSAPP_TEMPLATE')
     if (!name) return null
 
     // Meta approves a template per language, and the host alerts are written in
     // Spanish, so that is the default rather than a guess to be configured.
     return {
       name,
-      language: this.config.get<string>('META_WHATSAPP_TEMPLATE_LANGUAGE')?.trim() || 'es',
+      language: this.secret('META_WHATSAPP_TEMPLATE_LANGUAGE') ?? 'es',
     }
   }
 
   private get meta(): MetaWhatsAppChannel | null {
-    const token = this.config.get<string>('META_WHATSAPP_TOKEN')
-    const phoneNumberId = this.config.get<string>('META_WHATSAPP_PHONE_NUMBER_ID')
+    const token = this.secret('META_WHATSAPP_TOKEN')
+    const phoneNumberId = this.secret('META_WHATSAPP_PHONE_NUMBER_ID')
 
     return token && phoneNumberId
       ? new MetaWhatsAppChannel(token, phoneNumberId, this.metaTemplate)

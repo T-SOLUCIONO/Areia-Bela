@@ -259,6 +259,31 @@ describe('NotificationsService', () => {
       ).resolves.toMatchObject({ metaTemplate: true })
     })
 
+    it('survives a credential with the trailing newline a secret paste leaves', async () => {
+      // How this happens for real: `gcloud secrets versions add --data-file=-`
+      // keeps the Enter that ended the paste. A token ending in "\n" builds a
+      // malformed Authorization header, and the error says nothing about a
+      // newline.
+      fetchMock.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) })
+
+      await build({
+        META_WHATSAPP_TOKEN: 'meta-token\n',
+        META_WHATSAPP_PHONE_NUMBER_ID: ' 123456789 ',
+      }).status()
+
+      const [, init] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }]
+      expect(init.headers.Authorization).toBe('Bearer meta-token')
+      expect(fetchMock.mock.calls[0][0]).toBe('https://graph.facebook.com/v21.0/123456789')
+    })
+
+    it('treats a variable holding only whitespace as unset', async () => {
+      // Present and useless is worse than absent: it would report a configured
+      // channel that cannot send.
+      await expect(
+        build({ META_WHATSAPP_TOKEN: '  ', META_WHATSAPP_PHONE_NUMBER_ID: '123' }).status(),
+      ).resolves.toMatchObject({ metaConfigured: false })
+    })
+
     it('does not call Meta when Meta is not configured', async () => {
       await build(TWILIO).status()
 
