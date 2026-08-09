@@ -6492,3 +6492,84 @@ las 24 horas de Meta — un mensaje de texto libre iniciado por el negocio solo 
 entrega si el destinatario escribió en las últimas 24 h; si no, hace falta una
 plantilla aprobada. Telegram no tiene esa restricción, que es por lo que se
 añadió.
+
+## 43. Avisos por WhatsApp que llegan de verdad: plantillas de Meta
+
+Continuación de la sección 42. Renovar el token quitaba el fallo de
+autenticación, pero no bastaba: el aviso seguiría sin llegar. Dos hallazgos al
+revisar la configuración real.
+
+**El número desplegado es el de pruebas de Meta.** `META_WHATSAPP_PHONE_NUMBER_ID`
+vale `1204618046077929`, que es el `+1 555 673-4219` del panel de Meta, y la app
+está en Modo Desarrollo. Ese número solo escribe a una lista blanca de hasta
+cinco destinatarios verificados.
+
+**El código mandaba `type: text`.** Meta solo entrega texto libre dentro de una
+ventana de 24 h abierta por el destinatario. Un aviso de reserva es iniciado por
+el negocio por definición, así que fuera de esa ventana no llegaba nunca —
+incluso con token válido y número en la lista blanca. El propio ejemplo de `curl`
+del panel de Meta usa `"type": "template"`.
+
+### Lo implementado
+
+`MetaWhatsAppChannel` acepta una plantilla opcional y, cuando la hay, envía
+`type: template` en vez de texto. Sin plantilla configurada sigue mandando texto,
+que es lo correcto en desarrollo y dentro de una ventana abierta: la ausencia de
+plantilla no es un error.
+
+**Dos parámetros, no uno por dato.** Cada `{{n}}` es un número que tiene que
+coincidir entre el código y un texto en la cola de revisión de Meta, y un
+descuadre hace fallar el envío sin nada útil en el log. Un título y un resumen de
+una línea llevan los cuatro avisos —reserva, cancelación, modificación y
+mensaje— con **una sola aprobación**.
+
+**El salto de línea va en la plantilla, no en el parámetro.** Es la asimetría que
+hace que esto funcione: el texto aprobado puede tener toda la maquetación que
+quiera, pero un parámetro con un salto de línea, un tabulador o más de cuatro
+espacios seguidos hace que Meta rechace el mensaje **entero**. Todos los avisos
+de este servicio se construyen por líneas, o sea exactamente la forma prohibida,
+así que `asTemplateParameter()` los aplana con `·` y recorta a los 1.024
+caracteres que Meta admite — un aviso truncado es mejor que ningún aviso.
+
+Un test encontró un fallo real en la primera versión de esa función: colapsaba
+`\s{2,}`, así que **un tabulador suelto sobrevivía**. Meta lo rechaza igual que
+un salto de línea. Ahora colapsa cualquier racha de espacios en blanco.
+
+### El panel ya no calla el fallo silencioso
+
+Un token válido sin plantilla es el peor de los casos: nada parece roto y cada
+aviso fuera de una ventana abierta se descarta. `status()` devuelve `metaTemplate`
+y la pantalla de ajustes avisa: «No hay plantilla aprobada configurada, así que un
+aviso solo llega si escribiste a este número en las últimas 24 horas. Una reserva
+a las 3 de la mañana no te llegará.»
+
+### Verificación
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (379, 7 nuevos)
+```
+
+Los tests nuevos cubren que se manda `type: template` y no `text`, que los dos
+parámetros van en orden, que un cuerpo multilínea se aplana, que sin plantilla
+sigue saliendo texto, que se limpian los caracteres que Meta refuse, que un
+parámetro largo se recorta en vez de perder el aviso, y que el panel distingue
+plantilla configurada de no configurada.
+
+De paso, en `cms-client.ts` el bloque de documentación de `saveSettings` había
+quedado separado de su función por `storageStatus`, documentando la equivocada.
+
+### Pendiente del usuario
+
+1. **Token de System User** (no caduca): `business.facebook.com/settings` →
+   Usuarios → Usuarios del sistema → Generar token, app `areia-bela`, permisos
+   `whatsapp_business_messaging` y `whatsapp_business_management`. Actualizar
+   `META_WHATSAPP_TOKEN`.
+2. **Dar de alta la plantilla** con el nombre, la categoría `Utility`, el idioma y
+   el cuerpo exacto que están en `docs/env.md` → «La plantilla de avisos de Meta»,
+   y esperar la aprobación.
+3. **Definir `META_WHATSAPP_TEMPLATE`** con el nombre aprobado.
+4. **Número real** (Paso 2 del panel de Meta) y **verificación del negocio**
+   (Paso 3). Mientras siga el número de pruebas, solo llegará a la lista blanca.
+
+Hasta que los cuatro estén hechos, **Telegram sigue siendo el canal fiable**: no
+tiene ventana de 24 h, ni plantillas, ni aprobación, y no cuesta nada.

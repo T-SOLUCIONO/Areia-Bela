@@ -11,6 +11,7 @@ import {
   TelegramChannel,
   WhatsAppChannel,
   type Destination,
+  type MetaTemplate,
   type NotificationChannel,
 } from './notification-channels'
 
@@ -150,11 +151,32 @@ export class NotificationsService {
    */
   private metaCheck: { at: number; problem: string | null } | null = null
 
+  /**
+   * The approved template alerts go out as, if there is one.
+   *
+   * Environment and not a setting: the name has to match a text Meta approved
+   * for this specific WhatsApp account, so it belongs to the deployment. A host
+   * typing it in the panel could only ever get it wrong.
+   */
+  private get metaTemplate(): MetaTemplate | null {
+    const name = this.config.get<string>('META_WHATSAPP_TEMPLATE')?.trim()
+    if (!name) return null
+
+    // Meta approves a template per language, and the host alerts are written in
+    // Spanish, so that is the default rather than a guess to be configured.
+    return {
+      name,
+      language: this.config.get<string>('META_WHATSAPP_TEMPLATE_LANGUAGE')?.trim() || 'es',
+    }
+  }
+
   private get meta(): MetaWhatsAppChannel | null {
     const token = this.config.get<string>('META_WHATSAPP_TOKEN')
     const phoneNumberId = this.config.get<string>('META_WHATSAPP_PHONE_NUMBER_ID')
 
-    return token && phoneNumberId ? new MetaWhatsAppChannel(token, phoneNumberId) : null
+    return token && phoneNumberId
+      ? new MetaWhatsAppChannel(token, phoneNumberId, this.metaTemplate)
+      : null
   }
 
   /**
@@ -645,6 +667,10 @@ export class NotificationsService {
       // Not "is there a token" but "does Meta still accept it". Meta's own
       // sentence, in English, for the panel to show under a translated label.
       metaProblem: await this.metaProblem(),
+      // Without a template, an alert only arrives if the host happened to write
+      // in the last 24 hours — which for a booking at 3am is never. The panel
+      // has to say that, because the failure looks like nothing at all.
+      metaTemplate: this.metaTemplate !== null,
       // Two separate facts, deliberately: "there is a chat id" and "the service
       // has a bot token". A host who filled in the id needs to know the missing
       // half is not theirs to fix.

@@ -161,6 +161,7 @@ describe('NotificationsService', () => {
         twilioConfigured: false,
         metaConfigured: false,
         metaProblem: null,
+        metaTemplate: false,
         telegram: false,
         telegramConfigured: false,
       })
@@ -245,6 +246,17 @@ describe('NotificationsService', () => {
         String(url).startsWith('https://graph.facebook.com'),
       )
       expect(checks).toHaveLength(1)
+    })
+
+    it('reports whether an approved template is configured', async () => {
+      // The difference between "WhatsApp works" and "WhatsApp works only if the
+      // host wrote in the last 24 hours", which is the difference between an
+      // alert and nothing at 3am.
+      await expect(build(META).status()).resolves.toMatchObject({ metaTemplate: false })
+
+      await expect(
+        build({ ...META, META_WHATSAPP_TEMPLATE: 'areia_bela_aviso' }).status(),
+      ).resolves.toMatchObject({ metaTemplate: true })
     })
 
     it('does not call Meta when Meta is not configured', async () => {

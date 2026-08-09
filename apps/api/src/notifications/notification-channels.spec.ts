@@ -3,6 +3,7 @@ import {
   EmailChannel,
   MetaWhatsAppChannel,
   TelegramChannel,
+  asTemplateParameter,
   deliver,
 } from './notification-channels'
 
@@ -157,6 +158,87 @@ describe('MetaWhatsAppChannel', () => {
     // The same shape as Twilio and Telegram: one recognisable format, whichever
     // provider woke the host up.
     expect((sentBody().text as { body: string }).body).toBe('*Nueva reserva*\n\nJane Doe')
+  })
+
+  describe('sending as an approved template', () => {
+    const templated = new MetaWhatsAppChannel('meta-token', '123456789', {
+      name: 'areia_bela_aviso',
+      language: 'es',
+    })
+
+    it('sends the template instead of free text', async () => {
+      // The whole reason this exists: free text only arrives inside a window the
+      // recipient opened, so a booking at 3am never reaches the host. A template
+      // is the only business-initiated message Meta delivers.
+      await templated.send('13055550100', 'Nueva reserva · 2026-08-10', 'Jane · 4 huéspedes')
+
+      const body = sentBody()
+      expect(body.type).toBe('template')
+      expect(body.text).toBeUndefined()
+      expect(body.template).toMatchObject({
+        name: 'areia_bela_aviso',
+        language: { code: 'es' },
+      })
+    })
+
+    it('passes the title and the summary as the two body parameters, in order', async () => {
+      await templated.send('13055550100', 'Nueva reserva · 2026-08-10', 'Jane · 4 huéspedes')
+
+      const template = sentBody().template as {
+        components: { type: string; parameters: { type: string; text: string }[] }[]
+      }
+      expect(template.components).toHaveLength(1)
+      expect(template.components[0].type).toBe('body')
+      expect(template.components[0].parameters).toEqual([
+        { type: 'text', text: 'Nueva reserva · 2026-08-10' },
+        { type: 'text', text: 'Jane · 4 huéspedes' },
+      ])
+    })
+
+    it('flattens the multi-line body Meta would reject', async () => {
+      // Every alert in this service is built as lines. A parameter containing a
+      // newline fails the whole send, so the layout has to live in the approved
+      // text and the data has to arrive on one line.
+      await templated.send(
+        '13055550100',
+        'Nueva reserva',
+        'Jane · 4 huéspedes\n2026-09-01 → 2026-09-08\n\nTotal: $2483',
+      )
+
+      const parameters = (
+        sentBody().template as { components: { parameters: { text: string }[] }[] }
+      ).components[0].parameters
+      expect(parameters[1].text).toBe('Jane · 4 huéspedes · 2026-09-01 → 2026-09-08 · Total: $2483')
+      expect(parameters[1].text).not.toContain('\n')
+    })
+
+    it('still sends free text when no template is configured', async () => {
+      // Development and the sandbox both work this way, and inside an open
+      // window free text is richer. Absence of a template is not an error.
+      await channel.send('13055550100', 'Nueva reserva', 'Jane')
+
+      expect(sentBody().type).toBe('text')
+    })
+  })
+
+  describe('asTemplateParameter', () => {
+    it('removes every character Meta refuses', () => {
+      // Newlines, tabs and runs of more than four spaces each reject the entire
+      // message rather than being cleaned up on Meta's side.
+      const cleaned = asTemplateParameter('uno\n\ndos\tres     cuatro')
+
+      expect(cleaned).not.toMatch(/[\n\t]/)
+      expect(cleaned).not.toMatch(/\s{2,}/)
+    })
+
+    it('cuts a parameter that is too long instead of losing the alert', () => {
+      // A guest note can be any length. Over the limit Meta rejects the send, and
+      // a truncated alert beats no alert.
+      const cleaned = asTemplateParameter('x'.repeat(2000))
+
+      expect(cleaned).toHaveLength(1024)
+      expect(cleaned.endsWith('…')).toBe(true)
+    })
   })
 
   it('throws with Meta’s own reason when it refuses', async () => {

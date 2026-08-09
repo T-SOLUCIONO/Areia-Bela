@@ -183,11 +183,15 @@ export const cms = {
       metaConfigured: boolean
       /** Meta's own words when it refuses the token — English, and never null-safe to concatenate. */
       metaProblem: string | null
+      /** Whether alerts go out as an approved template, i.e. outside the 24-hour window too. */
+      metaTemplate: boolean
       telegram: boolean
       telegramConfigured: boolean
     }>('/notifications/status'),
 
   settings: () => apiFetch<SiteSettings | null>('/cms/settings'),
+  storageStatus: () => apiFetch<{ backend: 'gcs' | 'blob' | 'local' }>('/cms/storage'),
+
   /**
    * Sends only what the host can edit.
    *
@@ -203,8 +207,6 @@ export const cms = {
    * failure mode of forgetting a field is that one field does not save, not
    * that the whole form stops working.
    */
-  storageStatus: () => apiFetch<{ backend: 'gcs' | 'blob' | 'local' }>('/cms/storage'),
-
   saveSettings: (body: SiteSettings) =>
     apiFetch<SiteSettings>('/cms/settings', {
       method: 'PATCH',

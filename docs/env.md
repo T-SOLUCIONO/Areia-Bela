@@ -12,29 +12,31 @@ cp apps/web/.env.example apps/web/.env
 
 ## apps/api
 
-| Variable                        | Requerida       | Propósito                                                                                                                                                                                                                                 |
-| ------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                  | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                                 |
-| `PORT`                          | no              | Puerto del API. Default `3001`.                                                                                                                                                                                                           |
-| `JWT_ACCESS_SECRET`             | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                              |
-| `TOTP_ENCRYPTION_KEY`           | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación.              |
-| `CORS_ORIGINS`                  | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
-| `ADMIN_SEED_PASSWORD`           | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
-| `NODE_ENV`                      | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
-| `GCS_BUCKET`                    | en despliegue   | Bucket de Google Cloud Storage para las fotos. Sin él ni `BLOB_READ_WRITE_TOKEN`, las subidas dan 404.                                                                                                                                    |
-| `BLOB_READ_WRITE_TOKEN`         | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
-| `DEEPL_API_KEY`                 | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
-| `TRANSLATION_PROVIDER`          | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
-| `LIBRETRANSLATE_URL`            | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
-| `ANTHROPIC_API_KEY`             | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
-| `PUBLIC_SITE_URL`               | sí              | Base de los enlaces que salen por correo (el de acceso del huésped). Sin ella se usa `http://localhost:3000`, y un enlace a localhost en el correo de un huésped no lleva a ninguna parte.                                                |
-| `STRIPE_SECRET_KEY`             | sí              | Abre la sesión de pago de Stripe. Sin ella `POST /bookings/:slug/hold` responde 503 y nadie puede reservar.                                                                                                                               |
-| `TWILIO_ACCOUNT_SID`            | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
-| `TWILIO_AUTH_TOKEN`             | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
-| `TELEGRAM_BOT_TOKEN`            | no              | Avisos por Telegram. El chat de destino se pone en el panel, no aquí.                                                                                                                                                                     |
-| `META_WHATSAPP_TOKEN`           | no              | WhatsApp por el Cloud API de Meta. Se elige el proveedor en el panel.                                                                                                                                                                     |
-| `META_WHATSAPP_PHONE_NUMBER_ID` | no              | El id del número emisor en Meta, no el número.                                                                                                                                                                                            |
-| `TWILIO_WHATSAPP_FROM`          | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
+| Variable                          | Requerida       | Propósito                                                                                                                                                                                                                                 |
+| --------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                    | sí              | Cadena de conexión a PostgreSQL (Prisma).                                                                                                                                                                                                 |
+| `PORT`                            | no              | Puerto del API. Default `3001`.                                                                                                                                                                                                           |
+| `JWT_ACCESS_SECRET`               | sí              | Firma los access tokens. **Mínimo 32 caracteres**; el API no arranca si falta o es más corto. Debe ser distinto por entorno.                                                                                                              |
+| `TOTP_ENCRYPTION_KEY`             | sí              | Cifra los secretos TOTP en reposo (AES-256-GCM). Acepta 64 caracteres hex (32 bytes) o una passphrase de 32+ caracteres. **Si se pierde, nadie con 2FA activo puede volver a entrar** salvo con sus códigos de recuperación.              |
+| `CORS_ORIGINS`                    | no              | Orígenes permitidos, separados por coma. Default `http://localhost:3000`. No admite `*` porque las cookies requieren credenciales.                                                                                                        |
+| `ADMIN_SEED_PASSWORD`             | solo al sembrar | Contraseña del admin inicial (`admin@areiabela.com`). Mínimo 12 caracteres. El seed **falla a propósito** si no está definida, para no crear una contraseña débil por defecto.                                                            |
+| `NODE_ENV`                        | no              | En `production` las cookies se emiten con `Secure`.                                                                                                                                                                                       |
+| `GCS_BUCKET`                      | en despliegue   | Bucket de Google Cloud Storage para las fotos. Sin él ni `BLOB_READ_WRITE_TOKEN`, las subidas dan 404.                                                                                                                                    |
+| `BLOB_READ_WRITE_TOKEN`           | en producción   | Token de Vercel Blob para guardar las fotos de la galería. Sin él, la subida escribe en `apps/web/public/uploads/` y el API lo avisa por log: sirve para desarrollo, pero en un host efímero esos archivos se pierden en cada despliegue. |
+| `DEEPL_API_KEY`                   | en producción   | Traduce el contenido a inglés, portugués, francés y alemán al guardar. **Recomendado y gratuito** (500.000 caracteres/mes). Sin ninguna clave nada se rompe: el sitio muestra el idioma en que se escribió y el panel lo avisa.           |
+| `TRANSLATION_PROVIDER`            | no              | Fuerza un proveedor: `deepl`, `libretranslate` o `claude`. Sin ella gana el primero configurado, empezando por DeepL.                                                                                                                     |
+| `LIBRETRANSLATE_URL`              | no              | Instancia propia de LibreTranslate, si prefieres que los textos no salgan de tu servidor.                                                                                                                                                 |
+| `ANTHROPIC_API_KEY`               | no              | Traducir con Claude. De pago, pero es el único que entiende el contexto.                                                                                                                                                                  |
+| `PUBLIC_SITE_URL`                 | sí              | Base de los enlaces que salen por correo (el de acceso del huésped). Sin ella se usa `http://localhost:3000`, y un enlace a localhost en el correo de un huésped no lleva a ninguna parte.                                                |
+| `STRIPE_SECRET_KEY`               | sí              | Abre la sesión de pago de Stripe. Sin ella `POST /bookings/:slug/hold` responde 503 y nadie puede reservar.                                                                                                                               |
+| `TWILIO_ACCOUNT_SID`              | no              | Avisos por WhatsApp. Sin las tres variables de Twilio, todo llega igual por correo.                                                                                                                                                       |
+| `TWILIO_AUTH_TOKEN`               | no              | Token de esa cuenta.                                                                                                                                                                                                                      |
+| `TELEGRAM_BOT_TOKEN`              | no              | Avisos por Telegram. El chat de destino se pone en el panel, no aquí.                                                                                                                                                                     |
+| `META_WHATSAPP_TOKEN`             | no              | WhatsApp por el Cloud API de Meta. Se elige el proveedor en el panel.                                                                                                                                                                     |
+| `META_WHATSAPP_PHONE_NUMBER_ID`   | no              | El id del número emisor en Meta, no el número.                                                                                                                                                                                            |
+| `META_WHATSAPP_TEMPLATE`          | no              | Nombre de la plantilla aprobada con la que sale el aviso. Sin ella solo se entrega dentro de la ventana de 24 h. Ver «La plantilla de avisos».                                                                                            |
+| `META_WHATSAPP_TEMPLATE_LANGUAGE` | no              | Idioma con el que Meta aprobó la plantilla. Por defecto `es`.                                                                                                                                                                             |
+| `TWILIO_WHATSAPP_FROM`            | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
 ### Almacenamiento de imágenes (Vercel Blob)
 
@@ -426,3 +428,43 @@ Cloud Run eso es la propia cuenta de servicio del API, y en local
 Los objetos se guardan con `cache-control: immutable` a un año. Es seguro porque
 el nombre lleva doce bytes aleatorios: una URL siempre responde con la misma
 foto, y reemplazarla genera un nombre nuevo en vez de una caché rancia.
+
+### La plantilla de avisos de Meta
+
+Sin plantilla, el canal de Meta manda texto libre, y Meta solo entrega texto
+libre **dentro de una ventana de 24 h abierta por el destinatario**. Un aviso de
+reserva es iniciado por el negocio por definición, así que fuera de esa ventana
+no llega. La plantilla es la única forma de que llegue siempre.
+
+Hay que crearla en `business.facebook.com` → WhatsApp Manager → Plantillas de
+mensajes, y esperar la aprobación de Meta.
+
+- **Nombre**: `areia_bela_aviso` (o el que sea; va en `META_WHATSAPP_TEMPLATE`)
+- **Categoría**: `Utility` — es una notificación de una transacción, no
+  marketing. Elegir `Marketing` la haría rechazable y cobrable como tal.
+- **Idioma**: español (`es`), el mismo que `META_WHATSAPP_TEMPLATE_LANGUAGE`
+- **Cuerpo**, exactamente con dos parámetros:
+
+```
+*{{1}}*
+
+{{2}}
+
+Abre el panel de Areia Bela para ver el detalle.
+```
+
+- **Valores de ejemplo** que pide Meta al enviarla a revisión:
+  - `{{1}}`: `Nueva reserva · 2026-09-01`
+  - `{{2}}`: `Jane Doe · 4 huéspedes · 2026-09-01 → 2026-09-08 · Total: $2483`
+
+Dos parámetros y no uno por dato, a propósito: cada `{{n}}` es un número que
+tiene que coincidir entre el código y un texto que está en la cola de revisión
+de Meta, y un descuadre hace fallar el envío sin nada útil en el log. Un título
+y un resumen de una línea llevan los cuatro avisos —reserva, cancelación,
+modificación y mensaje— con una sola aprobación.
+
+**El salto de línea va en la plantilla, no en el parámetro.** Meta rechaza un
+parámetro que contenga un salto de línea, un tabulador o más de cuatro espacios
+seguidos, y rechaza el mensaje entero, no el carácter. Los avisos se construyen
+por líneas, así que el código las aplana con `·` antes de enviarlas:
+la maquetación vive en el texto aprobado y los datos llegan en una sola línea.

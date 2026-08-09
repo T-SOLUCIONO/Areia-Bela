@@ -764,6 +764,8 @@ export const adminCopy = {
       seoTitle: 'Page title',
       seoDescription: 'Search description',
       seoHint: 'Around 155 characters is what Google shows.',
+      metaNoTemplate:
+        'No approved template is configured, so an alert only arrives if you wrote to this number in the last 24 hours. A booking at 3am will not reach you.',
       metaRejected: 'Meta is refusing this token, so no WhatsApp alert is going out:',
       metaRejectedFix:
         'The token from the Meta dashboard lasts 24 hours. A System User token does not expire.',
@@ -1595,6 +1597,8 @@ export const adminCopy = {
       seoTitle: 'Título de la página',
       seoDescription: 'Descripción para buscadores',
       seoHint: 'Unos 155 caracteres es lo que muestra Google.',
+      metaNoTemplate:
+        'No hay plantilla aprobada configurada, así que un aviso solo llega si escribiste a este número en las últimas 24 horas. Una reserva a las 3 de la mañana no te llegará.',
       metaRejected: 'Meta está rechazando este token, así que no sale ningún aviso por WhatsApp:',
       metaRejectedFix: 'El token del panel de Meta dura 24 horas. Uno de System User no caduca.',
       listingName: 'Nombre de la casa',

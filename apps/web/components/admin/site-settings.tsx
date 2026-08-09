@@ -59,6 +59,7 @@ export function SiteSettings() {
     twilioConfigured: boolean
     metaConfigured: boolean
     metaProblem: string | null
+    metaTemplate: boolean
     telegram: boolean
     telegramConfigured: boolean
   } | null>(null)
@@ -259,6 +260,16 @@ export function SiteSettings() {
                 <p className="text-xs text-muted-foreground">{t.site.metaRejectedFix}</p>
               </div>
             )}
+            {/* A configured token with no template is the quiet failure: nothing
+                looks wrong and every alert outside an open window is dropped. */}
+            {draft.whatsappProvider === 'META' &&
+              status?.metaConfigured &&
+              !status.metaProblem &&
+              !status.metaTemplate && (
+                <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs">
+                  {t.site.metaNoTemplate}
+                </p>
+              )}
             {status !== null &&
               !status.whatsappConfigured &&
               (draft.whatsappProvider === 'META'

@@ -98,12 +98,56 @@ interface MetaError {
  * window to go away is choosing it for the wrong reason, which is why the panel
  * says so next to the choice.
  */
+/** The approved template an alert goes out as, and the language it was approved in. */
+export interface MetaTemplate {
+  name: string
+  language: string
+}
+
+/**
+ * Meta's limit on a single body parameter. Longer is rejected outright, so a
+ * long guest note must be cut rather than lose the whole alert.
+ */
+const META_PARAMETER_LIMIT = 1024
+
+/**
+ * Flattens an alert body into something a template parameter will accept.
+ *
+ * Meta rejects a parameter containing a newline, a tab, or more than four
+ * consecutive spaces — the whole message, not the offending character. Every
+ * alert here is built as multiple lines, which is exactly the shape that is not
+ * allowed, so the lines are joined with a separator that reads as a break.
+ *
+ * The template itself is free to have all the newlines it wants. That is the
+ * asymmetry worth remembering: the layout lives in the approved text, the data
+ * arrives on one line.
+ */
+export function asTemplateParameter(text: string): string {
+  const flat = text
+    .split(/\n+/)
+    // Every run of whitespace becomes one space, not just runs of two or more:
+    // a lone tab is refused as firmly as a newline is.
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join(' · ')
+
+  return flat.length > META_PARAMETER_LIMIT
+    ? `${flat.slice(0, META_PARAMETER_LIMIT - 1).trimEnd()}…`
+    : flat
+}
+
 export class MetaWhatsAppChannel implements NotificationChannel {
   readonly name = 'WhatsApp (Meta)'
 
   constructor(
     private readonly accessToken: string,
     private readonly phoneNumberId: string,
+    /**
+     * Absent means free text, which only arrives inside a window the recipient
+     * opened. Present means every alert goes out as the approved template and
+     * therefore arrives at three in the morning too.
+     */
+    private readonly template: MetaTemplate | null = null,
   ) {}
 
   async send(to: string, subject: string, body: string): Promise<boolean> {
@@ -122,10 +166,7 @@ export class MetaWhatsAppChannel implements NotificationChannel {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to: digits,
-          type: 'text',
-          // Same shape as the Twilio channel: one recognisable format for the
-          // host, whichever provider woke them up.
-          text: { preview_url: false, body: `*${subject}*\n\n${body}` },
+          ...this.content(subject, body),
         }),
       },
     )
@@ -135,6 +176,40 @@ export class MetaWhatsAppChannel implements NotificationChannel {
       throw new Error(`Meta: ${detail?.error?.message ?? response.statusText}`)
     }
     return true
+  }
+
+  /**
+   * Template when one is approved, plain text when not.
+   *
+   * Two parameters and not one per fact, deliberately. Every extra `{{n}}` is a
+   * number that has to match between this code and a text sitting in Meta's
+   * review queue, and a mismatch fails the send with nothing useful in the log.
+   * A title and a one-line summary carry all four alerts — booking,
+   * cancellation, change, message — through a single approval.
+   */
+  private content(subject: string, body: string) {
+    if (!this.template) {
+      // Same shape as the Twilio channel: one recognisable format for the host,
+      // whichever provider woke them up.
+      return { type: 'text', text: { preview_url: false, body: `*${subject}*\n\n${body}` } }
+    }
+
+    return {
+      type: 'template',
+      template: {
+        name: this.template.name,
+        language: { code: this.template.language },
+        components: [
+          {
+            type: 'body',
+            parameters: [subject, body].map((value) => ({
+              type: 'text',
+              text: asTemplateParameter(value),
+            })),
+          },
+        ],
+      },
+    }
   }
 
   /**
