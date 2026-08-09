@@ -6603,3 +6603,36 @@ cabecera y la URL salen limpias; y una variable con solo espacios, comprobando
 que el canal se reporta como no configurado.
 
 `docs/env.md` documenta la forma segura de escribir el secreto.
+
+### Verificación en producción (secciones 42–44)
+
+Token de Meta resuelto y comprobado contra la Graph API:
+
+| Comprobación            | Resultado                                                      |
+| ----------------------- | -------------------------------------------------------------- |
+| Tipo                    | `SYSTEM_USER` (`areia_bela-user-api`), no un token de persona  |
+| Caducidad               | **Nunca** (`expires_at: 0`)                                    |
+| Permisos                | `whatsapp_business_messaging` + `whatsapp_business_management` |
+| Acceso al número emisor | OK, calidad `GREEN`                                            |
+| Almacenamiento          | Secret Manager (`areia-meta-whatsapp-token`), no en claro      |
+| Revisión sirviendo      | `areia-bela-api-00034-sj8`, imagen `api:ce891e3`               |
+
+Que la revisión arrancara prueba de paso que la cuenta de servicio puede leer el
+secreto: si no, el contenedor no habría levantado.
+
+**Una trampa de Cloud Run que costó un build.** El primer `services update`
+apuntando al secreto falló porque el secreto no tenía versiones — pero Cloud Run
+**guarda el spec del servicio aunque la revisión no arranque**. El servicio quedó
+apuntando a un secreto vacío, y a partir de ahí _cualquier_ despliegue fallaba con
+el mismo error, incluido el build de `8a32115`, que solo cambia la imagen. Un
+`update` fallido no es un `update` sin efecto.
+
+El paso de migración del pipeline emite `. prepare: git command not found` — es el
+hook de Husky dentro de un contenedor sin git, y no afecta: el mismo build informa
+«23 migrations found / No pending migrations to apply».
+
+**Sigue pendiente para que el aviso por WhatsApp llegue de verdad:** dar de alta la
+plantilla en Meta y esperar su aprobación, definir `META_WHATSAPP_TEMPLATE`, y
+pasar del número de pruebas a uno real con el negocio verificado. Mientras tanto
+el panel muestra el aviso de que sin plantilla solo se entrega dentro de la
+ventana de 24 h, y **Telegram sigue siendo el canal fiable**.
