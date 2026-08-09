@@ -160,6 +160,7 @@ describe('NotificationsService', () => {
         whatsappConfigured: false,
         twilioConfigured: false,
         metaConfigured: false,
+        metaProblem: null,
         telegram: false,
         telegramConfigured: false,
       })
@@ -187,6 +188,69 @@ describe('NotificationsService', () => {
         telegram: true,
         telegramConfigured: true,
       })
+    })
+  })
+
+  describe('whether Meta still accepts the token', () => {
+    const META = {
+      META_WHATSAPP_TOKEN: 'meta-token',
+      META_WHATSAPP_PHONE_NUMBER_ID: '123456789',
+    }
+
+    const metaSays = (body: unknown, ok = false) =>
+      fetchMock.mockResolvedValue({
+        ok,
+        statusText: 'Bad Request',
+        json: () => Promise.resolve(body),
+      })
+
+    it('passes on Meta’s own sentence when the token is dead', async () => {
+      // The real failure: a booking came in, the log said "Authentication
+      // Error", and the panel showed WhatsApp as configured because the
+      // environment variable was still there. Presence is not validity — Meta's
+      // dashboard token lasts a day and dies on its own.
+      metaSays({
+        error: { message: 'Error validating access token: Session has expired on 06-Aug-26.' },
+      })
+
+      await expect(build(META).status()).resolves.toMatchObject({
+        metaConfigured: true,
+        metaProblem: 'Error validating access token: Session has expired on 06-Aug-26.',
+      })
+    })
+
+    it('reports no problem when Meta accepts it', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: '123456789' }) })
+
+      await expect(build(META).status()).resolves.toMatchObject({ metaProblem: null })
+    })
+
+    it('stays quiet when Meta could not be reached at all', async () => {
+      // Not being able to ask is not evidence against the token. A warning that
+      // shows up whenever the network blinks is one the host stops reading.
+      fetchMock.mockRejectedValue(new Error('ENOTFOUND graph.facebook.com'))
+
+      await expect(build(META).status()).resolves.toMatchObject({ metaProblem: null })
+    })
+
+    it('asks Meta once, not on every load of the screen', async () => {
+      metaSays({ error: { message: 'Authentication Error' } })
+      const service = build(META)
+
+      await service.status()
+      await service.status()
+      await service.status()
+
+      const checks = fetchMock.mock.calls.filter(([url]) =>
+        String(url).startsWith('https://graph.facebook.com'),
+      )
+      expect(checks).toHaveLength(1)
+    })
+
+    it('does not call Meta when Meta is not configured', async () => {
+      await build(TWILIO).status()
+
+      expect(fetchMock).not.toHaveBeenCalled()
     })
   })
 

@@ -6417,3 +6417,78 @@ eliminaron en ES y EN.
 tiene Docker, así que no pude levantar PostgreSQL ni el API para entrar al panel.
 Queda pendiente confirmar tras el despliegue que el nombre se edita y se guarda
 desde Contacto y SEO.
+
+## 42. El aviso de WhatsApp no salía y el panel decía que sí
+
+Reserva **AB-MPYK2G**. Llegó el aviso por Telegram y por correo, pero no por
+WhatsApp, con el proveedor puesto en Meta. En los logs de Cloud Run:
+
+```
+LOG    Sent "Nueva reserva · 2026-08-10" over Email
+LOG    Sent "Nueva reserva · 2026-08-10" over Telegram
+ERROR  Could not send "Nueva reserva · 2026-08-10" over WhatsApp (Meta):
+       Meta: Authentication Error
+```
+
+Preguntándole a la Graph API con el token que hay desplegado:
+
+```
+code 190, error_subcode 463, OAuthException
+"Error validating access token: Session has expired on Thursday,
+ 06-Aug-26 16:00:00 PDT"
+```
+
+El token caducó. No hay defecto en la selección de proveedor: eligió Meta como
+estaba configurado, y Meta lo rechazó. **Telegram y WhatsApp no son
+excluyentes** — el selector del panel elige entre Twilio y Meta, y cada canal
+se envía si tiene destinatario, así que ver llegar Telegram nunca implicó que
+WhatsApp no se hubiera intentado.
+
+### Lo que sí era un defecto: el panel daba por buena una credencial muerta
+
+`metaConfigured` se calculaba con `this.meta !== null`, o sea con la presencia
+de las variables de entorno. Meta es el único de los tres proveedores cuya
+credencial **muere sola**: el token que entrega su panel dura 24 horas. Una
+variable puede estar presente y estar muerta al mismo tiempo, así que el panel
+mostraba WhatsApp en verde mientras cada aviso fallaba, y lo único que lo sabía
+era una línea de log que nadie mira.
+
+- `MetaWhatsAppChannel.verify()` le pregunta a Meta si sigue aceptando el token
+  y devuelve **la frase de Meta**, no un «no funciona»: «expiró el 6 de agosto»
+  dice qué hacer.
+- Si no se puede _llegar_ a Meta, devuelve `null`. No poder preguntar no es
+  prueba contra el token, y una alerta que aparece cada vez que parpadea la red
+  es una alerta que se deja de leer.
+- `status()` la expone como `metaProblem`, con caché de 60 s: la pantalla de
+  ajustes la pide en cada carga y una caducidad ocurre una vez al día, no una
+  vez por request. Twilio y Telegram no se consultan — sus credenciales no
+  caducan y una llamada por carga no compraría nada.
+- El panel muestra el mensaje de Meta **en su propia línea**, bajo una etiqueta
+  traducida, en vez de concatenarlo: Meta escribe en inglés esté el panel en el
+  idioma que esté, y pegarle un prefijo en español daría media frase en cada uno.
+  Debajo, la salida: el token del panel de Meta dura 24 h, uno de System User no
+  caduca.
+
+### Verificación
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (372, 5 nuevos)
+```
+
+Los cinco tests nuevos cubren el caso real (token caducado → el panel repite la
+frase de Meta), el token válido, la red caída, que se pregunta una sola vez y no
+tres, y que con Twilio elegido no se llama a Meta en absoluto.
+
+De paso, un comentario que había quedado en español en
+`notifications.service.ts` pasa a inglés, como manda `CLAUDE.md`.
+
+### Pendiente del usuario
+
+Renovar el token de Meta por uno de **System User** (no caduca), en Business
+Settings → Users → System Users → Generate token, con permisos
+`whatsapp_business_messaging` y `whatsapp_business_management`, y actualizar
+`META_WHATSAPP_TOKEN`. **Ojo:** con el token renovado sigue en pie la regla de
+las 24 horas de Meta — un mensaje de texto libre iniciado por el negocio solo se
+entrega si el destinatario escribió en las últimas 24 h; si no, hace falta una
+plantilla aprobada. Telegram no tiene esa restricción, que es por lo que se
+añadió.

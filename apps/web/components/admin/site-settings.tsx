@@ -58,6 +58,7 @@ export function SiteSettings() {
     whatsappProvider: 'TWILIO' | 'META'
     twilioConfigured: boolean
     metaConfigured: boolean
+    metaProblem: string | null
     telegram: boolean
     telegramConfigured: boolean
   } | null>(null)
@@ -248,6 +249,16 @@ export function SiteSettings() {
             {/* Which one is missing matters: the host can pick the other, but
                 only a deploy can add credentials. Saying "WhatsApp is off"
                 would send them looking in the wrong place. */}
+            {/* Meta's own sentence, on its own line rather than glued to a
+                translated prefix: it arrives in English whatever language the
+                panel is in, and it carries the date the token died. */}
+            {draft.whatsappProvider === 'META' && status?.metaProblem && (
+              <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2">
+                <p className="text-xs">{t.site.metaRejected}</p>
+                <p className="text-xs font-mono text-muted-foreground">{status.metaProblem}</p>
+                <p className="text-xs text-muted-foreground">{t.site.metaRejectedFix}</p>
+              </div>
+            )}
             {status !== null &&
               !status.whatsappConfigured &&
               (draft.whatsappProvider === 'META'

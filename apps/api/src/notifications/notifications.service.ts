@@ -14,6 +14,9 @@ import {
   type NotificationChannel,
 } from './notification-channels'
 
+/** How long Meta's answer about its own token is trusted for. */
+const META_CHECK_TTL_MS = 60_000
+
 /** What the host can be told about, and which switch turns each one off. */
 export type NotificationEvent = 'booking' | 'cancellation' | 'change' | 'message'
 
@@ -137,7 +140,17 @@ export class NotificationsService {
     return sid && token && from ? new WhatsAppChannel(sid, token, from) : null
   }
 
-  private get meta(): NotificationChannel | null {
+  /**
+   * The last answer Meta gave about its own token, and when.
+   *
+   * Cached because `status()` runs on every load of the settings screen and an
+   * expiry is a thing that happens once a day, not once a request. Short enough
+   * that renewing the token clears the warning while the host is still looking
+   * at the page.
+   */
+  private metaCheck: { at: number; problem: string | null } | null = null
+
+  private get meta(): MetaWhatsAppChannel | null {
     const token = this.config.get<string>('META_WHATSAPP_TOKEN')
     const phoneNumberId = this.config.get<string>('META_WHATSAPP_PHONE_NUMBER_ID')
 
@@ -188,10 +201,10 @@ export class NotificationsService {
 
     // No public fallback, unlike email and WhatsApp: a chat id is not something
     // a guest is ever given, so there is no second field to fall back to.
-    // `?.` a propósito: la columna es nueva. Un API desplegado contra una base
-    // sin migrar leería `undefined` y una alerta entera moriría por un `.trim()`
-    // — el pipeline migra antes de desplegar, pero un canal ausente es mejor
-    // fallo que un aviso perdido.
+    // `?.` on purpose: the column is new. An API deployed against a database
+    // that has not been migrated would read `undefined`, and a whole alert
+    // would die on a `.trim()`. The pipeline migrates before deploying, but a
+    // missing channel is a better failure than a lost notice.
     const chatId = settings.notifyTelegram?.trim() ?? ''
     const telegram = this.telegram
     if (chatId && telegram) destinations.push({ channel: telegram, to: chatId })
@@ -591,6 +604,27 @@ export class NotificationsService {
   }
 
   /** Shown in the panel so the host knows what is actually switched on. */
+  /**
+   * Why Meta would refuse to send, if it would.
+   *
+   * Meta is the only provider here whose credential dies on its own: the
+   * dashboard's token lasts a day. Presence of the variable proved nothing, so
+   * the panel used to show a configured WhatsApp while every alert failed and
+   * only the log knew. Twilio and Telegram are not checked — their credentials
+   * do not expire, so a live call per page load would buy nothing.
+   */
+  private async metaProblem(): Promise<string | null> {
+    const meta = this.meta
+    if (!meta) return null
+
+    const cached = this.metaCheck
+    if (cached && Date.now() - cached.at < META_CHECK_TTL_MS) return cached.problem
+
+    const problem = await meta.verify()
+    this.metaCheck = { at: Date.now(), problem }
+    return problem
+  }
+
   async status() {
     const settings = await this.prisma.siteSettings.findUnique({ where: { id: 'site' } })
 
@@ -608,6 +642,9 @@ export class NotificationsService {
       // to instead of only that the current one is broken.
       twilioConfigured: this.twilio !== null,
       metaConfigured: this.meta !== null,
+      // Not "is there a token" but "does Meta still accept it". Meta's own
+      // sentence, in English, for the panel to show under a translated label.
+      metaProblem: await this.metaProblem(),
       // Two separate facts, deliberately: "there is a chat id" and "the service
       // has a bot token". A host who filled in the id needs to know the missing
       // half is not theirs to fix.

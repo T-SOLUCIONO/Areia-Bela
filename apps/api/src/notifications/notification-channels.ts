@@ -136,6 +136,40 @@ export class MetaWhatsAppChannel implements NotificationChannel {
     }
     return true
   }
+
+  /**
+   * Whether Meta will still accept this token, asked of Meta rather than
+   * assumed.
+   *
+   * Meta is the only one of the three whose credential expires on its own. The
+   * token the App Dashboard hands out lasts twenty-four hours, so a deployment
+   * that worked on Monday is rejected on Tuesday with nothing having changed —
+   * and the only trace is a line in the log that nobody is watching. The panel
+   * cannot report "configured" from the presence of an environment variable
+   * when the variable can be present and dead at the same time.
+   *
+   * Returns Meta's own words on failure, because "expired on 6 August" tells
+   * the host what to do and "not working" does not. The panel labels it with
+   * translated copy and shows the sentence as its own line — Meta writes in
+   * English whatever the panel's language, and gluing a Spanish prefix onto it
+   * would produce half a sentence in each.
+   *
+   * `null` also covers not having been able to *ask*. A DNS hiccup is not
+   * evidence against the token, and a warning that appears when the network
+   * blinks is a warning the host learns to ignore.
+   */
+  async verify(): Promise<string | null> {
+    try {
+      const response = await fetch(`https://graph.facebook.com/v21.0/${this.phoneNumberId}`, {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      })
+      if (response.ok) return null
+      const detail = (await response.json().catch(() => null)) as MetaError | null
+      return detail?.error?.message ?? response.statusText
+    } catch {
+      return null
+    }
+  }
 }
 
 // --- Telegram ----------------------------------------------------------------

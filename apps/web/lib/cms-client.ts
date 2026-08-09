@@ -181,6 +181,8 @@ export const cms = {
       whatsappProvider: 'TWILIO' | 'META'
       twilioConfigured: boolean
       metaConfigured: boolean
+      /** Meta's own words when it refuses the token — English, and never null-safe to concatenate. */
+      metaProblem: string | null
       telegram: boolean
       telegramConfigured: boolean
     }>('/notifications/status'),

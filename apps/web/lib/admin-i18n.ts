@@ -764,6 +764,9 @@ export const adminCopy = {
       seoTitle: 'Page title',
       seoDescription: 'Search description',
       seoHint: 'Around 155 characters is what Google shows.',
+      metaRejected: 'Meta is refusing this token, so no WhatsApp alert is going out:',
+      metaRejectedFix:
+        'The token from the Meta dashboard lasts 24 hours. A System User token does not expire.',
       listingName: 'Name of the house',
       listingNameHint:
         'Not shown on the page itself. Google and link previews use it as the name of the property.',
@@ -1592,6 +1595,8 @@ export const adminCopy = {
       seoTitle: 'Título de la página',
       seoDescription: 'Descripción para buscadores',
       seoHint: 'Unos 155 caracteres es lo que muestra Google.',
+      metaRejected: 'Meta está rechazando este token, así que no sale ningún aviso por WhatsApp:',
+      metaRejectedFix: 'El token del panel de Meta dura 24 horas. Uno de System User no caduca.',
       listingName: 'Nombre de la casa',
       listingNameHint:
         'No aparece en la página. Google y las vistas previas de enlaces lo usan como nombre de la propiedad.',
