@@ -6798,3 +6798,36 @@ Crear `areia_bela_aviso_pdf` (categoría `Utility`, idioma español, **cabecera 
 tipo Documento**, mismo cuerpo y mismos dos parámetros) y definir
 `META_WHATSAPP_DOCUMENT_TEMPLATE`. Hasta entonces el PDF llega siempre por
 Telegram, y por WhatsApp solo dentro de la ventana de 24 h.
+
+### Corrección dentro de la 47: el adjunto no puede ganarle al aviso
+
+La primera versión de `content()` daba prioridad absoluta al adjunto: si había
+fichero, salía como documento. Con solo `areia_bela_aviso` aprobada eso mandaba el
+aviso de reserva **como documento libre** —que Meta descarta fuera de una ventana
+abierta— en lugar de por la plantilla aprobada, que sí llega siempre. Es decir:
+adjuntar el PDF podía dejar al anfitrión sin enterarse de una reserva.
+
+Invertido. El fichero viaja cuando puede entregarse (hay plantilla de documento, o
+no hay ninguna plantilla y da igual), y **se descarta** cuando hay plantilla de
+texto aprobada y no de documento. Ni se sube, porque no tiene dónde ir. El fichero
+es una comodidad; que te avisen, no.
+
+`docs/env.md` tiene ahora la tabla de las cuatro combinaciones. Tests: 399.
+
+### Las plantillas, creadas por API
+
+Ambas existen ya en la cuenta, en `PENDING`:
+
+| Nombre                 | Idioma | Cabecera   | Variables | Id               |
+| ---------------------- | ------ | ---------- | --------- | ---------------- |
+| `areia_bela_aviso`     | `es`   | —          | 2         | 2142487869673721 |
+| `areia_bela_aviso_pdf` | `es`   | `DOCUMENT` | 2         | 1526782111977165 |
+
+La de documento necesita un `header_handle`, que no se obtiene con un JSON: hay que
+abrir una sesión en `POST /{app-id}/uploads`, subir un fichero de muestra a esa
+sesión con `Authorization: OAuth` (no `Bearer`, que es lo que usa el resto del API)
+y usar el `h` que devuelve como `example.header_handle`.
+
+Queda en la cuenta una tercera, `areia_bela_reserva` (`es_PE`, cabecera `IMAGE`,
+**cero variables**), creada a mano y no utilizable: sin variables no puede llevar
+ningún dato, y Meta rechaza todo envío cuyo número de parámetros no coincida.

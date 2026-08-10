@@ -390,9 +390,12 @@ describe('MetaWhatsAppChannel', () => {
       ])
     })
 
-    it('falls back to a free-form document when only the text template is approved', async () => {
-      // The two are approved separately. Using the text template for a file would
-      // fail, and refusing to send anything would lose the alert.
+    it('drops the file rather than the alert when only the text template is approved', async () => {
+      // The priority that matters, and it was backwards at first: an attachment
+      // used to win unconditionally, which sent the booking alert as a free-form
+      // document — dropped by Meta outside an open window — instead of as the
+      // approved template, which always arrives. Adding the PDF could therefore
+      // stop the host being told a booking came in.
       const templated = new MetaWhatsAppChannel('meta-token', '123456789', {
         name: 'areia_bela_aviso',
         language: 'es',
@@ -400,6 +403,19 @@ describe('MetaWhatsAppChannel', () => {
       uploaded()
 
       await templated.send('13055550100', 'Nueva reserva', 'Jane', PDF)
+
+      // Not even uploaded: there is nowhere for it to go.
+      expect(fetchMock.mock.calls).toHaveLength(1)
+      const message = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+      expect(message.type).toBe('template')
+      expect(message.template.name).toBe('areia_bela_aviso')
+    })
+
+    it('sends a free-form document when no template is configured at all', async () => {
+      // No worse than the free text it replaces: both need an open window.
+      uploaded()
+
+      await channel.send('13055550100', 'Nueva reserva', 'Jane', PDF)
 
       expect(JSON.parse(fetchMock.mock.calls[1][1].body as string).type).toBe('document')
     })

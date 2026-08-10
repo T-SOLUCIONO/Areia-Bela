@@ -213,8 +213,10 @@ export class MetaWhatsAppChannel implements NotificationChannel {
     if (!digits) throw new Error('No WhatsApp number configured')
 
     // Uploaded before the message is built: Meta references a file by the id it
-    // gives back, and a document message with no id is not worth sending.
-    const mediaId = attachment ? await this.upload(attachment) : null
+    // gives back, and a document message with no id is not worth sending. Only
+    // when the file can actually be delivered, though — see `carries`.
+    const carried = attachment && this.carriesFiles ? attachment : undefined
+    const mediaId = carried ? await this.upload(carried) : null
 
     const response = await fetch(
       `https://graph.facebook.com/v21.0/${this.phoneNumberId}/messages`,
@@ -228,7 +230,7 @@ export class MetaWhatsAppChannel implements NotificationChannel {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to: digits,
-          ...this.content(subject, body, mediaId, attachment),
+          ...this.content(subject, body, mediaId, carried),
         }),
       },
     )
@@ -249,6 +251,30 @@ export class MetaWhatsAppChannel implements NotificationChannel {
    * A title and a one-line summary carry all four alerts — booking,
    * cancellation, change, message — through a single approval.
    */
+  /**
+   * Whether attaching the file would still let the alert arrive.
+   *
+   * This is the priority that matters, and getting it backwards was a real
+   * defect: an attachment used to win unconditionally. With only the body-only
+   * template approved, that sent the booking alert as a free-form document —
+   * which Meta drops outside a window the recipient opened — instead of as the
+   * approved template, which always arrives. Adding the PDF could therefore
+   * *stop the host being told about a booking*.
+   *
+   * So the file rides along when it can be delivered:
+   *
+   * - a document template is approved: the file goes in its header, always arrives;
+   * - no template at all: free-form, which is right for development and inside an
+   *   open window, and is no worse than the free text it replaces.
+   *
+   * And it is dropped when a text template is approved and a document one is not,
+   * because there the alert and the attachment are in direct conflict and the
+   * alert wins. The file is a convenience; being told is not.
+   */
+  private get carriesFiles(): boolean {
+    return Boolean(this.template?.documentName) || !this.template?.name
+  }
+
   /**
    * Puts the file in Meta's hands and returns the id it answers with.
    *

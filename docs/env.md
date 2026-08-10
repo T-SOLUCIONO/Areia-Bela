@@ -505,9 +505,22 @@ no puede transportar un fichero.
 
 Las dos se configuran por separado a propósito: se aprueban por separado, y
 exigir la de texto para poder usar la de documento sería un acoplamiento
-imposible de adivinar por el nombre de las variables. Sin la de documento, el PDF
-sale como documento libre — correcto en desarrollo y para un anfitrión que acaba
-de escribir, y descartado a las tres de la mañana.
+imposible de adivinar por el nombre de las variables.
+
+**Qué pasa en cada combinación**, porque el orden de prioridades importa:
+
+| Plantilla de texto | Plantilla de documento | Qué se envía                                |
+| ------------------ | ---------------------- | ------------------------------------------- |
+| —                  | —                      | Documento libre. Solo dentro de la ventana. |
+| Aprobada           | —                      | **La plantilla de texto, sin el PDF.**      |
+| —                  | Aprobada               | Plantilla de documento. Llega siempre.      |
+| Aprobada           | Aprobada               | Plantilla de documento. Llega siempre.      |
+
+La segunda fila es la que no es obvia: con solo la plantilla de texto aprobada, el
+adjunto **se descarta** en vez de mandarse como documento libre. Los dos están en
+conflicto directo —el documento libre se pierde fuera de la ventana y la plantilla
+aprobada no puede llevar ficheros— y gana el aviso. El fichero es una comodidad;
+que te avisen, no.
 
 Los otros dos canales **descartan el adjunto**, y es una decisión, no un olvido:
 Twilio manda medios descargándolos de una URL, y publicar un PDF con el nombre
