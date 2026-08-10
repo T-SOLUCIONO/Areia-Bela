@@ -7,6 +7,7 @@ import type { PropertiesService } from '../properties/properties.service'
 import type { NotificationsService } from '../notifications/notifications.service'
 import type { PaymentsService } from './payments.service'
 import type { GuestService } from '../guest/guest.service'
+import type { BookingPdfService } from '../guest/booking-pdf.service'
 import type { PrismaService } from '../prisma/prisma.service'
 import type { CreateHoldDto } from './dto/create-hold.dto'
 import { ManualPaymentMethod } from './dto/manual-booking.dto'
@@ -103,6 +104,7 @@ describe('BookingsService', () => {
   }
   let properties: { getQuote: jest.Mock }
   let guests: { myBooking: jest.Mock }
+  let pdfs: { render: jest.Mock }
   let payments: { checkoutUrlFor: jest.Mock; ensureCustomer: jest.Mock; sessionStatus?: jest.Mock }
   let notifications: {
     bookingCreated: jest.Mock
@@ -153,6 +155,8 @@ describe('BookingsService', () => {
       guestChange: jest.fn().mockResolvedValue(undefined),
     }
 
+    pdfs = { render: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 fake')) }
+
     service = new BookingsService(
       prisma as unknown as PrismaService,
       properties as unknown as PropertiesService,
@@ -162,7 +166,59 @@ describe('BookingsService', () => {
         get: (key: string) => (key === 'PUBLIC_SITE_URL' ? 'http://localhost:3000' : undefined),
       } as unknown as ConfigService,
       guests as unknown as GuestService,
+      pdfs as unknown as BookingPdfService,
     )
+  })
+
+  describe('the PDF attached to the host alert', () => {
+    beforeEach(() => {
+      guests.myBooking = jest.fn().mockResolvedValue({ reference: 'AB-XYZ123' })
+    })
+
+    it('renders it in Spanish, named after the booking', async () => {
+      await service.confirmPayment('booking-1', 'cs_test_1', 280_000)
+
+      const [, attachment] = notifications.bookingCreated.mock.calls[0]
+      expect(attachment).toMatchObject({
+        filename: 'areia-bela-AB-XYZ123.pdf',
+        contentType: 'application/pdf',
+      })
+      // Spanish regardless of the guest's language: this copy goes to the host.
+      expect(pdfs.render).toHaveBeenCalledWith(
+        expect.anything(),
+        'Jane Doe',
+        'jane@example.com',
+        'es',
+      )
+    })
+
+    it('still sends the alert when the PDF cannot be rendered', async () => {
+      // The alert is the point and the file is a convenience. A host who is not
+      // told a booking came in because a PDF library threw is the worse failure
+      // by a wide margin.
+      pdfs.render = jest.fn().mockRejectedValue(new Error('pdfkit exploded'))
+
+      await service.confirmPayment('booking-1', 'cs_test_1', 280_000)
+
+      expect(notifications.bookingCreated).toHaveBeenCalledWith(
+        expect.objectContaining({ reference: 'AB-XYZ123' }),
+        undefined,
+      )
+    })
+
+    it('does not confirm the payment a second time to build it', async () => {
+      // `findBySession` confirms the payment itself when it cannot find the
+      // session, so building the PDF through it would risk a second round of
+      // alerts for one booking. The booking in hand is used instead.
+      // Whatever `findBySession` would have needed: if the PDF went through it,
+      // this would be consulted and the payment confirmed all over again.
+      payments.sessionStatus = jest.fn()
+
+      await service.confirmPayment('booking-1', 'cs_test_1', 280_000)
+
+      expect(notifications.bookingCreated).toHaveBeenCalledTimes(1)
+      expect(payments.sessionStatus).not.toHaveBeenCalled()
+    })
   })
 
   describe('holding the dates', () => {
@@ -278,6 +334,9 @@ describe('BookingsService', () => {
 
       expect(notifications.bookingCreated).toHaveBeenCalledWith(
         expect.objectContaining({ reference: 'AB-XYZ123', total: 2800 }),
+        // The PDF rides along as a second argument; what it contains is the
+        // subject of the tests below.
+        expect.anything(),
       )
       // The guest's copy goes out in the language they booked in.
       expect(notifications.guestConfirmation).toHaveBeenCalledWith(

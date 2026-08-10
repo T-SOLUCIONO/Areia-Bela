@@ -4,6 +4,18 @@ import { Logger } from '@nestjs/common'
  * How the host is reached. Four implementations, chosen by what is configured,
  * so adding a fifth is a class rather than a rewrite.
  */
+/**
+ * A file that goes out with the alert.
+ *
+ * A buffer and not a URL: the booking PDF carries the guest's name, dates and
+ * total, so it must not need a publicly readable address in order to be sent.
+ */
+export interface NotificationAttachment {
+  filename: string
+  content: Buffer
+  contentType: string
+}
+
 export interface NotificationChannel {
   readonly name: string
   /**
@@ -13,7 +25,18 @@ export interface NotificationChannel {
    * used to return nothing, so `deliver` logged a confident "Sent" for every
    * attempt — including the ones that never sent anything.
    */
-  send(to: string, subject: string, body: string): Promise<boolean>
+  send(
+    to: string,
+    subject: string,
+    body: string,
+    /**
+     * Ignored by channels that cannot carry a file. Deliberately optional
+     * rather than a separate method: every alert has text, and the attachment
+     * is an extra — a channel that drops it still delivers the alert, which is
+     * the part that matters.
+     */
+    attachment?: NotificationAttachment,
+  ): Promise<boolean>
 }
 
 // --- WhatsApp via Twilio -----------------------------------------------------
@@ -38,6 +61,14 @@ interface TwilioError {
  */
 export class WhatsAppChannel implements NotificationChannel {
   readonly name = 'WhatsApp'
+
+  /**
+   * This channel drops attachments, and that is a decision rather than an
+   * oversight. Twilio sends media by fetching a URL, so attaching the booking
+   * PDF would mean publishing a document with the guest's name, dates and total
+   * at an address anyone could read. The alert still goes out as text; the file
+   * goes out over Telegram and over Meta, which both accept an upload.
+   */
 
   constructor(
     private readonly accountSid: string,
@@ -100,8 +131,15 @@ interface MetaError {
  */
 /** The approved template an alert goes out as, and the language it was approved in. */
 export interface MetaTemplate {
-  name: string
+  /** The body-only template for text alerts. Absent means those go as free text. */
+  name?: string
   language: string
+  /**
+   * The template approved with a document header, for the alerts that carry the
+   * booking PDF. Separate from `name` because a template's header type is fixed
+   * when Meta approves it: one template cannot be both.
+   */
+  documentName?: string
   /**
    * The WhatsApp Business Account the template lives under. Without it the name
    * cannot be checked against Meta — the template list is a property of the
@@ -165,9 +203,18 @@ export class MetaWhatsAppChannel implements NotificationChannel {
     private readonly template: MetaTemplate | null = null,
   ) {}
 
-  async send(to: string, subject: string, body: string): Promise<boolean> {
+  async send(
+    to: string,
+    subject: string,
+    body: string,
+    attachment?: NotificationAttachment,
+  ): Promise<boolean> {
     const digits = to.replace(/\D/g, '')
     if (!digits) throw new Error('No WhatsApp number configured')
+
+    // Uploaded before the message is built: Meta references a file by the id it
+    // gives back, and a document message with no id is not worth sending.
+    const mediaId = attachment ? await this.upload(attachment) : null
 
     const response = await fetch(
       `https://graph.facebook.com/v21.0/${this.phoneNumberId}/messages`,
@@ -181,7 +228,7 @@ export class MetaWhatsAppChannel implements NotificationChannel {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to: digits,
-          ...this.content(subject, body),
+          ...this.content(subject, body, mediaId, attachment),
         }),
       },
     )
@@ -202,8 +249,46 @@ export class MetaWhatsAppChannel implements NotificationChannel {
    * A title and a one-line summary carry all four alerts — booking,
    * cancellation, change, message — through a single approval.
    */
-  private content(subject: string, body: string) {
-    if (!this.template) {
+  /**
+   * Puts the file in Meta's hands and returns the id it answers with.
+   *
+   * Uploaded rather than linked. Meta will fetch a document from a URL, but the
+   * booking PDF has the guest's name, dates and total in it, and making that
+   * publicly readable to send it to one person is the wrong trade.
+   */
+  private async upload(attachment: NotificationAttachment): Promise<string> {
+    const form = new FormData()
+    form.append('messaging_product', 'whatsapp')
+    form.append('type', attachment.contentType)
+    form.append(
+      'file',
+      new Blob([new Uint8Array(attachment.content)], { type: attachment.contentType }),
+      attachment.filename,
+    )
+
+    const response = await fetch(`https://graph.facebook.com/v21.0/${this.phoneNumberId}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+      body: form,
+    })
+
+    const body = (await response.json().catch(() => null)) as (MetaError & { id?: string }) | null
+    if (!response.ok || !body?.id) {
+      throw new Error(`Meta (subida): ${body?.error?.message ?? response.statusText}`)
+    }
+    return body.id
+  }
+
+  private content(
+    subject: string,
+    body: string,
+    mediaId: string | null,
+    attachment?: NotificationAttachment,
+  ) {
+    if (mediaId && attachment) return this.documentContent(subject, body, mediaId, attachment)
+    // The two templates are configured independently — one may be approved while
+    // the other is still in review — so a text alert asks only about its own.
+    if (!this.template?.name) {
       // Same shape as the Twilio channel: one recognisable format for the host,
       // whichever provider woke them up.
       return { type: 'text', text: { preview_url: false, body: `*${subject}*\n\n${body}` } }
@@ -215,6 +300,65 @@ export class MetaWhatsAppChannel implements NotificationChannel {
         name: this.template.name,
         language: { code: this.template.language },
         components: [
+          {
+            type: 'body',
+            parameters: [subject, body].map((value) => ({
+              type: 'text',
+              text: asTemplateParameter(value),
+            })),
+          },
+        ],
+      },
+    }
+  }
+
+  /**
+   * The alert with the PDF attached, as a template when one exists for it.
+   *
+   * Two very different messages behind one method, and the difference is the
+   * 24-hour rule again:
+   *
+   * - **`documentTemplate` configured**: the file rides in the template's header
+   *   and the alert arrives whenever it happens, which is the point.
+   * - **Not configured**: a free-form document, which Meta delivers only inside
+   *   a window the recipient opened. Correct for development and for a host who
+   *   just wrote, and silently dropped at three in the morning.
+   *
+   * It has to be a *second* template: a template's header type is fixed at
+   * approval, so the body-only one used for text alerts cannot carry a file.
+   */
+  private documentContent(
+    subject: string,
+    body: string,
+    mediaId: string,
+    attachment: NotificationAttachment,
+  ) {
+    const template = this.template
+    if (!template?.documentName) {
+      return {
+        type: 'document',
+        document: {
+          id: mediaId,
+          filename: attachment.filename,
+          // The caption carries the alert, so the host is not left with a file
+          // and no idea which booking it belongs to.
+          caption: `*${subject}*\n\n${body}`,
+        },
+      }
+    }
+
+    return {
+      type: 'template',
+      template: {
+        name: template.documentName,
+        language: { code: template.language },
+        components: [
+          {
+            type: 'header',
+            parameters: [
+              { type: 'document', document: { id: mediaId, filename: attachment.filename } },
+            ],
+          },
           {
             type: 'body',
             parameters: [subject, body].map((value) => ({
@@ -241,12 +385,13 @@ export class MetaWhatsAppChannel implements NotificationChannel {
    */
   async verifyTemplate(): Promise<MetaTemplateStatus | null> {
     const account = this.template?.businessAccountId
-    if (!this.template || !account) return null
+    const name = this.template?.name
+    if (!name || !account) return null
 
     try {
       const response = await fetch(
         `https://graph.facebook.com/v21.0/${account}/message_templates` +
-          `?name=${encodeURIComponent(this.template.name)}&limit=25`,
+          `?name=${encodeURIComponent(name)}&limit=25`,
         { headers: { Authorization: `Bearer ${this.accessToken}` } },
       )
       if (!response.ok) return null
@@ -254,7 +399,7 @@ export class MetaWhatsAppChannel implements NotificationChannel {
       const body = (await response.json()) as { data?: { name?: string; status?: string }[] }
       // Meta filters by name as a prefix, so an exact match has to be picked out:
       // `areia_bela_aviso` would otherwise be satisfied by `areia_bela_aviso_v2`.
-      const match = body.data?.find((template) => template.name === this.template!.name)
+      const match = body.data?.find((template) => template.name === name)
       return match?.status ?? 'MISSING'
     } catch {
       return null
@@ -298,6 +443,9 @@ export class MetaWhatsAppChannel implements NotificationChannel {
 
 // --- Telegram ----------------------------------------------------------------
 
+/** Telegram truncates a longer caption silently, so a longer alert is split. */
+const TELEGRAM_CAPTION_LIMIT = 1024
+
 interface TelegramError {
   description?: string
 }
@@ -326,9 +474,16 @@ export class TelegramChannel implements NotificationChannel {
 
   constructor(private readonly botToken: string) {}
 
-  async send(to: string, subject: string, body: string): Promise<boolean> {
+  async send(
+    to: string,
+    subject: string,
+    body: string,
+    attachment?: NotificationAttachment,
+  ): Promise<boolean> {
     const chatId = to.trim()
     if (!chatId) throw new Error('No Telegram chat id configured')
+
+    if (attachment) return this.sendDocument(chatId, subject, body, attachment)
 
     const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
       method: 'POST',
@@ -343,6 +498,55 @@ export class TelegramChannel implements NotificationChannel {
         // booking would push the numbers off the screen.
         link_preview_options: { is_disabled: true },
       }),
+    })
+
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as TelegramError | null
+      throw new Error(`Telegram: ${detail?.description ?? response.statusText}`)
+    }
+    return true
+  }
+
+  /**
+   * The same alert with the file attached, as one message rather than two.
+   *
+   * `sendDocument` takes a caption, so the host gets the booking and the PDF
+   * together instead of a document with no context followed by the text that
+   * explains it.
+   *
+   * Telegram caps a caption at 1024 characters, well under `sendMessage`'s
+   * 4096. An alert that long would be truncated by Telegram with no warning, so
+   * it is sent as text plus a separate document instead — losing the pairing is
+   * better than losing the end of the message.
+   */
+  private async sendDocument(
+    chatId: string,
+    subject: string,
+    body: string,
+    attachment: NotificationAttachment,
+  ): Promise<boolean> {
+    const caption = `*${escapeMarkdown(subject)}*\n\n${escapeMarkdown(body)}`
+    const tooLongForACaption = caption.length > TELEGRAM_CAPTION_LIMIT
+
+    if (tooLongForACaption) await this.send(chatId, subject, body)
+
+    const form = new FormData()
+    form.append('chat_id', chatId)
+    form.append(
+      'document',
+      new Blob([new Uint8Array(attachment.content)], { type: attachment.contentType }),
+      attachment.filename,
+    )
+    if (!tooLongForACaption) {
+      form.append('caption', caption)
+      form.append('parse_mode', 'MarkdownV2')
+    }
+
+    // No Content-Type header: `fetch` sets it with the multipart boundary, and
+    // setting it by hand produces a body Telegram cannot parse.
+    const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendDocument`, {
+      method: 'POST',
+      body: form,
     })
 
     if (!response.ok) {
@@ -366,6 +570,11 @@ const escapeMarkdown = (text: string) => text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/
 // --- Email -------------------------------------------------------------------
 
 /** Wraps the existing mail service so both channels share one interface. */
+/**
+ * Also drops attachments, on the host's own instruction: the PDF was asked for
+ * over Telegram and WhatsApp only. The guest's confirmation email is a separate
+ * message and unaffected.
+ */
 export class EmailChannel implements NotificationChannel {
   readonly name = 'Email'
 
@@ -415,11 +624,12 @@ export async function deliver(
   subject: string,
   body: string,
   logger: Logger,
+  attachment?: NotificationAttachment,
 ): Promise<void> {
   await Promise.all(
     destinations.map(async ({ channel, to }) => {
       try {
-        const sent = await channel.send(to, subject, body)
+        const sent = await channel.send(to, subject, body, attachment)
         if (sent) logger.log(`Sent "${subject}" over ${channel.name}`)
         // Not an error — the channel already said why, loudly — but not a
         // delivery either, and the log must not claim one.

@@ -6720,3 +6720,81 @@ mismo orden.
 La plantilla está en **`PENDING`**. Hasta que Meta la pase a `APPROVED` no se debe
 definir `META_WHATSAPP_TEMPLATE` — con la detección de la sección 45 desplegada, el
 panel lo avisaría, pero los envíos fallarían igual.
+
+## 47. El PDF de la reserva, adjunto al aviso del anfitrión
+
+El PDF ya existía (`BookingPdfService`, con `pdfkit`) pero solo se servía como
+descarga: `GET /guest/bookings/:reference/pdf` con sesión de huésped, y
+`GET /bookings/session/:sessionId/pdf` para quien acaba de pagar. Ahora viaja
+también con el aviso de reserva que recibe el anfitrión, por Telegram y por
+WhatsApp.
+
+`NotificationChannel.send` acepta un cuarto argumento opcional. Opcional y no un
+método aparte: todo aviso tiene texto y el fichero es un extra, así que un canal
+que lo descarta sigue entregando el aviso, que es la parte que importa.
+
+**Un búfer, no una URL.** El PDF lleva el nombre del huésped, sus fechas y su
+total. Necesitar una dirección pública para poder enviarlo sería el intercambio
+equivocado, así que Telegram y Meta reciben el fichero subido.
+
+### Telegram
+
+`sendDocument` con el aviso como pie de foto, para que el anfitrión no reciba un
+fichero suelto y a continuación el texto que lo explica. Un pie de foto tope a
+1.024 caracteres donde un mensaje admite 4.096, **y Telegram recorta la
+diferencia sin decirlo**: si el aviso no cabe se manda como texto y el documento
+aparte. Perder el emparejamiento es mejor que perder el final del mensaje.
+
+No se fija `Content-Type` a mano: lo pone `fetch` con el _boundary_ del
+multipart, y ponerlo produce un cuerpo que Telegram no sabe interpretar. Hay un
+test para eso, porque es un fallo que no se parece a su causa.
+
+### WhatsApp
+
+Se sube a `/{phone-number-id}/media` y se manda el id que devuelve. Si la subida
+falla no se manda ningún mensaje: un documento sin id no vale nada, y el motivo
+que da Meta es el útil.
+
+**Hace falta una segunda plantilla.** El tipo de cabecera de una plantilla queda
+fijado al aprobarla, así que `areia_bela_aviso` —solo cuerpo— no puede llevar un
+fichero. Con `META_WHATSAPP_DOCUMENT_TEMPLATE` definida, el PDF va en la cabecera
+y el aviso llega a cualquier hora; sin ella sale como documento libre, que Meta
+entrega solo dentro de una ventana abierta.
+
+Las dos plantillas se configuran **de forma independiente**, en los dos sentidos:
+tener solo la de texto no impide adjuntar, y tener solo la de documento no queda
+inutilizada por la ausencia de la otra. Se aprueban por separado, y cualquiera de
+los dos acoplamientos habría sido invisible desde el nombre de las variables. Hay
+un test para cada dirección.
+
+### Los otros dos canales lo descartan, a propósito
+
+**Twilio** manda medios descargándolos de una URL, así que adjuntar el PDF
+obligaría a publicarlo en una dirección legible por cualquiera. El aviso sigue
+saliendo como texto. **Correo**: quedó fuera porque el PDF se pidió solo para
+Telegram y WhatsApp; la confirmación al huésped es otro mensaje y no cambia.
+
+### Una recursión evitada
+
+La primera versión construía el PDF con `findBySession()`, que **confirma el pago
+por su cuenta** cuando no encuentra la sesión. Llamarla desde dentro de
+`confirmPayment` solo evita la recursión porque el `update` que fija
+`stripeSessionId` ocurre unas líneas antes — nada obliga a ese orden, y el fallo
+habría sido una segunda tanda de avisos para una sola reserva. Ahora se usa la
+reserva que ya está en la mano. Hay un test que comprueba que no se consulta a
+Stripe al construir el PDF.
+
+Y un fallo al renderizar el PDF **no impide el aviso**: se registra y se manda sin
+adjunto. Un anfitrión al que no se le avisa de una reserva porque una librería de
+PDF falló es el peor de los dos fallos con diferencia.
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (398, 13 nuevos)
+```
+
+### Pendiente del usuario
+
+Crear `areia_bela_aviso_pdf` (categoría `Utility`, idioma español, **cabecera de
+tipo Documento**, mismo cuerpo y mismos dos parámetros) y definir
+`META_WHATSAPP_DOCUMENT_TEMPLATE`. Hasta entonces el PDF llega siempre por
+Telegram, y por WhatsApp solo dentro de la ventana de 24 h.

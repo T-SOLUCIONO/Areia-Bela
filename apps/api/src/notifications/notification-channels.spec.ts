@@ -117,6 +117,80 @@ describe('deliver', () => {
   })
 })
 
+const PDF = {
+  filename: 'areia-bela-AB-1234.pdf',
+  content: Buffer.from('%PDF-1.4 fake'),
+  contentType: 'application/pdf',
+}
+
+describe('TelegramChannel with a file', () => {
+  const fetchMock = jest.fn()
+  const originalFetch = global.fetch
+  const channel = new TelegramChannel('bot-token')
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) })
+    global.fetch = fetchMock as unknown as typeof fetch
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
+  })
+
+  const form = (call = 0) => fetchMock.mock.calls[call][1].body as FormData
+
+  it('sends it as a document rather than a message', async () => {
+    await expect(channel.send('12345', 'Nueva reserva', 'Jane')).resolves.toBe(true)
+    expect(fetchMock.mock.calls[0][0]).toContain('/sendMessage')
+
+    fetchMock.mockClear()
+    await expect(channel.send('12345', 'Nueva reserva', 'Jane', PDF)).resolves.toBe(true)
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.telegram.org/botbot-token/sendDocument')
+  })
+
+  it('keeps the alert as the caption, so the file arrives with its context', async () => {
+    await channel.send('12345', 'Nueva reserva', 'Jane Doe', PDF)
+
+    const body = form()
+    expect(body.get('chat_id')).toBe('12345')
+    expect(body.get('caption')).toBe('*Nueva reserva*\n\nJane Doe')
+    expect(body.get('parse_mode')).toBe('MarkdownV2')
+    expect((body.get('document') as File).name).toBe('areia-bela-AB-1234.pdf')
+  })
+
+  it('does not set Content-Type by hand', async () => {
+    // `fetch` has to add the multipart boundary; setting the header here produces
+    // a body Telegram cannot parse.
+    await channel.send('12345', 'Nueva reserva', 'Jane', PDF)
+
+    expect(fetchMock.mock.calls[0][1].headers).toBeUndefined()
+  })
+
+  it('splits a long alert instead of letting Telegram truncate the caption', async () => {
+    // Captions cap at 1024 where a message allows 4096, and Telegram cuts the
+    // difference without saying so. Two messages beat a silently clipped one.
+    await channel.send('12345', 'Nueva reserva', 'x'.repeat(1200), PDF)
+
+    expect(fetchMock.mock.calls).toHaveLength(2)
+    expect(fetchMock.mock.calls[0][0]).toContain('/sendMessage')
+    expect(fetchMock.mock.calls[1][0]).toContain('/sendDocument')
+    expect(form(1).get('caption')).toBeNull()
+  })
+
+  it('reports Telegram’s own reason when the upload fails', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      statusText: 'Bad Request',
+      json: () => Promise.resolve({ description: 'file is too big' }),
+    })
+
+    await expect(channel.send('12345', 'Nueva reserva', 'Jane', PDF)).rejects.toThrow(
+      'file is too big',
+    )
+  })
+})
+
 describe('MetaWhatsAppChannel', () => {
   const fetchMock = jest.fn()
   const originalFetch = global.fetch
@@ -238,6 +312,111 @@ describe('MetaWhatsAppChannel', () => {
 
       expect(cleaned).toHaveLength(1024)
       expect(cleaned.endsWith('…')).toBe(true)
+    })
+  })
+
+  describe('sending a file', () => {
+    const uploaded = (id = 'media-99') =>
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(
+          String(url).endsWith('/media')
+            ? { ok: true, status: 200, json: () => Promise.resolve({ id }) }
+            : { ok: true, status: 200, json: () => Promise.resolve({}) },
+        ),
+      )
+
+    it('uploads the file first and sends the id it gets back', async () => {
+      // Uploaded, not linked: the booking PDF has the guest's name, dates and
+      // total in it, and making that publicly readable to send it to one person
+      // is the wrong trade.
+      uploaded('media-99')
+
+      await expect(channel.send('13055550100', 'Nueva reserva', 'Jane', PDF)).resolves.toBe(true)
+
+      expect(fetchMock.mock.calls[0][0]).toBe('https://graph.facebook.com/v21.0/123456789/media')
+      const upload = fetchMock.mock.calls[0][1].body as FormData
+      expect(upload.get('messaging_product')).toBe('whatsapp')
+      expect((upload.get('file') as File).name).toBe('areia-bela-AB-1234.pdf')
+
+      const message = JSON.parse(fetchMock.mock.calls[1][1].body as string)
+      expect(message.type).toBe('document')
+      expect(message.document).toMatchObject({
+        id: 'media-99',
+        filename: 'areia-bela-AB-1234.pdf',
+        caption: '*Nueva reserva*\n\nJane',
+      })
+    })
+
+    it('does not send a message at all when the upload fails', async () => {
+      // A document message with no media id is not worth sending, and Meta's
+      // reason for refusing the file is the useful one.
+      fetchMock.mockResolvedValue({
+        ok: false,
+        statusText: 'Bad Request',
+        json: () => Promise.resolve({ error: { message: 'Unsupported file type' } }),
+      })
+
+      await expect(channel.send('13055550100', 'Nueva reserva', 'Jane', PDF)).rejects.toThrow(
+        'Unsupported file type',
+      )
+      expect(fetchMock.mock.calls).toHaveLength(1)
+    })
+
+    it('uses the document template when one is approved, with the file in the header', async () => {
+      // The whole point: a free-form document only arrives inside an open window,
+      // and a template's header type is fixed at approval — so the file needs its
+      // own template, separate from the text one.
+      const templated = new MetaWhatsAppChannel('meta-token', '123456789', {
+        name: 'areia_bela_aviso',
+        documentName: 'areia_bela_aviso_pdf',
+        language: 'es',
+      })
+      uploaded('media-77')
+
+      await templated.send('13055550100', 'Nueva reserva', 'Jane', PDF)
+
+      const message = JSON.parse(fetchMock.mock.calls[1][1].body as string)
+      expect(message.type).toBe('template')
+      expect(message.template.name).toBe('areia_bela_aviso_pdf')
+      expect(message.template.components[0]).toEqual({
+        type: 'header',
+        parameters: [
+          { type: 'document', document: { id: 'media-77', filename: 'areia-bela-AB-1234.pdf' } },
+        ],
+      })
+      expect(message.template.components[1].parameters).toEqual([
+        { type: 'text', text: 'Nueva reserva' },
+        { type: 'text', text: 'Jane' },
+      ])
+    })
+
+    it('falls back to a free-form document when only the text template is approved', async () => {
+      // The two are approved separately. Using the text template for a file would
+      // fail, and refusing to send anything would lose the alert.
+      const templated = new MetaWhatsAppChannel('meta-token', '123456789', {
+        name: 'areia_bela_aviso',
+        language: 'es',
+      })
+      uploaded()
+
+      await templated.send('13055550100', 'Nueva reserva', 'Jane', PDF)
+
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body as string).type).toBe('document')
+    })
+
+    it('uses the document template even when the text one is not configured', async () => {
+      // The reverse coupling, which would be just as invisible: no text template
+      // must not disable the file one.
+      const templated = new MetaWhatsAppChannel('meta-token', '123456789', {
+        documentName: 'areia_bela_aviso_pdf',
+        language: 'es',
+      })
+      uploaded()
+
+      await templated.send('13055550100', 'Nueva reserva', 'Jane', PDF)
+
+      const message = JSON.parse(fetchMock.mock.calls[1][1].body as string)
+      expect(message.template.name).toBe('areia_bela_aviso_pdf')
     })
   })
 

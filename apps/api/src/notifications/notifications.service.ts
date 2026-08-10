@@ -12,6 +12,7 @@ import {
   WhatsAppChannel,
   type Destination,
   type MetaTemplate,
+  type NotificationAttachment,
   type MetaTemplateStatus,
   type NotificationChannel,
 } from './notification-channels'
@@ -182,7 +183,11 @@ export class NotificationsService {
    */
   private get metaTemplate(): MetaTemplate | null {
     const name = this.secret('META_WHATSAPP_TEMPLATE')
-    if (!name) return null
+    const documentName = this.secret('META_WHATSAPP_DOCUMENT_TEMPLATE')
+    // Either one is enough. They are approved separately, and requiring the text
+    // template in order to use the document one would be a coupling nobody could
+    // guess from the variable names.
+    if (!name && !documentName) return null
 
     // Meta approves a template per language, and the host alerts are written in
     // Spanish, so that is the default rather than a guess to be configured.
@@ -190,6 +195,7 @@ export class NotificationsService {
       name,
       language: this.secret('META_WHATSAPP_TEMPLATE_LANGUAGE') ?? 'es',
       businessAccountId: this.secret('META_WHATSAPP_BUSINESS_ACCOUNT_ID'),
+      documentName,
     }
   }
 
@@ -261,7 +267,12 @@ export class NotificationsService {
     return destinations
   }
 
-  async bookingCreated(booking: BookingNotice): Promise<void> {
+  /**
+   * `attachment` is the booking PDF, and it is optional on purpose: an alert
+   * without the file is worth far more than no alert, so a failure to render it
+   * must not stop this. The caller decides, and swallows its own errors.
+   */
+  async bookingCreated(booking: BookingNotice, attachment?: NotificationAttachment): Promise<void> {
     const lines = [
       `${booking.guestName} · ${booking.guests} ${booking.guests === 1 ? 'huésped' : 'huéspedes'}`,
       `${booking.checkIn} → ${booking.checkOut} (${booking.nights} ${booking.nights === 1 ? 'noche' : 'noches'})`,
@@ -278,6 +289,7 @@ export class NotificationsService {
       `Nueva reserva · ${booking.checkIn}`,
       lines.join('\n'),
       this.logger,
+      attachment,
     )
   }
 
@@ -701,7 +713,7 @@ export class NotificationsService {
       // Without a template, an alert only arrives if the host happened to write
       // in the last 24 hours — which for a booking at 3am is never. The panel
       // has to say that, because the failure looks like nothing at all.
-      metaTemplate: this.metaTemplate !== null,
+      metaTemplate: this.metaTemplate?.name !== undefined,
       // Meta's own word on the configured template, or `MISSING` when the name
       // is not in the account at all. A name Meta does not recognise fails every
       // send, unlike no name, which falls back to text — so the panel says which.

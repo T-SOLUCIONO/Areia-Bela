@@ -37,6 +37,7 @@ cp apps/web/.env.example apps/web/.env
 | `META_WHATSAPP_TEMPLATE`            | no              | Nombre de la plantilla aprobada con la que sale el aviso. Sin ella solo se entrega dentro de la ventana de 24 h. Ver «La plantilla de avisos».                                                                                            |
 | `META_WHATSAPP_TEMPLATE_LANGUAGE`   | no              | Idioma con el que Meta aprobó la plantilla. Por defecto `es`.                                                                                                                                                                             |
 | `META_WHATSAPP_BUSINESS_ACCOUNT_ID` | no              | Id de la cuenta de WhatsApp Business. Solo se usa para comprobar que la plantilla existe y está aprobada; sin él el panel no puede avisar de una plantilla inexistente.                                                                   |
+| `META_WHATSAPP_DOCUMENT_TEMPLATE`   | no              | Plantilla aprobada **con cabecera de documento**, para el aviso que lleva el PDF de la reserva. Sin ella el PDF sale como documento libre y solo llega dentro de la ventana de 24 h.                                                      |
 | `TWILIO_WHATSAPP_FROM`              | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
 ### Almacenamiento de imágenes (Vercel Blob)
@@ -489,6 +490,30 @@ tiene que coincidir entre el código y un texto que está en la cola de revisió
 de Meta, y un descuadre hace fallar el envío sin nada útil en el log. Un título
 y un resumen de una línea llevan los cuatro avisos —reserva, cancelación,
 modificación y mensaje— con una sola aprobación.
+
+### La segunda plantilla: la que lleva el PDF
+
+El aviso de reserva puede llevar adjunto el PDF de la reserva. Telegram lo manda
+sin más (`sendDocument`). WhatsApp necesita **otra plantilla**, porque el tipo de
+cabecera queda fijado cuando Meta la aprueba: `areia_bela_aviso` es solo cuerpo y
+no puede transportar un fichero.
+
+- **Nombre**: `areia_bela_aviso_pdf` (va en `META_WHATSAPP_DOCUMENT_TEMPLATE`)
+- **Categoría**: `Utility`; **idioma**: español
+- **Cabecera**: tipo **Documento**
+- **Cuerpo**: el mismo de `areia_bela_aviso`, con los mismos dos parámetros
+
+Las dos se configuran por separado a propósito: se aprueban por separado, y
+exigir la de texto para poder usar la de documento sería un acoplamiento
+imposible de adivinar por el nombre de las variables. Sin la de documento, el PDF
+sale como documento libre — correcto en desarrollo y para un anfitrión que acaba
+de escribir, y descartado a las tres de la mañana.
+
+Los otros dos canales **descartan el adjunto**, y es una decisión, no un olvido:
+Twilio manda medios descargándolos de una URL, y publicar un PDF con el nombre
+del huésped, sus fechas y su total en una dirección legible por cualquiera es un
+mal cambio; el correo se dejó fuera porque el PDF se pidió solo para Telegram y
+WhatsApp.
 
 **No definir `META_WHATSAPP_TEMPLATE` antes de que la plantilla esté aprobada.**
 Es peor que dejarla vacía: sin plantilla el canal manda texto libre, que al menos

@@ -22,6 +22,8 @@ import { CreateManualBookingDto } from './dto/manual-booking.dto'
 import { UpdateBookingDto } from './dto/update-booking.dto'
 import { PaymentsService } from './payments.service'
 import { GuestService, type MyBooking } from '../guest/guest.service'
+import { BookingPdfService } from '../guest/booking-pdf.service'
+import type { NotificationAttachment } from '../notifications/notification-channels'
 
 /** Postgres' code for a violated exclusion constraint — two overlapping stays. */
 const EXCLUSION_VIOLATION = '23P01'
@@ -79,6 +81,7 @@ export class BookingsService {
     private readonly payments: PaymentsService,
     private readonly config: ConfigService,
     private readonly guests: GuestService,
+    private readonly pdfs: BookingPdfService,
   ) {}
 
   /**
@@ -627,7 +630,7 @@ export class BookingsService {
     const notice = this.noticeFor(booking)
     // The host first: they are the one who has to act on it. Then the guest,
     // whose confirmation page already promised them this email.
-    await this.notifications.bookingCreated(notice)
+    await this.notifications.bookingCreated(notice, await this.bookingPdf(booking))
     await this.notifications.guestConfirmation({
       ...notice,
       locale: booking.locale,
@@ -687,6 +690,48 @@ export class BookingsService {
    * description of a booking rather than two that drift apart: the guest who
    * just paid should see exactly what they will see when they sign in later.
    */
+  /**
+   * The booking PDF for the host's alert, or nothing at all.
+   *
+   * Every failure is swallowed on purpose. This is an attachment on a
+   * notification: a PDF that will not render, or a database that is briefly
+   * unhappy, must never be the reason the host is not told a booking came in.
+   * The alert is the point and the file is a convenience.
+   *
+   * Built from the booking rather than through `findBySession`, which would have
+   * worked today and been a trap tomorrow: that method confirms the payment
+   * itself when it cannot find the session, and calling it from inside
+   * `confirmPayment` only avoids recursion because the update that sets
+   * `stripeSessionId` happens a few lines earlier. Nothing enforces that
+   * ordering, and the failure would be a second set of alerts for one booking.
+   *
+   * Rendered in Spanish because it goes to the host, unlike the guest's copy,
+   * which follows the language they booked in.
+   */
+  private async bookingPdf(booking: {
+    reference: string
+    customerId: string
+    customer: { firstName: string; lastName: string; email: string } | null
+  }): Promise<NotificationAttachment | undefined> {
+    try {
+      const detail = await this.guests.myBooking(booking.customerId, booking.reference)
+      const name = booking.customer
+        ? `${booking.customer.firstName} ${booking.customer.lastName}`
+        : ''
+
+      return {
+        filename: `areia-bela-${booking.reference}.pdf`,
+        content: await this.pdfs.render(detail, name, booking.customer?.email ?? '', 'es'),
+        contentType: 'application/pdf',
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not attach the PDF to the alert for ${booking.reference}: ${(error as Error).message}`,
+      )
+      return undefined
+    }
+  }
+
   async findBySession(
     sessionId: string,
   ): Promise<MyBooking & { guestName: string; guestEmail: string }> {
