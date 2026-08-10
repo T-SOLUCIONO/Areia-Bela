@@ -12,6 +12,7 @@ import {
   WhatsAppChannel,
   type Destination,
   type MetaTemplate,
+  type MetaTemplateStatus,
   type NotificationChannel,
 } from './notification-channels'
 
@@ -166,7 +167,11 @@ export class NotificationsService {
    * that renewing the token clears the warning while the host is still looking
    * at the page.
    */
-  private metaCheck: { at: number; problem: string | null } | null = null
+  private metaCheck: {
+    at: number
+    problem: string | null
+    templateStatus: MetaTemplateStatus | null
+  } | null = null
 
   /**
    * The approved template alerts go out as, if there is one.
@@ -184,6 +189,7 @@ export class NotificationsService {
     return {
       name,
       language: this.secret('META_WHATSAPP_TEMPLATE_LANGUAGE') ?? 'es',
+      businessAccountId: this.secret('META_WHATSAPP_BUSINESS_ACCOUNT_ID'),
     }
   }
 
@@ -652,20 +658,28 @@ export class NotificationsService {
    * only the log knew. Twilio and Telegram are not checked — their credentials
    * do not expire, so a live call per page load would buy nothing.
    */
-  private async metaProblem(): Promise<string | null> {
+  private async metaHealth(): Promise<{
+    problem: string | null
+    templateStatus: MetaTemplateStatus | null
+  }> {
     const meta = this.meta
-    if (!meta) return null
+    if (!meta) return { problem: null, templateStatus: null }
 
     const cached = this.metaCheck
-    if (cached && Date.now() - cached.at < META_CHECK_TTL_MS) return cached.problem
+    if (cached && Date.now() - cached.at < META_CHECK_TTL_MS) return cached
 
-    const problem = await meta.verify()
-    this.metaCheck = { at: Date.now(), problem }
-    return problem
+    // Both questions in one round trip's worth of latency, and cached together:
+    // they are asked by the same screen and they go stale for the same reason.
+    const [problem, templateStatus] = await Promise.all([meta.verify(), meta.verifyTemplate()])
+    this.metaCheck = { at: Date.now(), problem, templateStatus }
+    return { problem, templateStatus }
   }
 
   async status() {
-    const settings = await this.prisma.siteSettings.findUnique({ where: { id: 'site' } })
+    const [settings, metaHealth] = await Promise.all([
+      this.prisma.siteSettings.findUnique({ where: { id: 'site' } }),
+      this.metaHealth(),
+    ])
 
     return {
       email: Boolean(settings?.notifyEmail.trim() || settings?.contactEmail.trim()),
@@ -683,11 +697,15 @@ export class NotificationsService {
       metaConfigured: this.meta !== null,
       // Not "is there a token" but "does Meta still accept it". Meta's own
       // sentence, in English, for the panel to show under a translated label.
-      metaProblem: await this.metaProblem(),
+      metaProblem: metaHealth.problem,
       // Without a template, an alert only arrives if the host happened to write
       // in the last 24 hours — which for a booking at 3am is never. The panel
       // has to say that, because the failure looks like nothing at all.
       metaTemplate: this.metaTemplate !== null,
+      // Meta's own word on the configured template, or `MISSING` when the name
+      // is not in the account at all. A name Meta does not recognise fails every
+      // send, unlike no name, which falls back to text — so the panel says which.
+      metaTemplateStatus: metaHealth.templateStatus,
       // Two separate facts, deliberately: "there is a chat id" and "the service
       // has a bot token". A host who filled in the id needs to know the missing
       // half is not theirs to fix.

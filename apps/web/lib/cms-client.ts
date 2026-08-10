@@ -185,6 +185,8 @@ export const cms = {
       metaProblem: string | null
       /** Whether alerts go out as an approved template, i.e. outside the 24-hour window too. */
       metaTemplate: boolean
+      /** Meta's status word for that template, or `MISSING` when the name is not in the account. */
+      metaTemplateStatus: string | null
       telegram: boolean
       telegramConfigured: boolean
     }>('/notifications/status'),

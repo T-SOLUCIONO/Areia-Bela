@@ -6636,3 +6636,41 @@ plantilla en Meta y esperar su aprobación, definir `META_WHATSAPP_TEMPLATE`, y
 pasar del número de pruebas a uno real con el negocio verificado. Mientras tanto
 el panel muestra el aviso de que sin plantilla solo se entrega dentro de la
 ventana de 24 h, y **Telegram sigue siendo el canal fiable**.
+
+## 45. Una plantilla configurada que Meta no conoce
+
+`META_WHATSAPP_TEMPLATE=areia_bela_aviso` se definió en producción **antes** de
+crear la plantilla. Preguntando a la cuenta de WhatsApp Business, las únicas cinco
+plantillas que existen son las de ejemplo de Meta (`jaspers_market_*`,
+`hello_world`): `areia_bela_aviso` no estaba.
+
+Eso es **peor que no configurar nada**, y la asimetría es lo que hacía falta
+detectar: sin plantilla el canal manda texto libre, que al menos llega dentro de
+una ventana abierta por el destinatario; con un nombre que Meta no reconoce
+fallan **todos** los envíos. Desde fuera las dos situaciones se ven igual.
+
+- `MetaWhatsAppChannel.verifyTemplate()` consulta las plantillas de la cuenta y
+  devuelve el estado que dice Meta, o `MISSING` cuando el nombre no está.
+- **Coincidencia exacta, no por prefijo.** Meta filtra `?name=` como prefijo, así
+  que preguntar por `areia_bela_aviso` responde satisfecho cuando lo único que
+  existe es `areia_bela_aviso_v2` — y el envío fallaría igual. Hay un test para eso.
+- Nueva variable `META_WHATSAPP_BUSINESS_ACCOUNT_ID`: la lista de plantillas es
+  una propiedad de la cuenta, no del número emisor. Sin ella la pregunta no se
+  puede formular, y entonces el panel **no dice nada** — no poder preguntar no es
+  una mala noticia, y una alerta sobre la que no se puede actuar enseña al usuario
+  a ignorar el recuadro.
+- `status()` hace las dos comprobaciones —token y plantilla— en paralelo y las
+  cachea juntas: las pide la misma pantalla y caducan por el mismo motivo.
+- El panel distingue ahora tres estados que antes eran uno: sin plantilla
+  (limitación), plantilla desconocida o rechazada (rotura), y aprobada (todo
+  bien, y lo dice en gris en vez de en ámbar).
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (385, 4 nuevos)
+```
+
+Nota de proceso: uno de los reemplazos de esta tanda **no se aplicó en silencio**
+porque prettier había reformateado el código de destino en el commit anterior, y
+los tests fueron lo que lo detectó — el estado salía `null` en vez de `MISSING`.
+Los reemplazos de este changelog en adelante afirman que el patrón existe antes de
+escribir.

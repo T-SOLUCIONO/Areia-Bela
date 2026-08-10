@@ -162,6 +162,7 @@ describe('NotificationsService', () => {
         metaConfigured: false,
         metaProblem: null,
         metaTemplate: false,
+        metaTemplateStatus: null,
         telegram: false,
         telegramConfigured: false,
       })
@@ -282,6 +283,81 @@ describe('NotificationsService', () => {
       await expect(
         build({ META_WHATSAPP_TOKEN: '  ', META_WHATSAPP_PHONE_NUMBER_ID: '123' }).status(),
       ).resolves.toMatchObject({ metaConfigured: false })
+    })
+
+    it('reports MISSING when the configured template is not in the account', async () => {
+      // Exactly the mistake made in production: the variable was set before the
+      // template existed. That is worse than not setting it — no template falls
+      // back to free text, a name Meta does not know fails every single send.
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(
+          String(url).includes('message_templates')
+            ? { ok: true, json: () => Promise.resolve({ data: [] }) }
+            : { ok: true, json: () => Promise.resolve({}) },
+        ),
+      )
+
+      await expect(
+        build({
+          ...META,
+          META_WHATSAPP_TEMPLATE: 'areia_bela_aviso',
+          META_WHATSAPP_BUSINESS_ACCOUNT_ID: '1024056063934830',
+        }).status(),
+      ).resolves.toMatchObject({ metaTemplate: true, metaTemplateStatus: 'MISSING' })
+    })
+
+    it('passes on Meta’s status word for a template that does exist', async () => {
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(
+          String(url).includes('message_templates')
+            ? {
+                ok: true,
+                json: () =>
+                  Promise.resolve({ data: [{ name: 'areia_bela_aviso', status: 'PENDING' }] }),
+              }
+            : { ok: true, json: () => Promise.resolve({}) },
+        ),
+      )
+
+      await expect(
+        build({
+          ...META,
+          META_WHATSAPP_TEMPLATE: 'areia_bela_aviso',
+          META_WHATSAPP_BUSINESS_ACCOUNT_ID: '1024056063934830',
+        }).status(),
+      ).resolves.toMatchObject({ metaTemplateStatus: 'PENDING' })
+    })
+
+    it('does not accept a template whose name merely starts the same', async () => {
+      // Meta filters by prefix, so asking for `areia_bela_aviso` comes back happy
+      // when only `areia_bela_aviso_v2` exists — and the send would still fail.
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(
+          String(url).includes('message_templates')
+            ? {
+                ok: true,
+                json: () =>
+                  Promise.resolve({ data: [{ name: 'areia_bela_aviso_v2', status: 'APPROVED' }] }),
+              }
+            : { ok: true, json: () => Promise.resolve({}) },
+        ),
+      )
+
+      await expect(
+        build({
+          ...META,
+          META_WHATSAPP_TEMPLATE: 'areia_bela_aviso',
+          META_WHATSAPP_BUSINESS_ACCOUNT_ID: '1024056063934830',
+        }).status(),
+      ).resolves.toMatchObject({ metaTemplateStatus: 'MISSING' })
+    })
+
+    it('says nothing about the template when there is no account id to ask with', async () => {
+      // Cannot ask is not the same as bad news, and a warning nobody can act on
+      // is a warning that teaches the host to ignore the box.
+      await expect(
+        build({ ...META, META_WHATSAPP_TEMPLATE: 'areia_bela_aviso' }).status(),
+      ).resolves.toMatchObject({ metaTemplate: true, metaTemplateStatus: null })
     })
 
     it('does not call Meta when Meta is not configured', async () => {

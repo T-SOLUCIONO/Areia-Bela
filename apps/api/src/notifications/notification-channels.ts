@@ -102,7 +102,22 @@ interface MetaError {
 export interface MetaTemplate {
   name: string
   language: string
+  /**
+   * The WhatsApp Business Account the template lives under. Without it the name
+   * cannot be checked against Meta — the template list is a property of the
+   * account, not of the sending number.
+   */
+  businessAccountId?: string
 }
+
+/**
+ * What Meta says about the configured template.
+ *
+ * `MISSING` is ours: Meta answers with an empty list rather than a status, and
+ * "the name you configured does not exist" is the single most likely mistake —
+ * a typo, or a name set before the template was ever created.
+ */
+export type MetaTemplateStatus = 'MISSING' | 'APPROVED' | 'PENDING' | 'REJECTED' | string
 
 /**
  * Meta's limit on a single body parameter. Longer is rejected outright, so a
@@ -209,6 +224,40 @@ export class MetaWhatsAppChannel implements NotificationChannel {
           },
         ],
       },
+    }
+  }
+
+  /**
+   * Whether the configured template exists and is approved, asked of Meta.
+   *
+   * Configuring a name that Meta has not approved is worse than configuring
+   * nothing: with no template the channel sends free text, which at least
+   * arrives inside an open window, while a name Meta does not recognise fails
+   * every send outright. The panel cannot tell the difference by looking at the
+   * environment, so it has to ask.
+   *
+   * `null` means the question could not be put — no business account id
+   * configured, or Meta unreachable. Not an answer, and not a warning either.
+   */
+  async verifyTemplate(): Promise<MetaTemplateStatus | null> {
+    const account = this.template?.businessAccountId
+    if (!this.template || !account) return null
+
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v21.0/${account}/message_templates` +
+          `?name=${encodeURIComponent(this.template.name)}&limit=25`,
+        { headers: { Authorization: `Bearer ${this.accessToken}` } },
+      )
+      if (!response.ok) return null
+
+      const body = (await response.json()) as { data?: { name?: string; status?: string }[] }
+      // Meta filters by name as a prefix, so an exact match has to be picked out:
+      // `areia_bela_aviso` would otherwise be satisfied by `areia_bela_aviso_v2`.
+      const match = body.data?.find((template) => template.name === this.template!.name)
+      return match?.status ?? 'MISSING'
+    } catch {
+      return null
     }
   }
 

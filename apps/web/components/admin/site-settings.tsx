@@ -41,6 +41,64 @@ const BLANK: Settings = {
   notifyOnMessage: true,
 }
 
+/**
+ * What the host is told about the WhatsApp template.
+ *
+ * Split out because the states are not a boolean and reading them inline made
+ * the form unreadable. The ordering is deliberate: a configured-but-unknown
+ * template is the loudest problem, because it breaks sends that used to work.
+ */
+function MetaTemplateNotice({
+  configured,
+  templateStatus,
+  copy,
+}: {
+  configured: boolean
+  templateStatus: string | null
+  copy: {
+    [
+      K in
+        | 'metaNoTemplate'
+        | 'metaTemplateMissing'
+        | 'metaTemplatePending'
+        | 'metaTemplateRejected'
+        | 'metaTemplateOk'
+    ]: string
+  }
+}) {
+  // Nothing configured: falls back to free text, which still arrives inside a
+  // window the host opened. A limitation, not a breakage.
+  if (!configured) return <Warning>{copy.metaNoTemplate}</Warning>
+
+  switch (templateStatus) {
+    case 'MISSING':
+      return <Warning>{copy.metaTemplateMissing}</Warning>
+    case 'PENDING':
+    case 'PENDING_DELETION':
+    case 'IN_APPEAL':
+      return <Warning>{copy.metaTemplatePending}</Warning>
+    case 'REJECTED':
+    case 'DISABLED':
+    case 'PAUSED':
+      return <Warning>{copy.metaTemplateRejected}</Warning>
+    case 'APPROVED':
+      return <p className="text-xs text-muted-foreground">{copy.metaTemplateOk}</p>
+    // `null` is "could not ask", which is not news. Anything unrecognised is
+    // Meta inventing a status we have not seen, and guessing at it would be
+    // worse than staying quiet.
+    default:
+      return null
+  }
+}
+
+function Warning({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs">
+      {children}
+    </p>
+  )
+}
+
 export function SiteSettings() {
   const t = useAdminCopy()
   const copyRef = useAdminCopyRef()
@@ -60,6 +118,7 @@ export function SiteSettings() {
     metaConfigured: boolean
     metaProblem: string | null
     metaTemplate: boolean
+    metaTemplateStatus: string | null
     telegram: boolean
     telegramConfigured: boolean
   } | null>(null)
@@ -260,16 +319,17 @@ export function SiteSettings() {
                 <p className="text-xs text-muted-foreground">{t.site.metaRejectedFix}</p>
               </div>
             )}
-            {/* A configured token with no template is the quiet failure: nothing
-                looks wrong and every alert outside an open window is dropped. */}
-            {draft.whatsappProvider === 'META' &&
-              status?.metaConfigured &&
-              !status.metaProblem &&
-              !status.metaTemplate && (
-                <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs">
-                  {t.site.metaNoTemplate}
-                </p>
-              )}
+            {/* Three different states that all look identical from the outside:
+                no template (falls back to text, works in an open window), a
+                template Meta does not know (every send fails), and an approved
+                one (arrives always). Only the last is good news. */}
+            {draft.whatsappProvider === 'META' && status?.metaConfigured && !status.metaProblem && (
+              <MetaTemplateNotice
+                configured={status.metaTemplate}
+                templateStatus={status.metaTemplateStatus}
+                copy={t.site}
+              />
+            )}
             {status !== null &&
               !status.whatsappConfigured &&
               (draft.whatsappProvider === 'META'

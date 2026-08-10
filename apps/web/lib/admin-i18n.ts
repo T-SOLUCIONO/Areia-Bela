@@ -764,6 +764,14 @@ export const adminCopy = {
       seoTitle: 'Page title',
       seoDescription: 'Search description',
       seoHint: 'Around 155 characters is what Google shows.',
+      metaTemplateMissing:
+        'The configured template does not exist in your Meta account, so every WhatsApp alert will fail. Create it, or clear the variable to fall back to plain text.',
+      metaTemplatePending:
+        'The template is still under review by Meta. Alerts will fail until it is approved.',
+      metaTemplateRejected:
+        'Meta rejected the template. Alerts will fail until an approved one exists.',
+      metaTemplateOk:
+        'Alerts go out as the approved template, so they arrive outside the 24-hour window too.',
       metaNoTemplate:
         'No approved template is configured, so an alert only arrives if you wrote to this number in the last 24 hours. A booking at 3am will not reach you.',
       metaRejected: 'Meta is refusing this token, so no WhatsApp alert is going out:',
@@ -1597,6 +1605,14 @@ export const adminCopy = {
       seoTitle: 'Título de la página',
       seoDescription: 'Descripción para buscadores',
       seoHint: 'Unos 155 caracteres es lo que muestra Google.',
+      metaTemplateMissing:
+        'La plantilla configurada no existe en tu cuenta de Meta, así que todos los avisos por WhatsApp fallarán. Créala, o quita la variable para volver a texto plano.',
+      metaTemplatePending:
+        'La plantilla está en revisión por Meta. Los avisos fallarán hasta que la apruebe.',
+      metaTemplateRejected:
+        'Meta rechazó la plantilla. Los avisos fallarán hasta que haya una aprobada.',
+      metaTemplateOk:
+        'Los avisos salen con la plantilla aprobada, así que llegan también fuera de la ventana de 24 horas.',
       metaNoTemplate:
         'No hay plantilla aprobada configurada, así que un aviso solo llega si escribiste a este número en las últimas 24 horas. Una reserva a las 3 de la mañana no te llegará.',
       metaRejected: 'Meta está rechazando este token, así que no sale ningún aviso por WhatsApp:',
