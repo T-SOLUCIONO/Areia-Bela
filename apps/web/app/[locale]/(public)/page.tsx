@@ -261,7 +261,10 @@ export default function HomePage() {
               </h2>
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center gap-5 rounded-[24px] bg-[#f8f5f0] px-6 py-4">
+            {/* Measured at 1.02:1 against what is behind it, with no border and no
+                shadow — a panel that exists in the markup and not on the screen.
+                The rating is the thing this block is for, so it gets a surface. */}
+            <div className="flex shrink-0 flex-wrap items-center gap-5 rounded-[24px] border border-border bg-card px-6 py-4 shadow-sm">
               <div className="text-center">
                 <p className="font-serif text-5xl leading-none text-[#173a57]">
                   {reviewsSection?.statValue || propertyData.rating.toFixed(1)}

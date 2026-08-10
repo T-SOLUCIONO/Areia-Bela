@@ -19,13 +19,27 @@
   --secondary: #eee7d8;
   --secondary-foreground: #173a57;
   --muted: oklch(0.96 0.005 90);
-  --muted-foreground: #5d6b77;
+  /* #5d6b77 passed on the page background (4.91) and failed on the warm panels
+   * (4.45 against `--secondary`, where AA wants 4.50). Secondary text sits on
+   * all three surfaces, so it has to clear the darkest one: this is 4.85 there
+   * and 5.35 on the page. */
+  --muted-foreground: #586572;
   --accent: #173a57;
   --accent-foreground: #ffffff;
   --destructive: oklch(0.55 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: #e2ddd0;
-  --input: #e2ddd0;
+  /* A boundary you can actually see.
+   *
+   * The old #e2ddd0 measured 1.22:1 against this background — a line that is
+   * there in the markup and not on the screen, which is why every card on the
+   * page looked like it had no edges. This is 1.84:1: defined, without the
+   * drawn-on look a properly WCAG-compliant 3:1 border would give a palette
+   * this soft. Cards make up the rest of the separation with a shadow, which is
+   * how low-contrast surfaces are told apart. */
+  --border: #bfb49f;
+  /* Inputs carry their own weight: a field the user has to find is worth a
+   * firmer edge than a decorative container. */
+  --input: #b3a68e;
   --ring: #174d7a;
   --chart-1: #2b6ca8;
   --chart-2: #d97706;
@@ -66,8 +80,16 @@
   --accent-foreground: #f2ede2;
   --destructive: oklch(0.6 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: #2c3a46;
-  --input: #2c3a46;
+  /* Measured against the *card*, not the page: that is the edge a reader is
+   * actually looking at, and #3a4a58 gave only 1.58 there. This is 1.90 against
+   * the card and 2.17 against the page. Shadows do almost nothing on a dark
+   * surface, so the border is the only separation there is.
+   *
+   * Inert today — nothing in the app ever adds the `dark` class, so this whole
+   * block is unused. Kept correct so that turning dark mode on is a switch
+   * rather than a redesign. */
+  --border: #445665;
+  --input: #45586a;
   --ring: #2f6fa0;
   --chart-1: #2b6ca8;
   --chart-2: #d97706;

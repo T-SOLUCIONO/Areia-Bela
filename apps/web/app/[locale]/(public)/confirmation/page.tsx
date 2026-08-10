@@ -102,12 +102,16 @@ function ConfirmationContent() {
   // "{count} nights", borrowed from the guest area so the phrase is
   // written once for all five languages.
   const nightsLabel = translations[language].guestArea.nights
+  // Reached across from `availability` the same way `nights` is reached across
+  // from `guestArea`: the singular and plural already exist there, and a second
+  // pair would be a second thing to keep in step.
+  const guestWord = translations[language].availability
   const downloadLabel = translations[language].guestArea.download
 
   if (state === 'loading') {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-        <Loader2 className="mb-6 h-10 w-10 animate-spin text-[#174d7a]" />
+        <Loader2 className="mb-6 h-10 w-10 animate-spin text-primary" />
         <h1 className="mb-2 font-serif text-2xl text-foreground">{copy.checking}</h1>
         <p className="text-muted-foreground">{copy.checkingNote}</p>
       </div>
@@ -137,11 +141,11 @@ function ConfirmationContent() {
         </p>
 
         {paid && stashedReference && (
-          <div className="mt-6 rounded-[20px] bg-[#f7f2ea] px-8 py-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">
+          <div className="mt-6 rounded-[20px] border border-border bg-secondary px-8 py-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wider text-primary">
               {copy.reference}
             </p>
-            <p className="mt-1 font-mono text-2xl font-semibold tracking-wider text-[#173a57]">
+            <p className="mt-1 font-mono text-2xl font-semibold tracking-wider text-foreground">
               {stashedReference}
             </p>
           </div>
@@ -184,17 +188,24 @@ function ConfirmationContent() {
 
         {/* The reference, given its own weight: it is the one thing worth
             writing down, and the only handle a guest has on their booking. */}
-        <div className="mb-8 rounded-[24px] bg-[#f7f2ea] px-6 py-7 text-center">
-          <p className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">
+        {/* `bg-[#f7f2ea]` was the exact value of `--background`: a panel the
+            same colour as the page it sat on, measuring 1.00:1. It was invisible
+            by definition, and it took the hierarchy with it — the one fact worth
+            writing down read as loose text. */}
+        <div className="mb-8 rounded-[24px] border border-border bg-secondary px-6 py-7 text-center shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wider text-primary">
             {copy.reference}
           </p>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-wider text-[#173a57]">
+          <p className="mt-2 font-mono text-3xl font-semibold tracking-wider text-foreground">
             {booking.reference}
           </p>
-          <p className="mt-2 text-sm text-slate-500">{copy.referenceNote}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{copy.referenceNote}</p>
         </div>
 
-        <div className="mb-8 rounded-2xl border border-border p-6 md:p-8">
+        {/* A surface, not just an outline. A border alone cannot separate two
+            colours 1.1:1 apart, which is why the card had no edges on screen —
+            the shadow is what does the lifting on a palette this soft. */}
+        <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
           <div className="flex flex-col gap-6 md:flex-row">
             <div className="relative h-40 w-full flex-shrink-0 overflow-hidden rounded-xl md:h-32 md:w-44">
               <Image
@@ -231,7 +242,10 @@ function ConfirmationContent() {
 
               <p className="mt-5 inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" />
-                {booking.guests} {copy.guests.toLowerCase()}
+                {/* Was `copy.guests.toLowerCase()`, a fixed plural: a booking for
+                    one person read "1 huéspedes". */}
+                {booking.guests}{' '}
+                {(booking.guests === 1 ? guestWord.guestOne : guestWord.guestMany).toLowerCase()}
               </p>
             </div>
           </div>
@@ -248,9 +262,9 @@ function ConfirmationContent() {
           </p>
         </div>
 
-        <div className="mb-10 rounded-[24px] border border-border bg-secondary p-6 md:p-8">
+        <div className="mb-10 rounded-[24px] border border-border bg-secondary p-6 shadow-sm md:p-8">
           <div className="flex items-start gap-4">
-            <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-white">
+            <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-card">
               <Image
                 src={propertyData.host.pictureUrl}
                 alt={propertyData.host.name}
@@ -297,7 +311,7 @@ export default function ConfirmationPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-[#174d7a]" />
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
       }
     >

@@ -6831,3 +6831,91 @@ y usar el `h` que devuelve como `example.header_handle`.
 Queda en la cuenta una tercera, `areia_bela_reserva` (`es_PE`, cabecera `IMAGE`,
 **cero variables**), creada a mano y no utilizable: sin variables no puede llevar
 ningún dato, y Meta rechaza todo envío cuyo número de parámetros no coincida.
+
+## 48. Cuadros que no se veían: contraste medido, no opinado
+
+La pantalla de confirmación tenía cajas que no llegaban a la pantalla. Medido con
+el ratio de contraste de WCAG, en la página real renderizada:
+
+| Elemento                | Antes              | Después                    |
+| ----------------------- | ------------------ | -------------------------- |
+| Cuadro de la referencia | **1.00 invisible** | 1.10 + borde 1.67 + sombra |
+| Tarjeta de la reserva   | **1.00 invisible** | 1.11 + borde 2.05 + sombra |
+| Borde global vs fondo   | 1.22               | 1.84                       |
+| Panel «Qué sigue»       | sin sombra         | borde + sombra             |
+
+El caso del cuadro de la referencia no era cuestión de gusto: usaba
+`bg-[#f7f2ea]`, que es **el valor exacto de `--background`**. Era un panel del
+mismo color que la página sobre la que estaba, y se llevaba consigo la jerarquía
+— el único dato que merece apuntarse se leía como texto suelto. La tarjeta
+principal no tenía fondo en absoluto, solo un borde de 1.22:1.
+
+**Un borde no puede separar dos colores que están a 1.1:1.** Por eso el arreglo no
+es solo subir el borde: las tarjetas llevan superficie (`bg-card`) **más sombra**,
+que es lo que de verdad distingue superficies en una paleta tan suave. Un borde a
+3:1 —lo que pide WCAG 1.4.11— quedaría como un trazo dibujado encima sobre este
+crema; 1.84 se ve y no ensucia.
+
+### Texto
+
+`--muted-foreground` era `#5d6b77`: 4.91 sobre el fondo de página, pero **4.45
+sobre `--secondary`**, donde AA exige 4.50. El texto secundario aparece sobre las
+tres superficies, así que ahora es `#586572`, que pasa en la peor de ellas (4.85).
+Auditadas todas las cadenas de la página: **cero fallos de AA**.
+
+### Dos correcciones de contenido que se veían en la captura
+
+- **«1 huéspedes»**: el código hacía `copy.guests.toLowerCase()`, una etiqueta en
+  plural fija. Ahora usa el par `guestOne`/`guestMany` que ya existía en el bloque
+  `availability`, en vez de añadir un segundo par que mantener en paralelo.
+- **Un aro blanco fijo** (`ring-white`) en la foto de la anfitriona, que solo tiene
+  sentido sobre una tarjeta clara. Pasa a `ring-card`.
+
+### Un auditor, porque `grep` no distingue un panel perdido de una banda
+
+Ocho sitios usan `bg-[#f7f2ea]`, y **la mayoría son correctos**: una banda a todo
+lo ancho del color de la página es un recurso de ritmo, no una caja perdida. La
+diferencia solo se ve midiendo en el navegador. Un script recorrió la home, la
+confirmación y la galería buscando contenedores con esquinas, más estrechos que la
+ventana, a menos de 1.15:1 de lo que tienen detrás y sin borde ni sombra.
+
+Encontró uno más: la tira de la valoración en la home, a **1.02:1**. Corregido.
+Quedan cinco círculos de icono a 1.10 (`bg-[#174d7a]/10`) que **no se tocan**: son
+tintes decorativos detrás de un glifo, y el contraste lo aporta el icono.
+
+### Lo que NO se cambió, y por qué
+
+**118 colores a pelo (`text-[#173a57]`, `bg-[#174d7a]`…) en 16 ficheros, más 88
+usos de `slate`/`gray`.** Se quedan por ahora. `#173a57` es exactamente
+`--foreground` y `#174d7a` es exactamente `--primary`, así que hoy no cambian nada
+en pantalla: son deuda de mantenimiento, no un defecto visible. Cambiarlos son
+~200 ediciones en 16 ficheros y merece su propia pasada, no ir de propina en un
+arreglo de contraste.
+
+**Corrección de algo que afirmé antes en esta misma sesión:** dije que esos
+colores fijos «rompen el modo oscuro». No es cierto — **el sitio no tiene modo
+oscuro**. No hay `next-themes` ni ningún proveedor de tema en el proyecto, y nada
+añade nunca la clase `dark`, así que todo el bloque de tokens oscuros de
+`globals.css` es código muerto hoy. Se dejó correcto (borde a 1.90 medido contra
+la tarjeta, no contra la página, porque las sombras no separan nada sobre
+superficie oscura) para que encenderlo sea un interruptor y no un rediseño.
+
+### Un hueco de datos que no se tapa
+
+En la captura, la página en español muestra las reglas de la casa **en inglés**.
+No es un fallo de estilo: `CMSPage` tiene **un solo `title` y un solo `body`**, sin
+campos por idioma, así que lo que escriba la anfitriona sale igual en las dos
+versiones del sitio. Traducirlo a mano sería inventar contenido, que
+`CLAUDE.md` prohíbe explícitamente. Arreglarlo de verdad es un cambio de esquema
+(campos por idioma o tabla de traducciones) más el CMS y todos sus consumidores:
+queda declarado, no tapado.
+
+### Verificación
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (399)
+```
+
+Medido en el navegador contra la web construida, apuntando a la API de QA y con la
+reserva interceptada: superficies, bordes, sombras y **todas** las cadenas de texto
+de la página. No es una revisión a ojo.
