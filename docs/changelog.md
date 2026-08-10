@@ -6674,3 +6674,49 @@ porque prettier había reformateado el código de destino en el commit anterior,
 los tests fueron lo que lo detectó — el estado salía `null` en vez de `MISSING`.
 Los reemplazos de este changelog en adelante afirman que el patrón existe antes de
 escribir.
+
+## 46. La plantilla, creada por API — y una regla de Meta que estaba mal documentada
+
+`areia_bela_aviso` existe en la cuenta, creada con `POST /{waba}/message_templates`
+usando el token de System User (`whatsapp_business_management` lo permite):
+`id 2142487869673721`, categoría `UTILITY`, idioma `es`, estado `PENDING`.
+
+Antes de eso, en la cuenta había una plantilla equivocada: `reserve_areia_bela`,
+en `en_US`, con el cuerpo prehecho de Meta «Would you like to receive a call from
+one of our representatives?» y **cero variables**. Sin variables no puede llevar
+ningún dato, y Meta rechaza cualquier envío cuyo número de parámetros no coincida
+con la plantilla — así que no habría servido para ningún aviso.
+
+### El cuerpo que documenté era inválido
+
+El primer intento por API lo rechazó Meta:
+
+```
+code 100, error_subcode 2388299
+"Las variables no pueden estar al principio ni al final de la plantilla."
+```
+
+El cuerpo de la sección 43 era `*{{1}}*\n\n{{2}}\n\nAbre el panel…`, que
+**empieza** por una variable. La regla se había documentado a medias —solo que no
+puede _terminar_ en variable— y el ejemplo violaba la otra mitad. Corregido a:
+
+```
+Areia Bela · *{{1}}*
+
+{{2}}
+
+Abre el panel para ver el detalle.
+```
+
+El `Areia Bela · ` del principio y la frase del final no son adorno: son lo que
+hace que Meta acepte la plantilla. `docs/env.md` lo dice ahora explícitamente,
+con el subcódigo del error.
+
+Nada que cambiar en el código: sigue mandando los mismos dos parámetros en el
+mismo orden.
+
+### Pendiente
+
+La plantilla está en **`PENDING`**. Hasta que Meta la pase a `APPROVED` no se debe
+definir `META_WHATSAPP_TEMPLATE` — con la detección de la sección 45 desplegada, el
+panel lo avisaría, pero los envíos fallarían igual.

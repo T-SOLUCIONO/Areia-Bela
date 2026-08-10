@@ -468,12 +468,17 @@ mensajes, y esperar la aprobación de Meta.
 - **Cuerpo**, exactamente con dos parámetros:
 
 ```
-*{{1}}*
+Areia Bela · *{{1}}*
 
 {{2}}
 
-Abre el panel de Areia Bela para ver el detalle.
+Abre el panel para ver el detalle.
 ```
+
+**Las variables no pueden estar ni al principio ni al final del cuerpo.** Meta
+rechaza la plantilla con `error_subcode 2388299` («Las variables no pueden estar
+al principio ni al final»). Por eso el cuerpo empieza por `Areia Bela · ` y
+termina con una frase: no son adorno, son lo que hace que la plantilla se acepte.
 
 - **Valores de ejemplo** que pide Meta al enviarla a revisión:
   - `{{1}}`: `Nueva reserva · 2026-09-01`
