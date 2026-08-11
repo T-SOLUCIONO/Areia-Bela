@@ -7236,3 +7236,112 @@ El número emisor sigue siendo el de pruebas de Meta, que solo escribe a una lis
 blanca de hasta cinco destinatarios; un destinatario fuera de la lista suele
 devolver error, pero la confirmación de que el mensaje se ve en el móvil es del
 usuario, no de los logs.
+
+## 53. Un asistente que responde desde el CMS, y el chat falso que había debajo
+
+Alcance pedido: que responda dudas sobre la casa y, cuando no sepa, ofrezca
+contacto por WhatsApp o SMS. Sin precios calculados, sin reservar, sin escribir.
+Es alcance nuevo y queda declarado como tal.
+
+### Primero: ya había un chat, y era falso
+
+`apps/web/components/chat/chat-assistant.tsx` era un bot de coincidencias por
+palabra clave con respuestas escritas a mano en el componente. Entre ellas:
+
+- «Check-in starts at **4:00 PM** and check-out is at **10:00 AM**» — horas
+  incrustadas que duplican `property.checkInTime` y `checkOutTime`. Si la
+  anfitriona las cambia en el panel, el chat sigue diciendo las viejas.
+- «Rates change based on season and guest count… I can guide you with an
+  **estimated price**» — un precio estimado por el chat, contra la regla de que
+  el precio es siempre autoritativo en el servidor.
+- Mascotas, piscina, servicios y equipamiento de playa, todos a mano.
+
+Es la misma clase de defecto que esta sesión viene corrigiendo: contenido
+duplicado en un componente en vez de venir del CMS, y afirmaciones que nadie
+mantiene. **Eliminado**, junto con sus cuatro claves de copy en los cinco idiomas,
+que no usaba nadie más.
+
+Lo descubrió Playwright, no yo: su botón flotante interceptaba los clics del
+widget nuevo en la misma esquina. Un choque de dos botones fue lo que reveló que
+había un chatbot que nadie había mencionado.
+
+### El asistente
+
+`apps/api/src/assistant/` — `POST /assistant/ask` y `GET /assistant/status`,
+públicos.
+
+**El contexto se arma con el contenido del sitio**, no con un prompt escrito a
+mano: `cms.getLocalizedContent(locale)` más la fila de `Property` y sus extras
+activos. Dos consecuencias que importan: una respuesta nunca puede ser más vieja
+ni más nueva que la página, y la anfitriona cambia lo que dice el asistente
+**editando el panel**, no pidiéndole a nadie que toque un prompt.
+
+**Lo que no puede hacer, por diseño:**
+
+- **Calcular un total.** El servidor es dueño de la aritmética. Puede repetir las
+  tarifas que están en el contenido; si le piden un presupuesto, remite al
+  calendario. Un total compuesto por el modelo sería un número que nadie
+  respalda.
+- **Confirmar disponibilidad.** No la tiene. Remite al calendario.
+- **Escribir.** Ni reservas, ni cambios, ni conversación almacenada — así no hace
+  falta justificar ninguna entidad nueva.
+- **Hablar de otra cosa.** No por pudor: un endpoint público que discute
+  cualquier tema es un modelo de lenguaje gratis, y la factura es de la
+  anfitriona.
+
+**Cuando no sabe, no es un callejón sin salida.** El modelo emite un marcador que
+el servicio traduce a `handoff: true`, el marcador se quita antes de que el
+huésped lo vea, y el widget ofrece los dos canales que la anfitriona lee de
+verdad, con los números del panel. Ninguno inventado: si el ajuste está vacío,
+llega `null`, no una cadena vacía disfrazada de teléfono.
+
+**Sin clave, no hay chat.** El widget pregunta primero por `/assistant/status` y
+no se dibuja si no hay asistente. Un chat que solo se disculpa es peor que ningún
+chat, y se disculparía con la voz de la casa.
+
+### Verificación
+
+```
+pnpm build ✅  pnpm lint ✅  pnpm typecheck ✅  pnpm test ✅ (409, 10 nuevos)
+```
+
+Los diez tests nuevos cubren lo que puede hacer daño: que el contexto se arme con
+el contenido real y en el idioma del huésped, que el prompt prohíba inventar,
+calcular totales, confirmar fechas y reservar, que el historial del navegador
+venga recortado en turnos y en caracteres, que sin clave se traspase en vez de
+fingir, que un fallo del proveedor no se parezca a una respuesta, y que el modelo
+sea configurable.
+
+En el navegador, con las respuestas interceptadas: sin clave el widget no existe y
+el chat viejo ya no está; con clave se ve la pregunta, se ve la respuesta, el
+marcador queda oculto, se manda el locale correcto, salen `wa.me` y `sms:` con los
+números del panel, ningún objetivo táctil baja de 44 px y `Escape` cierra.
+
+### No verificado
+
+**Una respuesta real del modelo.** No hay `ANTHROPIC_API_KEY` configurada y sin
+Docker no puedo levantar PostgreSQL en local, así que el endpoint nunca se ha
+ejecutado contra la API de Anthropic. La lógica está cubierta por tests con el SDK
+simulado; lo que falta por comprobar es la calidad de las respuestas con el
+contenido real.
+
+### Pendiente del usuario
+
+1. Crear una clave en `console.anthropic.com` y definir `ANTHROPIC_API_KEY` en
+   Cloud Run — **en Secret Manager**, como el token de Meta, no en claro.
+2. Probar preguntas reales y ver cuántas acaban en traspaso.
+3. **Ampliar el CMS.** Hoy hay 4 preguntas frecuentes y 4 páginas publicadas: el
+   techo de calidad del asistente es el contenido, no el modelo. Cada FAQ que
+   añada la anfitriona es una pregunta menos que acaba en WhatsApp.
+
+### Corrección de la sección 48
+
+Ahí escribí que las reglas de la casa salen en inglés en la página española porque
+`CMSPage` «tiene un solo `title` y un solo `body`, sin campos por idioma». **Es
+falso.** Existe un modelo `Translation` (`entity`/`entityId`/`field`/`locale`/
+`text`/`sourceHash`) y `CMSPage` está entre las entidades traducibles: el registro
+guarda el idioma por defecto y las traducciones viven en esa tabla, con un hash
+del texto de origen para detectar traducciones obsoletas. Miré el modelo y no la
+capa de traducción, y afirmé una limitación del esquema que no existe. El hueco
+real es de contenido —falta la traducción de esa página, o su hash no coincide—, y
+hay un endpoint `/cms/admin/translation-status` para verlo.

@@ -8,6 +8,7 @@ import { PropertiesModule } from './properties/properties.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { CmsModule } from './cms/cms.module'
+import { AssistantModule } from './assistant/assistant.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { BookingsModule } from './bookings/bookings.module'
 import { PaymentsReportModule } from './payments/payments-report.module'
@@ -27,6 +28,7 @@ import { GuestModule } from './guest/guest.module'
     AuthModule,
     UsersModule,
     CmsModule,
+    AssistantModule,
     NotificationsModule,
     BookingsModule,
     PaymentsReportModule,

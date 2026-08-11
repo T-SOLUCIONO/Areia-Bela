@@ -40,6 +40,24 @@ cp apps/web/.env.example apps/web/.env
 | `META_WHATSAPP_DOCUMENT_TEMPLATE`   | no              | Plantilla aprobada **con cabecera de documento**, para el aviso que lleva el PDF de la reserva. Sin ella el PDF sale como documento libre y solo llega dentro de la ventana de 24 h.                                                      |
 | `TWILIO_WHATSAPP_FROM`              | no              | Número emisor, con código de país.                                                                                                                                                                                                        |
 
+### Asistente del sitio (preguntas de huéspedes)
+
+| Variable            | ¿Obligatoria? | Para qué                                                                                                                                                        |
+| ------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | no            | Sin ella el asistente se reporta no disponible y **el widget no se dibuja**. No hay chat a medias.                                                              |
+| `ASSISTANT_MODEL`   | no            | Modelo a usar. Por defecto `claude-sonnet-5`. Es un endpoint público en la factura de un negocio pequeño: bajar a Haiku es cambiar esta variable, no el código. |
+
+El asistente responde **solo** desde el contenido del CMS y la fila de la
+propiedad, en el idioma del huésped. No calcula totales, no confirma
+disponibilidad y no escribe nada en la base de datos. Cuando la respuesta no está
+en el contenido, devuelve `handoff: true` y el widget ofrece WhatsApp y SMS con
+los números del panel.
+
+El coste sube con el contenido: el contexto se arma con las FAQs y las páginas
+publicadas, así que ampliar el CMS mejora las respuestas y encarece cada
+pregunta. El endpoint está limitado a 20 preguntas cada diez minutos por IP, y
+tanto la pregunta como el historial que manda el navegador vienen recortados.
+
 ### Almacenamiento de imágenes (Vercel Blob)
 
 La galería del panel sube archivos a Vercel Blob. Para activarlo:

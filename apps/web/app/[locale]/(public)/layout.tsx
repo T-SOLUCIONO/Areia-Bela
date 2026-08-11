@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Toaster } from '@areia-bela/ui/sonner'
 import { Header } from '@/components/public/header'
 import { Footer } from '@/components/public/footer'
+import { HouseAssistant } from '@/components/public/house-assistant'
 import { Reserve } from '@/components/public/reserve'
 import { SiteContentProvider } from '@/components/public/site-content-provider'
 import { getPublicProperty, getSiteContent } from '@/lib/cms-public'
@@ -102,6 +103,10 @@ export default async function PublicLayout({
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        {/* Renders nothing unless the API reports an assistant configured, so a
+            deployment without a key simply has no chat rather than a chat that
+            apologises. */}
+        <HouseAssistant />
         <Reserve />
         {/* Booking failures happen while the guest is looking at the price
             card, not at the top of the page. A toast reaches them there. */}

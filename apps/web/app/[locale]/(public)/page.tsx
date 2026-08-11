@@ -9,7 +9,6 @@ import { HomeHero } from '@/components/public/home-hero'
 import { PhotoGallery } from '@/components/public/photo-gallery'
 import { HouseDetails } from '@/components/public/house-details'
 import { ContactSection } from '@/components/ContactSection'
-import { ChatAssistant } from '@/components/chat/chat-assistant'
 import { propertyInfo } from '@/lib/mock-data'
 import { propertyData } from '@/lib/property-data'
 import { useLanguage } from '@/components/language-provider'
@@ -587,8 +586,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-
-      <ChatAssistant />
     </div>
   )
 }

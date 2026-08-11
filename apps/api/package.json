@@ -20,6 +20,7 @@
     "start:ts": "ts-node --transpile-only src/main.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
     "@areia-bela/shared": "workspace:*",
     "@areia-bela/types": "workspace:*",
     "@google-cloud/storage": "^7.21.0",
