@@ -69,7 +69,7 @@ export function ContactSection() {
       className="overflow-hidden rounded-[28px] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
     >
       {/* Host header */}
-      <div className="bg-[#f7f2ea] px-6 pb-7 pt-8 sm:px-8">
+      <div className="bg-background px-6 pb-7 pt-8 sm:px-8">
         <div className="flex items-center gap-4">
           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full ring-4 ring-white">
             <Image
@@ -80,13 +80,13 @@ export function ContactSection() {
             />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-[#174d7a]/70">
+            <p className="text-xs font-medium uppercase tracking-wide text-primary/70">
               {copy.title}
             </p>
-            <h2 className="truncate font-serif text-2xl text-[#173a57]">
+            <h2 className="truncate font-serif text-2xl text-foreground">
               {propertyData.host.firstName}
             </h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {copy.hostSince} {propertyData.hostSinceYear}
             </p>
           </div>
@@ -106,26 +106,26 @@ export function ContactSection() {
         <div className="grid grid-cols-3 gap-2">
           <a
             href={`tel:${contact.phoneHref}`}
-            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-slate-200 py-3 text-center transition-colors hover:border-slate-300 hover:bg-slate-50"
+            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-slate-50"
           >
-            <Phone className="h-4 w-4 text-[#174d7a]" />
-            <span className="text-xs font-medium text-slate-600">{copy.call}</span>
+            <Phone className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">{copy.call}</span>
           </a>
           <a
             href={`mailto:${contact.email}`}
-            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-slate-200 py-3 text-center transition-colors hover:border-slate-300 hover:bg-slate-50"
+            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-slate-50"
           >
-            <Mail className="h-4 w-4 text-[#174d7a]" />
-            <span className="text-xs font-medium text-slate-600">Email</span>
+            <Mail className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">Email</span>
           </a>
           <a
             href={`https://wa.me/${contact.whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-slate-200 py-3 text-center transition-colors hover:border-slate-300 hover:bg-slate-50"
+            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-slate-50"
           >
-            <MessageCircle className="h-4 w-4 text-[#174d7a]" />
-            <span className="text-xs font-medium text-slate-600">WhatsApp</span>
+            <MessageCircle className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">WhatsApp</span>
           </a>
         </div>
 
@@ -159,7 +159,7 @@ export function ContactSection() {
                   required
                   type="text"
                   placeholder={copy.namePlaceholder}
-                  className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
+                  className="h-11 rounded-[12px] border-border focus-visible:border-primary focus-visible:ring-primary/20"
                 />
               </div>
               <div className="space-y-2">
@@ -170,7 +170,7 @@ export function ContactSection() {
                   required
                   type="email"
                   placeholder={copy.emailPlaceholder}
-                  className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
+                  className="h-11 rounded-[12px] border-border focus-visible:border-primary focus-visible:ring-primary/20"
                 />
               </div>
             </div>
@@ -182,7 +182,7 @@ export function ContactSection() {
                 required
                 rows={4}
                 placeholder={copy.messagePlaceholder}
-                className="resize-none rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
+                className="resize-none rounded-[12px] border-border focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
             {failed && (

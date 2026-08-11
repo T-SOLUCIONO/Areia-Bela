@@ -372,7 +372,7 @@ export function NewBookingDialog({
                 {/* Shown, not enforced: the host set the minimum and may take
                     an exception to it. */}
                 {shown.nights < shown.minNights && (
-                  <p className="pt-1 text-xs text-amber-700">
+                  <p className="pt-1 text-xs text-amber-800">
                     {fill(copy.bkTooShort, { count: String(shown.minNights) })}
                   </p>
                 )}

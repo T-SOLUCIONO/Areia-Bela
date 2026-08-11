@@ -62,7 +62,7 @@ export function HomeHero({ images }: HeroProps) {
     slide === index || slide === (index + 1) % total || slide === (index - 1 + total) % total
 
   return (
-    <section className="relative isolate w-full overflow-hidden bg-[#f7f2ea] text-[#173a57]">
+    <section className="relative isolate w-full overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0">
         {images.map((src, slideIndex) =>
           !visible(slideIndex) ? null : (
@@ -92,7 +92,7 @@ export function HomeHero({ images }: HeroProps) {
             {/* The last words of the editable title keep the display face the
                 bundled three-line version used, so an edit can't break the
                 typography. */}
-            <h1 className="max-w-2xl font-serif text-[clamp(3.15rem,5.15vw,5.8rem)] leading-[0.92] tracking-tight text-[#173a57]">
+            <h1 className="max-w-2xl font-serif text-[clamp(3.15rem,5.15vw,5.8rem)] leading-[0.92] tracking-tight text-foreground">
               {title ? (
                 <HeroTitle text={title} />
               ) : (
@@ -100,7 +100,7 @@ export function HomeHero({ images }: HeroProps) {
                   {copy.heroTitle[0]}
                   <span className="block">{copy.heroTitle[1]}</span>
                   <span
-                    className="mt-1 block italic text-[#2a5b84]"
+                    className="mt-1 block italic text-primary"
                     style={{ fontFamily: "'Areia Bela'", fontSize: '1.03em' }}
                   >
                     {copy.heroTitle[2]}
@@ -109,7 +109,7 @@ export function HomeHero({ images }: HeroProps) {
               )}
             </h1>
 
-            <p className="max-w-2xl text-[16px] leading-8 text-[#5d6b77]">
+            <p className="max-w-2xl text-[16px] leading-8 text-muted-foreground">
               {subtitle || copy.heroDescription}
               <span className="mt-1 block">{subline || copy.heroSubline}</span>
             </p>
@@ -147,10 +147,10 @@ export function HomeHero({ images }: HeroProps) {
                 key={badge.id}
                 className="flex min-h-16 items-center gap-3 rounded-full border border-white/75 bg-white/85 px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur-md"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#174d7a]/10 text-[#174d7a]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <ContentIcon name={badge.icon} className="h-5 w-5" />
                 </div>
-                <span className="text-sm font-medium text-slate-700">{badge.label}</span>
+                <span className="text-sm font-medium text-foreground">{badge.label}</span>
               </div>
             ))}
           </div>
@@ -175,7 +175,7 @@ function HeroTitle({ text }: { text: string }) {
     <>
       {lead}
       <span
-        className="mt-1 block italic text-[#2a5b84]"
+        className="mt-1 block italic text-primary"
         style={{ fontFamily: "'Areia Bela'", fontSize: '1.03em' }}
       >
         {tail}

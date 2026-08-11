@@ -59,15 +59,15 @@ function DateBox({
   return (
     <div className="flex items-center gap-3 px-3 py-2">
       <div className="min-w-20">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-800">{label}</p>
-        <p className="text-sm text-slate-700">{value ? format(value, 'd/M/yyyy') : '—'}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-foreground">{label}</p>
+        <p className="text-sm text-foreground">{value ? format(value, 'd/M/yyyy') : '—'}</p>
       </div>
       {value && (
         <button
           type="button"
           onClick={onClear}
           aria-label={`${clearLabel}: ${label}`}
-          className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-slate-100 hover:text-slate-800"
+          className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-slate-100 hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -233,7 +233,7 @@ export function AvailabilityCard({ className }: Props) {
   const dateTrigger = (
     <button
       type="button"
-      className="mt-5 grid w-full grid-cols-2 divide-x divide-slate-200 overflow-hidden rounded-t-[14px] border border-b-0 border-slate-300 text-left"
+      className="mt-5 grid w-full grid-cols-2 divide-x divide-slate-200 overflow-hidden rounded-t-[14px] border border-b-0 border-border text-left"
     >
       {(
         [
@@ -242,10 +242,10 @@ export function AvailabilityCard({ className }: Props) {
         ] as const
       ).map(([label, value], index) => (
         <span key={index} className="block px-4 py-2.5 transition hover:bg-slate-50">
-          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-800">
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-foreground">
             {label}
           </span>
-          <span className="mt-0.5 block text-sm text-slate-700">
+          <span className="mt-0.5 block text-sm text-foreground">
             {value ? format(value, 'd/M/yyyy') : copy.addDate}
           </span>
         </span>
@@ -262,8 +262,8 @@ export function AvailabilityCard({ className }: Props) {
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         {quote ? (
-          <p className="text-[15px] text-slate-600">
-            <span className="text-[26px] font-semibold text-slate-900 underline decoration-slate-900/25 underline-offset-4">
+          <p className="text-[15px] text-muted-foreground">
+            <span className="text-[26px] font-semibold text-foreground underline decoration-slate-900/25 underline-offset-4">
               {currency(quote.total)} USD
             </span>{' '}
             {quote.nights === 1
@@ -276,9 +276,9 @@ export function AvailabilityCard({ className }: Props) {
           // just did.
           <span className="h-8 w-44 animate-pulse rounded-full bg-slate-100" aria-hidden />
         ) : (
-          <p className="text-[15px] text-slate-600">{copy.pickDates}</p>
+          <p className="text-[15px] text-muted-foreground">{copy.pickDates}</p>
         )}
-        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200/70">
+        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70">
           {copy.guaranteed}
         </span>
       </div>
@@ -300,8 +300,8 @@ export function AvailabilityCard({ className }: Props) {
             side="bottom"
             className="flex h-[100dvh] w-full flex-col gap-0 rounded-none border-0 p-0 sm:max-w-none"
           >
-            <SheetHeader className="gap-1 border-b border-slate-200 px-4 pb-3 pt-4 text-left">
-              <SheetTitle className="text-[19px] font-semibold text-slate-900">
+            <SheetHeader className="gap-1 border-b border-border px-4 pb-3 pt-4 text-left">
+              <SheetTitle className="text-[19px] font-semibold text-foreground">
                 {nights === 0
                   ? copy.pickDates
                   : nights === 1
@@ -340,11 +340,11 @@ export function AvailabilityCard({ className }: Props) {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between gap-4 border-t border-border bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={clearStay}
-                className="text-sm font-medium text-slate-700 underline underline-offset-4 disabled:text-slate-300 disabled:no-underline"
+                className="text-sm font-medium text-foreground underline underline-offset-4 disabled:text-slate-300 disabled:no-underline"
                 disabled={!checkIn && !checkOut}
               >
                 {copy.clearDates}
@@ -363,13 +363,13 @@ export function AvailabilityCard({ className }: Props) {
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>{dateTrigger}</PopoverTrigger>
           <PopoverContent
-            className="w-[min(100vw-1rem,760px)] rounded-[22px] border-slate-200 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
+            className="w-[min(100vw-1rem,760px)] rounded-[22px] border-border p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
             align="end"
             sideOffset={10}
           >
             <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-[22px] font-semibold leading-tight text-slate-900">
+                <p className="text-[22px] font-semibold leading-tight text-foreground">
                   {nights === 0
                     ? copy.pickDates
                     : nights === 1
@@ -385,7 +385,7 @@ export function AvailabilityCard({ className }: Props) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 divide-x divide-slate-300 overflow-hidden rounded-[10px] border border-slate-800">
+              <div className="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-[10px] border border-slate-800">
                 {/* Written out rather than mapped over a tuple array. Two boxes
                   are two boxes; threading label, value and handler through
                   `[a, b, c] as const` obscured which callback belonged to which
@@ -424,7 +424,7 @@ export function AvailabilityCard({ className }: Props) {
               <button
                 type="button"
                 onClick={clearStay}
-                className="text-sm font-medium text-slate-700 underline underline-offset-4 hover:text-slate-900"
+                className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground"
               >
                 {copy.clearDates}
               </button>
@@ -440,14 +440,14 @@ export function AvailabilityCard({ className }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="w-full rounded-b-[14px] border border-slate-300 bg-white px-4 py-2.5 text-left transition hover:bg-slate-50"
+            className="w-full rounded-b-[14px] border border-border bg-white px-4 py-2.5 text-left transition hover:bg-slate-50"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-800">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-foreground">
                   {copy.guests}
                 </div>
-                <div className="mt-0.5 text-sm text-slate-700">{guestSummary}</div>
+                <div className="mt-0.5 text-sm text-foreground">{guestSummary}</div>
               </div>
               <ChevronDown
                 className={cn(
@@ -459,7 +459,7 @@ export function AvailabilityCard({ className }: Props) {
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[min(100vw-1rem,440px)] rounded-[22px] border-slate-200 p-0 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
+          className="w-[min(100vw-1rem,440px)] rounded-[22px] border-border p-0 shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
           align="start"
           sideOffset={10}
         >
@@ -472,7 +472,7 @@ export function AvailabilityCard({ className }: Props) {
               language={language}
             />
 
-            <p className="border-t border-slate-200 pt-5 text-[13px] leading-6 text-muted-foreground">
+            <p className="border-t border-border pt-5 text-[13px] leading-6 text-muted-foreground">
               {fill(copy.capacityNote, { max: String(propertyData.capacity) })}
             </p>
 
@@ -480,7 +480,7 @@ export function AvailabilityCard({ className }: Props) {
               <button
                 type="button"
                 onClick={() => setGuestsOpen(false)}
-                className="text-[15px] font-medium text-slate-900 underline underline-offset-4"
+                className="text-[15px] font-medium text-foreground underline underline-offset-4"
               >
                 {copy.close}
               </button>
@@ -547,7 +547,7 @@ export function AvailabilityCard({ className }: Props) {
       )}
 
       {quote && !stayLength && (
-        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-600">
+        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-center text-[13px] text-muted-foreground">
           {fill(copy.cancelBefore, { date: cancellationDate })}
         </p>
       )}
@@ -566,8 +566,8 @@ export function AvailabilityCard({ className }: Props) {
           that stops people hesitating over a booking button. */}
       <p className="mt-3 text-center text-[13px] text-muted-foreground">{copy.noChargeYet}</p>
 
-      <div className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
-        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+      <div className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-sm text-muted-foreground">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
         <span>{copy.footer}</span>
       </div>
     </aside>

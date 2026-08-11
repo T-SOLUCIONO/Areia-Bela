@@ -7077,3 +7077,118 @@ pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (399)
 `/es/gallery` responde **404** en el servidor de producción — la galería vive en un
 ancla de la home (`#gallery`), no en su propia ruta. Queda anotado por si esa URL
 está publicada en algún sitio.
+
+## 51. Los colores, en los tokens: fondo, superficies y el gris por defecto
+
+Petición: mejorar los colores de fondo, botones y menú en todo el proyecto
+—público y admin— **sin tocar posiciones ni componentes, solo estilos**. Eso
+apunta a los tokens de `globals.css`, que es un cambio de estilo puro y propaga a
+todas las pantallas. Con un obstáculo: **unos 200 colores a pelo se saltaban los
+tokens**, así que cambiarlos sin migrar habría dejado el sitio a medias. Las dos
+cosas van juntas o no van.
+
+Sobre el skill: sus paletas son por tipo de producto (ámbar de coworking, azul de
+reservas). Adoptar una habría reemplazado la identidad —la estrella, el Playfair,
+el crema— y lo pedido era mejorar los colores, no rebautizar el sitio. Se usaron
+sus **reglas**, en particular la de prioridad 6: _tokens semánticos; antipatrón,
+hex crudo en componentes_.
+
+### El fondo era el problema
+
+`--background` era `#f7f2ea`, a **1.11:1** de las tarjetas blancas que se apoyan
+en él. De ahí que todo panel pareciera sin bordes y que «el texto se pierda con el
+fondo»: apenas había un fondo del que distinguirse. Ahora es `#ebe2d1` — misma
+familia cálida, un escalón visible más abajo, **1.29:1**.
+
+Bajar el fondo rompe otras cosas, y ahí estuvo el trabajo real: `--secondary`
+pasaba a ser casi el mismo color que la página, y `--muted-foreground` caía a
+4.07 sobre los paneles. No se pueden elegir de uno en uno. Se buscó por fuerza
+bruta una combinación donde **todos** los pares pasen a la vez:
+
+| Token                | Antes      | Ahora     |
+| -------------------- | ---------- | --------- |
+| `--background`       | `#f7f2ea`  | `#ebe2d1` |
+| `--secondary`        | `#eee7d8`  | `#e0d4bd` |
+| `--muted-foreground` | `#586572`  | `#4e5964` |
+| `--border`           | `#bfb49f`  | `#b6a992` |
+| `--muted`            | `oklch(…)` | `#f4efe4` |
+
+`--muted-foreground` mide ahora 7.15 sobre tarjeta blanca, 5.56 sobre la página y
+4.88 sobre un panel tostado: pasa AA en las tres superficies donde aparece.
+
+### El hallazgo de fondo: el texto por defecto del sitio era gris neutro
+
+```css
+body {
+  @apply bg-background text-muted-custom …;
+} /* rgb(108, 108, 108) */
+```
+
+`--text-muted-custom` no correspondía a ningún token de la paleta y se aplicaba al
+**body entero**: todo texto que no fijara color explícito heredaba ese gris. Medía
+4.08:1 sobre el fondo nuevo —por debajo de AA— y 2.6:1 en modo oscuro. Ahora el
+body empareja `bg-background` con `text-foreground`, que es para lo que existen
+los tokens, y el token huérfano se eliminó porque nadie más lo usaba.
+
+### Migración: 22 ficheros, 162 líneas
+
+Todos los hex a pelo desaparecieron (`#173a57`→`foreground`,
+`#174d7a`→`primary`, `#f7f2ea`→`background`, `#eee7d8`→`secondary`…), más las
+paletas fijas de Tailwind en su papel semántico. **Dos ficheros quedaron fuera a
+propósito**: en `stay-calendar.tsx` y `guest-picker.tsx`, `slate-400` y
+`slate-100` señalan «fecha pasada» y «botón deshabilitado». WCAG exime a los
+controles inactivos, y unificarlos habría borrado la diferencia entre una fecha
+libre y una que ya no se puede elegir. En esos dos solo se migró el texto normal.
+
+Los `border-slate-300` sí se migraron: gris frío en una paleta cálida, y por
+debajo del borde del sistema.
+
+### Un defecto que creó la propia migración
+
+Mapear `#f7f2ea` → `background` es correcto para una banda de sección y
+**equivocado para un panel**: un panel con el color exacto de la página vuelve a
+ser invisible. El auditor lo pilló en el checkout (`rounded-[20px] bg-background`,
+el bloque del total) y en el panel de «próxima llegada» del panel de control. Los
+dos pasan a superficie con borde y sombra. El `<textarea>` del mensaje a la
+anfitriona también era del color del papel: ahora es `bg-card`, para que se lea
+como un campo.
+
+### Y otro plural roto, en otro componente
+
+`'{count} huéspedes'` es una plantilla con el plural incrustado, así que el
+checkout mostraba «1 huéspedes» —y «1 mascotas» con una mascota—. Contar no es lo
+mismo que pluralizar. Usa el par `guestOne`/`guestMany` de `availability`, igual
+que la confirmación.
+
+### Verificación
+
+Medido en el navegador sobre la web construida, en `/es`, `/en`, checkout,
+confirmación, `/es/my-booking` y `/admin/login`, a 390 y 1280 px:
+
+```
+contraste AA: OK   paneles indistinguibles: OK
+controles sin nombre: OK   scroll horizontal: no
+pnpm build ✅  pnpm lint ✅  pnpm typecheck ✅  pnpm test ✅ (399)
+```
+
+**Dos falsos positivos descartados por mirarlos antes de tocarlos**, que es el
+tema recurrente de esta sesión:
+
+1. El checkout redirige a `/` en local porque su cotización no pasa CORS, así que
+   una primera medición del «checkout» era en realidad la home. Y un fixture
+   inventado hizo estallar la página: el auditor midió, tan tranquilo, una
+   pantalla de error. Se resolvió pidiendo una **cotización real a la API
+   desplegada** (mismo total, $1,356, que la captura del usuario) y usándola como
+   fixture.
+2. Los objetivos táctiles que quedan por debajo de 44 px son **enlaces en línea
+   dentro de párrafos** («Términos de servicio», «Forgot your password»). WCAG
+   2.5.8 exceptúa explícitamente los objetivos en línea dentro de una frase;
+   agrandarlos rompería el texto. No son defectos, y el auditor no conoce la
+   excepción.
+
+### No verificado
+
+**Las pantallas del panel más allá del login.** Comparten estos tokens, así que
+el cambio les llega, pero requieren sesión de administrador y no tengo la
+contraseña. Queda pendiente abrir el panel y confirmar que las tarjetas y los
+botones se leen bien con el fondo nuevo.

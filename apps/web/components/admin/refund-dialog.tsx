@@ -213,7 +213,7 @@ export function RefundDialog({
               {/* Only when the two actually differ: a warning that is always on
                   is a warning nobody reads. */}
               {valid && Math.abs(typed - summary.proposal.total) >= 0.01 && (
-                <p className="flex items-start gap-2 text-xs text-amber-700">
+                <p className="flex items-start gap-2 text-xs text-amber-800">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   {fill(copy.refundOverride, {
                     amount: money(typed),

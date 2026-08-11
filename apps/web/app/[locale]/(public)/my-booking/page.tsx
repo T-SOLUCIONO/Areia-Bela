@@ -22,9 +22,9 @@ type Screen = 'loading' | 'signedOut' | 'sent' | 'signedIn'
 const STATUS_STYLE: Record<MyBooking['status'], string> = {
   CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   PENDING: 'bg-amber-50 text-amber-800 ring-amber-200',
-  CANCELLED: 'bg-slate-100 text-slate-600 ring-slate-200',
+  CANCELLED: 'bg-slate-100 text-muted-foreground ring-slate-200',
   CHECKED_IN: 'bg-sky-50 text-sky-700 ring-sky-200',
-  CHECKED_OUT: 'bg-slate-50 text-slate-600 ring-slate-200',
+  CHECKED_OUT: 'bg-slate-50 text-muted-foreground ring-slate-200',
 }
 
 export default function MyBookingPage() {
@@ -72,7 +72,7 @@ export default function MyBookingPage() {
   if (screen === 'loading') {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-9 w-9 animate-spin text-[#174d7a]" />
+        <Loader2 className="h-9 w-9 animate-spin text-primary" />
       </div>
     )
   }
@@ -80,8 +80,8 @@ export default function MyBookingPage() {
   if (screen === 'sent') {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-4 text-center">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#174d7a]/10 ring-1 ring-[#174d7a]/15">
-          <Mail className="h-8 w-8 text-[#174d7a]" />
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/15">
+          <Mail className="h-8 w-8 text-primary" />
         </div>
         <h1 className="mb-2 font-serif text-2xl text-foreground">{copy.sentTitle}</h1>
         <p className="text-muted-foreground">{copy.sentLead}</p>
@@ -91,8 +91,8 @@ export default function MyBookingPage() {
 
   if (screen === 'signedOut') {
     return (
-      <div className="mx-auto my-16 max-w-md rounded-[24px] bg-card p-8 shadow-[0_10px_40px_rgba(23,58,87,0.08)] ring-1 ring-[#174d7a]/10">
-        <h1 className="font-serif text-3xl text-[#173a57]">{copy.signInTitle}</h1>
+      <div className="mx-auto my-16 max-w-md rounded-[24px] bg-card p-8 shadow-[0_10px_40px_rgba(23,58,87,0.08)] ring-1 ring-primary/10">
+        <h1 className="font-serif text-3xl text-foreground">{copy.signInTitle}</h1>
         <p className="mt-2 text-muted-foreground">{copy.signInLead}</p>
 
         <form onSubmit={(event) => void requestLink(event)} className="mt-8 space-y-4">
@@ -128,15 +128,15 @@ export default function MyBookingPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 md:px-8">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#174d7a]/15 pb-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-primary/15 pb-6">
         <div>
-          <h1 className="font-serif text-3xl text-[#173a57]">{copy.title}</h1>
+          <h1 className="font-serif text-3xl text-foreground">{copy.title}</h1>
           {details && <p className="mt-1 text-muted-foreground">{details.email}</p>}
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="border-[#174d7a]/25 text-[#174d7a] hover:bg-[#174d7a]/5"
+          className="border-primary/25 text-primary hover:bg-primary/5"
           onClick={() => void guest.signOut().then(() => setScreen('signedOut'))}
         >
           <LogOut className="h-4 w-4" />
@@ -176,9 +176,7 @@ export default function MyBookingPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-10">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#174d7a]/70">
-        {title}
-      </h2>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-primary/70">{title}</h2>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
   )
@@ -206,14 +204,14 @@ function BookingCard({
   return (
     <article
       className={cn(
-        'overflow-hidden rounded-[24px] bg-card shadow-[0_10px_40px_rgba(23,58,87,0.08)] ring-1 ring-[#174d7a]/10',
+        'overflow-hidden rounded-[24px] bg-card shadow-[0_10px_40px_rgba(23,58,87,0.08)] ring-1 ring-primary/10',
         muted && 'opacity-60',
       )}
     >
       {/* A blue tint, not the page's own cream: the band used #f7f2ea, which
           is exactly the background behind the card, so the two merged and the
           card lost its edge. */}
-      <div className="bg-[#174d7a]/[0.07] px-6 py-5">
+      <div className="bg-primary/[0.07] px-6 py-5">
         <StayBand
           checkIn={booking.checkIn}
           checkOut={booking.checkOut}
@@ -230,12 +228,12 @@ function BookingCard({
       <div className="space-y-4 px-6 py-5">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <Users className="h-4 w-4 text-[#174d7a]" />
+            <Users className="h-4 w-4 text-primary" />
             {fill(copy.guests, { count: String(booking.guests) })}
           </span>
           {booking.pets > 0 && (
             <span className="inline-flex items-center gap-1.5">
-              <PawPrint className="h-4 w-4 text-[#174d7a]" />
+              <PawPrint className="h-4 w-4 text-primary" />
               {fill(copy.pets, { count: String(booking.pets) })}
             </span>
           )}
@@ -282,10 +280,8 @@ function BookingCard({
 
         <div className="flex flex-wrap items-end justify-between gap-4 border-t border-border pt-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#174d7a]/70">
-              {copy.reference}
-            </p>
-            <p className="font-mono text-xl font-semibold tracking-wider text-[#173a57]">
+            <p className="text-xs uppercase tracking-[0.14em] text-primary/70">{copy.reference}</p>
+            <p className="font-mono text-xl font-semibold tracking-wider text-foreground">
               {booking.reference}
             </p>
           </div>
@@ -296,7 +292,7 @@ function BookingCard({
                 asChild
                 variant="outline"
                 size="sm"
-                className="border-[#174d7a]/25 text-[#174d7a] hover:bg-[#174d7a]/5"
+                className="border-primary/25 text-primary hover:bg-primary/5"
               >
                 <a href={`${API_URL}/guest/bookings/${booking.reference}/pdf`}>
                   <Download className="h-4 w-4" />
@@ -363,8 +359,8 @@ function DetailsForm({
   )
 
   return (
-    <section className="mt-12 rounded-[24px] bg-card p-6 shadow-[0_10px_40px_rgba(23,58,87,0.06)] ring-1 ring-[#174d7a]/10 sm:p-8">
-      <h2 className="font-serif text-xl text-[#173a57]">{copy.myDetails}</h2>
+    <section className="mt-12 rounded-[24px] bg-card p-6 shadow-[0_10px_40px_rgba(23,58,87,0.06)] ring-1 ring-primary/10 sm:p-8">
+      <h2 className="font-serif text-xl text-foreground">{copy.myDetails}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{copy.detailsLead}</p>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">

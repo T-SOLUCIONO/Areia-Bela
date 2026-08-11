@@ -38,13 +38,13 @@ export function ServiceAnimalDialog({
 
         <div className="space-y-4 p-6">
           <DialogHeader className="space-y-0">
-            <DialogTitle className="text-left font-serif text-2xl text-[#173a57]">
+            <DialogTitle className="text-left font-serif text-2xl text-foreground">
               {copy.serviceAnimalTitle}
             </DialogTitle>
           </DialogHeader>
 
-          <p className="text-[15px] leading-7 text-slate-600">{copy.serviceAnimalBody}</p>
-          <p className="text-[15px] leading-7 text-slate-600">{copy.serviceAnimalNote}</p>
+          <p className="text-[15px] leading-7 text-muted-foreground">{copy.serviceAnimalBody}</p>
+          <p className="text-[15px] leading-7 text-muted-foreground">{copy.serviceAnimalNote}</p>
 
           <div className="flex justify-end pt-1">
             <Button type="button" onClick={() => onOpenChange(false)}>

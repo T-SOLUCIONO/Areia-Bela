@@ -63,7 +63,7 @@ function EnterContent() {
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <Loader2 className="mb-5 h-9 w-9 animate-spin text-[#174d7a]" />
+      <Loader2 className="mb-5 h-9 w-9 animate-spin text-primary" />
       <p className="text-muted-foreground">{copy.checking}</p>
     </div>
   )
@@ -74,7 +74,7 @@ export default function EnterPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] items-center justify-center">
-          <Loader2 className="h-9 w-9 animate-spin text-[#174d7a]" />
+          <Loader2 className="h-9 w-9 animate-spin text-primary" />
         </div>
       }
     >

@@ -39,9 +39,9 @@ export interface GuestDetail {
 /** Same palette as the Reservations screen: one status, one look. */
 const STATUS_STYLE: Record<string, string> = {
   CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  PENDING: 'bg-amber-50 text-amber-700 ring-amber-200',
+  PENDING: 'bg-amber-50 text-amber-800 ring-amber-200',
   CHECKED_IN: 'bg-sky-50 text-sky-700 ring-sky-200',
-  CHECKED_OUT: 'bg-slate-50 text-slate-600 ring-slate-200',
+  CHECKED_OUT: 'bg-slate-50 text-muted-foreground ring-slate-200',
 }
 
 const initials = (name: string) =>
@@ -100,7 +100,7 @@ export function GuestDetailDialog({
               </DialogTitle>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 {guest.stays > 1 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">
                     <Star className="h-3 w-3" />
                     {copy.returning}
                   </span>
@@ -187,7 +187,7 @@ export function GuestDetailDialog({
                           className={cn(
                             'rounded-full px-2 py-0.5 text-xs ring-1 ring-inset',
                             STATUS_STYLE[stay.status] ??
-                              'bg-slate-100 text-slate-600 ring-slate-200',
+                              'bg-slate-100 text-muted-foreground ring-slate-200',
                           )}
                         >
                           {(copy as unknown as Record<string, string>)[`status${stay.status}`] ??
@@ -211,7 +211,7 @@ export function GuestDetailDialog({
                             the total beside it says otherwise unless this is
                             spelled out. */}
                         {!stay.paidAt && (
-                          <span className="font-medium text-amber-700">{copy.historyUnpaid}</span>
+                          <span className="font-medium text-amber-800">{copy.historyUnpaid}</span>
                         )}
                       </p>
                     </div>

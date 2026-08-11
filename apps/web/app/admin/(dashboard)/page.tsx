@@ -206,11 +206,11 @@ export default function AdminDashboardPage() {
           </div>
 
           {!loading && next && daysToNext !== null && (
-            <div className="shrink-0 rounded-[20px] bg-[#f7f2ea] px-6 py-4 text-center">
-              <p className="font-serif text-3xl tabular-nums text-[#173a57]">
+            <div className="shrink-0 rounded-[20px] border border-border bg-secondary px-6 py-4 text-center shadow-sm">
+              <p className="font-serif text-3xl tabular-nums text-foreground">
                 {daysToNext === 0 ? '·' : daysToNext}
               </p>
-              <p className="mt-0.5 text-xs text-[#174d7a]/80">
+              <p className="mt-0.5 text-xs text-primary/80">
                 {daysToNext === 0
                   ? copy.arrivesToday
                   : daysToNext === 1

@@ -366,7 +366,7 @@ function CheckoutForm() {
                     : 'Cuéntale a la anfitriona un poco sobre ti y por qué viajas...'
                 }
                 rows={4}
-                className="resize-none rounded-[16px] border-border bg-background/60"
+                className="resize-none rounded-[16px] border-border bg-card"
               />
               <p className="text-sm text-muted-foreground">
                 {isEnglish
@@ -397,10 +397,10 @@ function CheckoutForm() {
                 have, and putting it above the total implied the card was
                 entered here. */}
             <section className="space-y-4">
-              <div className="rounded-[20px] bg-[#f7f2ea] p-6">
-                <div className="mb-5 flex items-baseline justify-between border-b border-[#174d7a]/15 pb-4">
-                  <span className="font-medium text-[#173a57]">Total (USD)</span>
-                  <span className="font-serif text-3xl tabular-nums text-[#173a57]">
+              <div className="rounded-[20px] border border-border bg-secondary p-6 shadow-sm">
+                <div className="mb-5 flex items-baseline justify-between border-b border-primary/15 pb-4">
+                  <span className="font-medium text-foreground">Total (USD)</span>
+                  <span className="font-serif text-3xl tabular-nums text-foreground">
                     {currency(quote.total)}
                   </span>
                 </div>
@@ -412,9 +412,9 @@ function CheckoutForm() {
                       id="agreeTerms"
                       checked={agreedToTerms}
                       onChange={(e) => setAgreedToTerms(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#174d7a]"
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-[#174d7a]"
                     />
-                    <label htmlFor="agreeTerms" className="text-sm text-slate-600">
+                    <label htmlFor="agreeTerms" className="text-sm text-muted-foreground">
                       {isEnglish ? 'I agree to the ' : 'Acepto los '}
                       <Link href="#" className="underline">
                         {isEnglish ? 'Terms of Service' : 'Términos de servicio'}

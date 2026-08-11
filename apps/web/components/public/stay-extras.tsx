@@ -145,12 +145,12 @@ export function StayExtras({ checkIn, checkOut, selected, onChange, language, cl
               key={extra.id}
               className={cn(
                 'flex flex-col gap-3 rounded-[16px] border p-4 sm:flex-row sm:items-center sm:justify-between',
-                taken ? 'border-[#174d7a] bg-[#174d7a]/5' : 'border-border',
+                taken ? 'border-primary bg-primary/5' : 'border-border',
                 outOfSeason && 'opacity-60',
               )}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[#174d7a]" />
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">{extra.name}</p>
                   <p className="text-sm text-muted-foreground">
@@ -169,7 +169,7 @@ export function StayExtras({ checkIn, checkOut, selected, onChange, language, cl
                   )}
 
                   {taken && covered !== null && covered > 0 && (
-                    <p className="mt-0.5 text-xs text-[#174d7a]">
+                    <p className="mt-0.5 text-xs text-primary">
                       {fill(copy.nightsCovered, { count: String(covered) })}
                     </p>
                   )}
@@ -225,7 +225,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (value: number)
         type="button"
         aria-label="-"
         onClick={() => onChange(Math.max(0, value - 1))}
-        className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-800 hover:text-slate-900"
+        className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground transition hover:border-slate-800 hover:text-foreground"
       >
         <Minus className="h-4 w-4" />
       </button>
@@ -234,7 +234,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (value: number)
         type="button"
         aria-label="+"
         onClick={() => onChange(value + 1)}
-        className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-800 hover:text-slate-900"
+        className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground transition hover:border-slate-800 hover:text-foreground"
       >
         <Plus className="h-4 w-4" />
       </button>

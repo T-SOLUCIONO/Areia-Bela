@@ -73,7 +73,7 @@ export function GuestPicker({ value, onChange, maxGuests, onServiceAnimal, langu
             }
           >
             <div className="min-w-0">
-              <p className="text-[15px] font-medium text-slate-900">{row.title}</p>
+              <p className="text-[15px] font-medium text-foreground">{row.title}</p>
               {row.description && (
                 <p className="mt-0.5 text-sm text-muted-foreground">{row.description}</p>
               )}
@@ -81,7 +81,7 @@ export function GuestPicker({ value, onChange, maxGuests, onServiceAnimal, langu
                 <button
                   type="button"
                   onClick={onServiceAnimal}
-                  className="mt-1 cursor-pointer text-left text-sm text-slate-700 underline underline-offset-2 hover:text-slate-900"
+                  className="mt-1 cursor-pointer text-left text-sm text-foreground underline underline-offset-2 hover:text-foreground"
                 >
                   {row.hint}
                 </button>
@@ -94,17 +94,17 @@ export function GuestPicker({ value, onChange, maxGuests, onServiceAnimal, langu
                 aria-label={`− ${row.title}`}
                 disabled={count <= floor}
                 onClick={() => step(row.key, -1)}
-                className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition enabled:hover:border-slate-800 enabled:hover:text-slate-900 disabled:border-slate-200 disabled:text-slate-300"
+                className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground transition enabled:hover:border-slate-800 enabled:hover:text-foreground disabled:border-border disabled:text-slate-300"
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-5 text-center tabular-nums text-slate-900">{count}</span>
+              <span className="w-5 text-center tabular-nums text-foreground">{count}</span>
               <button
                 type="button"
                 aria-label={`+ ${row.title}`}
                 disabled={capped}
                 onClick={() => step(row.key, 1)}
-                className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 text-slate-600 transition enabled:hover:border-slate-800 enabled:hover:text-slate-900 disabled:border-slate-200 disabled:text-slate-300"
+                className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground transition enabled:hover:border-slate-800 enabled:hover:text-foreground disabled:border-border disabled:text-slate-300"
               >
                 <Plus className="h-4 w-4" />
               </button>

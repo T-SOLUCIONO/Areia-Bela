@@ -196,7 +196,7 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
             </select>
             {/* Said plainly, because it is the part that surprises people: the
                 policy is a promise the host keeps by hand. */}
-            <p className="text-xs text-amber-700">{copy.policyWarning}</p>
+            <p className="text-xs text-amber-800">{copy.policyWarning}</p>
           </div>
 
           <div className="space-y-2">

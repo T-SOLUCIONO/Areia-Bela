@@ -82,7 +82,7 @@ export function BookingTerms({ booking, language }: { booking: MyBooking; langua
         <ul className="mt-3 space-y-3">
           {facts.map((fact) => (
             <li key={fact.label} className="flex items-start gap-2.5 text-sm">
-              <fact.icon className="mt-0.5 h-4 w-4 shrink-0 text-[#174d7a]" />
+              <fact.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <span>
                 <span className="text-muted-foreground">{fact.label}: </span>
                 <span className="text-foreground">{fact.value}</span>

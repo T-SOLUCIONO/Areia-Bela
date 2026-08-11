@@ -633,7 +633,7 @@ export default function PaymentsPage() {
                                   {/* Only when Stripe flags it. A "normal" badge on
                                       every row would train the eye to skip it. */}
                                   {row.riskLevel && row.riskLevel !== 'normal' && (
-                                    <span className="mt-1 block text-xs font-medium text-amber-700">
+                                    <span className="mt-1 block text-xs font-medium text-amber-800">
                                       {(copy as unknown as Record<string, string>)[
                                         `risk${row.riskLevel}`
                                       ] ?? row.riskLevel}

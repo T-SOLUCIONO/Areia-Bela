@@ -408,7 +408,7 @@ export default function CalendarPage() {
                               booking
                                 ? 'border-emerald-600 bg-emerald-600 text-white'
                                 : block
-                                  ? 'border-slate-400 bg-slate-200 text-slate-700'
+                                  ? 'border-slate-400 bg-slate-200 text-foreground'
                                   : selected
                                     ? 'border-primary bg-primary/25 text-foreground'
                                     : 'border-border bg-secondary/30 text-foreground',

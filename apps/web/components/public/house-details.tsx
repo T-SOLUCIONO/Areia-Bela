@@ -35,9 +35,8 @@ const SECTIONS: Array<{ slug: CMSPageSlug; icon: string }> = [
 ]
 
 /** Shared by both columns so the two accordions read as one component. */
-const ITEM =
-  'group border-b border-slate-200/80 last:border-b-0 data-[state=open]:border-[#174d7a]/25'
-const TRIGGER = 'gap-3 py-4 text-left hover:no-underline [&>svg]:text-[#174d7a]'
+const ITEM = 'group border-b border-border/80 last:border-b-0 data-[state=open]:border-primary/25'
+const TRIGGER = 'gap-3 py-4 text-left hover:no-underline [&>svg]:text-primary'
 
 /**
  * The long-form copy and the questions, straight from the CMS.
@@ -90,7 +89,7 @@ export function HouseDetails({
 
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-amber-700">
+            <div className="flex items-center gap-2 text-amber-800">
               <BookOpen className="h-5 w-5" aria-hidden />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                 {copy.eyebrow}
@@ -98,12 +97,12 @@ export function HouseDetails({
             </div>
             <h2
               id="details-heading"
-              className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl"
+              className="mt-3 font-serif text-3xl text-foreground sm:text-4xl"
             >
               {copy.title}
             </h2>
           </div>
-          <p className="max-w-xl text-[15px] leading-7 text-slate-600">{copy.lead}</p>
+          <p className="max-w-xl text-[15px] leading-7 text-muted-foreground">{copy.lead}</p>
         </div>
 
         {amenityTags.length > 0 && (
@@ -113,9 +112,9 @@ export function HouseDetails({
               {amenityTags.map((tag) => (
                 <span
                   key={tag.key}
-                  className="flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-white py-1.5 pl-1.5 pr-4 text-sm text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                  className="flex items-center gap-2.5 rounded-full border border-border/80 bg-white py-1.5 pl-1.5 pr-4 text-sm text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#174d7a]/8 text-[#174d7a]">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
                     <ContentIcon name={tag.icon} className="h-3.5 w-3.5" />
                   </span>
                   {tag.label}
@@ -138,16 +137,16 @@ export function HouseDetails({
                   <AccordionItem key={slug} value={slug} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#174d7a]/10 text-[#174d7a] transition-colors group-data-[state=open]:bg-[#174d7a] group-data-[state=open]:text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-white">
                           <ContentIcon name={icon} className="h-4 w-4" />
                         </span>
-                        <span className="font-serif text-lg text-[#173a57]">{page!.title}</span>
+                        <span className="font-serif text-lg text-foreground">{page!.title}</span>
                       </span>
                     </AccordionTrigger>
                     <AccordionContent>
                       {/* Indented to the text, not the icon, so the open panel
                           lines up with the heading it belongs to. */}
-                      <div className="space-y-3 pb-2 pl-12 text-[15px] leading-7 text-slate-600">
+                      <div className="space-y-3 pb-2 pl-12 text-[15px] leading-7 text-muted-foreground">
                         {page!.body.split(/\n{2,}/).map((paragraph, index) => (
                           <p key={index} className="whitespace-pre-line">
                             {paragraph}
@@ -170,16 +169,16 @@ export function HouseDetails({
                     <AccordionTrigger className={TRIGGER}>
                       <span className="flex min-w-0 items-start gap-3">
                         <MessageCircleQuestion
-                          className="mt-0.5 h-5 w-5 shrink-0 text-[#174d7a]/60 transition-colors group-data-[state=open]:text-[#174d7a]"
+                          className="mt-0.5 h-5 w-5 shrink-0 text-primary/60 transition-colors group-data-[state=open]:text-primary"
                           aria-hidden
                         />
-                        <span className="text-[15px] font-medium text-[#173a57]">
+                        <span className="text-[15px] font-medium text-foreground">
                           {faq.question}
                         </span>
                       </span>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="pb-2 pl-8 text-[15px] leading-7 text-slate-600">
+                      <div className="pb-2 pl-8 text-[15px] leading-7 text-muted-foreground">
                         {faq.answer}
                       </div>
                     </AccordionContent>
@@ -197,7 +196,7 @@ export function HouseDetails({
 /** The count sets an expectation: eleven sections is a lot to open blindly. */
 function ColumnHeading({ label, count }: { label: string; count: number }) {
   return (
-    <div className="mb-1 flex items-baseline gap-2 border-b border-slate-200/80 pb-3">
+    <div className="mb-1 flex items-baseline gap-2 border-b border-border/80 pb-3">
       {/* <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</h3>
       <span className="text-xs tabular-nums text-slate-400">{count}</span>*/}
     </div>

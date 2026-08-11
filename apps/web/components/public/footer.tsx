@@ -110,7 +110,7 @@ export function Footer() {
               <p className="text-sm text-muted-foreground">{copy.from}</p>
               <p className="mt-1 text-2xl font-semibold text-foreground">
                 ${propertyData.pricing.price_per_night}{' '}
-                <span className="text-sm font-normal text-foreground/70">{perNight}</span>
+                <span className="text-sm font-normal text-muted-foreground">{perNight}</span>
               </p>
               <Button
                 asChild

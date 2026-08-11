@@ -162,8 +162,8 @@ export default function HomePage() {
 
           <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
             <div className="text-center">
-              <div className="mx-auto mb-4 h-px w-12 bg-[#174d7a]/30" />
-              <h2 className="font-serif text-3xl tracking-tight text-[#173a57] sm:text-4xl">
+              <div className="mx-auto mb-4 h-px w-12 bg-primary/30" />
+              <h2 className="font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
                 {text(features, 'title', home.galleryTitle)}
               </h2>
             </div>
@@ -198,11 +198,13 @@ export default function HomePage() {
                         />
                       </div>
                       <div className="p-5">
-                        <div className="flex items-center gap-2 text-[#174d7a]">
+                        <div className="flex items-center gap-2 text-primary">
                           <ContentIcon name={card.icon} className="h-5 w-5" />
-                          <h3 className="font-serif text-2xl text-[#173a57]">{title}</h3>
+                          <h3 className="font-serif text-2xl text-foreground">{title}</h3>
                         </div>
-                        <p className="mt-3 text-[15px] leading-7 text-slate-600">{card.body}</p>
+                        <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
+                          {card.body}
+                        </p>
                       </div>
                     </article>
                   )
@@ -253,10 +255,10 @@ export default function HomePage() {
         >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-amber-700">
+              <p className="mb-2 text-xs uppercase tracking-widest text-amber-800">
                 {text(reviewsSection, 'eyebrow', home.reviewsIntro)}
               </p>
-              <h2 className="font-serif text-4xl text-[#173a57]">
+              <h2 className="font-serif text-4xl text-foreground">
                 {text(reviewsSection, 'title', home.reviewsTitle)}
               </h2>
             </div>
@@ -266,7 +268,7 @@ export default function HomePage() {
                 The rating is the thing this block is for, so it gets a surface. */}
             <div className="flex shrink-0 flex-wrap items-center gap-5 rounded-[24px] border border-border bg-card px-6 py-4 shadow-sm">
               <div className="text-center">
-                <p className="font-serif text-5xl leading-none text-[#173a57]">
+                <p className="font-serif text-5xl leading-none text-foreground">
                   {reviewsSection?.statValue || propertyData.rating.toFixed(1)}
                 </p>
                 <div className="mt-1.5 flex justify-center gap-0.5">
@@ -286,14 +288,14 @@ export default function HomePage() {
                     const outOfFive = Number(score.value) || 0
                     return (
                       <div key={score.id} className="flex items-center gap-2">
-                        <span className="w-24 text-xs text-gray-500">{score.label}</span>
+                        <span className="w-24 text-xs text-muted-foreground">{score.label}</span>
                         <div className="h-1 w-20 overflow-hidden rounded-full bg-gray-200">
                           <div
-                            className="h-full rounded-full bg-[#173a57]"
+                            className="h-full rounded-full bg-foreground"
                             style={{ width: `${Math.min(100, (outOfFive / 5) * 100)}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-500">{score.value}</span>
+                        <span className="text-xs text-muted-foreground">{score.value}</span>
                       </div>
                     )
                   })}
@@ -303,7 +305,7 @@ export default function HomePage() {
           </div>
 
           {featured && (
-            <div className="relative mb-8 mt-10 overflow-hidden rounded-[32px] bg-[#173a57] p-8 md:p-10">
+            <div className="relative mb-8 mt-10 overflow-hidden rounded-[32px] bg-foreground p-8 md:p-10">
               <Quote className="absolute left-6 top-6 h-16 w-16 text-white/10" />
               <div className="relative z-10 md:flex md:items-start md:gap-8">
                 <div className="flex-1">
@@ -365,7 +367,7 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <p className="flex-1 whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                    <p className="flex-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
                       &ldquo;{review.text}&rdquo;
                     </p>
                     <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
@@ -378,12 +380,12 @@ export default function HomePage() {
                           className="h-10 w-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-[#173a57]">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-foreground">
                           <Users className="h-5 w-5" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-[#173a57]">{review.authorName}</p>
+                        <p className="truncate text-sm text-foreground">{review.authorName}</p>
                       </div>
                       {review.verified && (
                         <div className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
@@ -407,10 +409,12 @@ export default function HomePage() {
         >
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
             <div>
-              <h2 className="font-serif text-3xl text-[#173a57] sm:text-4xl">
+              <h2 className="font-serif text-3xl text-foreground sm:text-4xl">
                 {text(location, 'title', home.locationTitle)}
               </h2>
-              <p className="mt-2 text-slate-600">{text(location, 'subtitle', home.locationSub)}</p>
+              <p className="mt-2 text-muted-foreground">
+                {text(location, 'subtitle', home.locationSub)}
+              </p>
 
               <div className="mt-6 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                 <div className="relative h-[360px] w-full sm:h-[480px]">
@@ -431,7 +435,7 @@ export default function HomePage() {
 
             <div className="flex flex-col justify-end space-y-4">
               <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-                <h3 className="font-serif text-2xl text-[#173a57]">
+                <h3 className="font-serif text-2xl text-foreground">
                   {text(location, 'body', home.nearbyTitle)}
                 </h3>
                 <div className="mt-4 space-y-4">
@@ -445,20 +449,20 @@ export default function HomePage() {
                   ).map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      className="flex items-center gap-3 rounded-2xl border border-border bg-slate-50 px-4 py-3"
                     >
                       {item.icon ? (
-                        <ContentIcon name={item.icon} className="h-4 w-4 shrink-0 text-[#174d7a]" />
+                        <ContentIcon name={item.icon} className="h-4 w-4 shrink-0 text-primary" />
                       ) : (
-                        <MapPin className="h-4 w-4 shrink-0 text-[#174d7a]" />
+                        <MapPin className="h-4 w-4 shrink-0 text-primary" />
                       )}
-                      <span className="text-sm text-slate-700">{item.label}</span>
+                      <span className="text-sm text-foreground">{item.label}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-white/70 bg-[#174d7a] p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
+              <div className="rounded-[28px] border border-white/70 bg-primary p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
                 <div className="flex items-center gap-2 text-white/80">
                   <Sparkles className="h-5 w-5" />
                   <span className="text-sm font-semibold uppercase tracking-[0.2em]">
@@ -470,7 +474,7 @@ export default function HomePage() {
                 </p>
                 <Button
                   asChild
-                  className="mt-5 h-11 rounded-full bg-white px-5 font-semibold text-[#174d7a] hover:bg-white/90"
+                  className="mt-5 h-11 rounded-full bg-white px-5 font-semibold text-primary hover:bg-white/90"
                 >
                   <Link href={directBooking?.ctaHref || '#reservar'}>
                     {text(directBooking, 'ctaLabel', home.directCta)}
@@ -483,22 +487,22 @@ export default function HomePage() {
       )}
 
       {shows(host) && (
-        <section className="border-t border-white/70 bg-[#f7f2ea] py-14 lg:py-20">
+        <section className="border-t border-white/70 bg-background py-14 lg:py-20">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
             {/* Left-aligned like the amenities and details sections, rather
                 than a centred stack: this page introduces things from the left
                 and the eye already knows where to start. */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">
                   {text(host, 'eyebrow', home.hostKicker)}
                 </p>
-                <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
+                <h2 className="mt-3 font-serif text-3xl text-foreground sm:text-4xl">
                   {text(host, 'title', home.hostTitle)}
                 </h2>
               </div>
-              <p className="flex items-center gap-2 text-[15px] text-slate-600">
-                <Sparkles className="h-4 w-4 text-[#174d7a]" aria-hidden />
+              <p className="flex items-center gap-2 text-[15px] text-muted-foreground">
+                <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                 {text(host, 'statLabel', ui.hostSince)}{' '}
                 {host?.statValue || propertyData.hostSinceYear}
               </p>
@@ -516,14 +520,14 @@ export default function HomePage() {
                     sizes="(max-width: 1024px) 100vw, 34vw"
                     className="object-cover"
                   />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#173a57]/55 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-foreground/55 to-transparent" />
 
                   <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center gap-2">
                     <span className="font-serif text-2xl text-white">
                       {propertyData.host.firstName}
                     </span>
                     {text(host, 'subtitle', home.hostBadge) && (
-                      <span className="flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs text-[#173a57] backdrop-blur-sm">
+                      <span className="flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs text-foreground backdrop-blur-sm">
                         <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
                         {text(host, 'subtitle', home.hostBadge)}
                       </span>
@@ -538,10 +542,10 @@ export default function HomePage() {
                     treated as filler. */}
                 <blockquote className="relative">
                   <Quote
-                    className="absolute -left-1 -top-2 h-10 w-10 text-[#174d7a]/10"
+                    className="absolute -left-1 -top-2 h-10 w-10 text-primary/10"
                     aria-hidden
                   />
-                  <p className="relative whitespace-pre-line font-serif text-[22px] leading-[1.55] text-[#173a57] sm:text-[26px]">
+                  <p className="relative whitespace-pre-line font-serif text-[22px] leading-[1.55] text-foreground sm:text-[26px]">
                     {text(host, 'body', home.hostBody)}
                   </p>
                 </blockquote>
@@ -551,14 +555,14 @@ export default function HomePage() {
                     // A row of figures with rules between them, not three
                     // tinted boxes: they are data, and boxing data gives it
                     // more weight than it has earned.
-                    <dl className="flex flex-wrap gap-x-10 gap-y-4 border-t border-slate-200 pt-6">
+                    <dl className="flex flex-wrap gap-x-10 gap-y-4 border-t border-border pt-6">
                       {hostStats.map((stat) => (
                         <div key={stat.id}>
                           <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-                            <ContentIcon name={stat.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
+                            <ContentIcon name={stat.icon} className="h-3.5 w-3.5 text-primary" />
                             {stat.label}
                           </dt>
-                          <dd className="mt-1 font-serif text-2xl text-[#173a57]">{stat.value}</dd>
+                          <dd className="mt-1 font-serif text-2xl text-foreground">{stat.value}</dd>
                         </div>
                       ))}
                     </dl>

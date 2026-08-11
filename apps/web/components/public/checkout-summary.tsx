@@ -40,16 +40,22 @@ export function CheckoutSummary({
   const copy = translations[language].checkout
   const quoteCopy = translations[language].quote
   const guestCopy = translations[language].guestArea
+  const partyCopy = translations[language].availability
   const locale = DATE_LOCALES[language]
 
   const day = (value: string, pattern: string) => format(parseISO(value), pattern, { locale })
 
-  // Borrowed from the guest area rather than restated: the same phrase already
-  // exists there in all five languages.
+  // Borrowed rather than restated: the singular and plural already exist in
+  // `availability` in all five languages.
+  //
+  // `guestArea.guests` is `'{count} huéspedes'` — a template with the plural
+  // baked in, so a booking for one person read "1 huéspedes", and one pet read
+  // "1 mascotas". Counting is not the same as pluralising.
   const guests = quote.guests.adults + quote.guests.children
   const party = [
-    fill(guestCopy.guests, { count: String(guests) }),
-    quote.guests.pets > 0 && fill(guestCopy.pets, { count: String(quote.guests.pets) }),
+    `${guests} ${(guests === 1 ? partyCopy.guestOne : partyCopy.guestMany).toLowerCase()}`,
+    quote.guests.pets > 0 &&
+      `${quote.guests.pets} ${(quote.guests.pets === 1 ? partyCopy.petsOne : partyCopy.petsMany).toLowerCase()}`,
   ]
     .filter(Boolean)
     .join(' · ')

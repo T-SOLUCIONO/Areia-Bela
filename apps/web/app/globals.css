@@ -7,23 +7,37 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f7f2ea;
+  /* Deepened from #f7f2ea.
+   *
+   * The old value sat 1.11:1 from the white cards on top of it, which is why
+   * every panel on the site looked edgeless and why text and boxes "got lost in
+   * the background": there was barely a background to be distinct from. This is
+   * 1.29:1 — the same warm family, one visible step down, so a white card reads
+   * as a card without needing to be outlined in something heavy. */
+  --background: #ebe2d1;
   --foreground: #173a57;
-  --text-muted-custom: rgb(108, 108, 108);
   --card: #ffffff;
   --card-foreground: #173a57;
   --popover: #ffffff;
   --popover-foreground: #173a57;
   --primary: #174d7a;
   --primary-foreground: #ffffff;
-  --secondary: #eee7d8;
+  /* Moved with the background, or it would have become the same colour. Now
+   * 1.19:1 from the page and 1.47:1 from a white card: a tinted panel that is
+   * legible as its own surface in both places. */
+  --secondary: #e0d4bd;
   --secondary-foreground: #173a57;
-  --muted: oklch(0.96 0.005 90);
-  /* #5d6b77 passed on the page background (4.91) and failed on the warm panels
-   * (4.45 against `--secondary`, where AA wants 4.50). Secondary text sits on
-   * all three surfaces, so it has to clear the darkest one: this is 4.85 there
-   * and 5.35 on the page. */
-  --muted-foreground: #586572;
+  /* Hex rather than oklch so it can be measured with the same arithmetic as
+   * everything else — and because an `oklch` computed value is what silently
+   * defeated the contrast auditor once already. */
+  --muted: #f4efe4;
+  /* Chosen against all three surfaces at once, not one at a time.
+   *
+   * Deepening the page and the panels pushed #586572 down to 4.07 on
+   * `--secondary`, below AA — fixing one surface had broken another. This value
+   * clears 4.5 everywhere it appears: 7.15 on a white card, 5.56 on the page,
+   * 4.88 on a tinted panel. */
+  --muted-foreground: #4e5964;
   --accent: #173a57;
   --accent-foreground: #ffffff;
   --destructive: oklch(0.55 0.2 25);
@@ -36,10 +50,10 @@
    * drawn-on look a properly WCAG-compliant 3:1 border would give a palette
    * this soft. Cards make up the rest of the separation with a shadow, which is
    * how low-contrast surfaces are told apart. */
-  --border: #bfb49f;
+  --border: #b6a992;
   /* Inputs carry their own weight: a field the user has to find is worth a
    * firmer edge than a decorative container. */
-  --input: #b3a68e;
+  --input: #ada085;
   --ring: #174d7a;
   --chart-1: #2b6ca8;
   --chart-2: #d97706;
@@ -65,7 +79,6 @@
 .dark {
   --background: #14202b;
   --foreground: #f2ede2;
-  --text-muted-custom: rgb(108, 108, 108);
   --card: #1b2b3a;
   --card-foreground: #f2ede2;
   --popover: #1b2b3a;
@@ -116,7 +129,6 @@
   --font-mono: ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-muted-custom: var(--text-muted-custom);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -226,6 +238,11 @@
     width: 100%;
     overflow-x: hidden;
     overflow-y: auto;
-    @apply bg-background text-muted-custom antialiased;
+    /* `text-muted-custom` was `rgb(108, 108, 108)`: a neutral grey belonging to
+     * no token in the palette, applied to the **whole** body. Every piece of text
+     * that did not set a colour of its own inherited it — 4.08:1 against the
+     * background, below AA, and 2.6:1 in dark mode. Pairing `bg-background` with
+     * `text-foreground` is what the tokens exist to do. */
+    @apply bg-background text-foreground antialiased;
   }
 }

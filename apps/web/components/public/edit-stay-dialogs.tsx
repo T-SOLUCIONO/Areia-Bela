@@ -85,7 +85,7 @@ export function EditDatesDialog({
 
         {loading ? (
           <div className="flex h-72 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#174d7a]" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
           <StayCalendar
@@ -105,7 +105,7 @@ export function EditDatesDialog({
           <button
             type="button"
             onClick={() => setRange({})}
-            className="text-sm font-medium text-slate-700 underline underline-offset-4 hover:text-slate-900"
+            className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground"
           >
             {availability.clearDates}
           </button>

@@ -127,7 +127,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:text-primary"
+              className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               {item.name}
             </Link>
@@ -179,7 +179,7 @@ export function Header() {
                       key={item.href}
                       href={item.href}
                       onClick={() => setIsOpen(false)}
-                      className="text-lg font-medium text-slate-800 transition-colors hover:text-primary"
+                      className="text-lg font-medium text-foreground transition-colors hover:text-primary"
                     >
                       {item.name}
                     </Link>

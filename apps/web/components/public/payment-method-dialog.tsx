@@ -78,9 +78,9 @@ export function PaymentMethodDialog({
           <DialogTitle className="font-serif text-2xl">{copy.payTitle}</DialogTitle>
         </DialogHeader>
 
-        <div className="rounded-[16px] border border-[#174d7a] bg-[#174d7a]/5 p-4">
+        <div className="rounded-[16px] border border-primary bg-primary/5 p-4">
           <div className="flex items-start gap-3">
-            <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-[#174d7a]" />
+            <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <div>
               <p className="font-medium text-foreground">{copy.payCard}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{copy.payCardBrands}</p>
@@ -146,7 +146,7 @@ export function PaymentMethodDialog({
                 autoComplete="country-name"
                 value={details.country}
                 onChange={(event) => set('country')(event.target.value)}
-                className="h-11 w-full rounded-[12px] border border-slate-200 bg-transparent px-3 text-sm focus-visible:border-[#174d7a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#174d7a]/20"
+                className="h-11 w-full rounded-[12px] border border-border bg-transparent px-3 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
               >
                 {COUNTRIES.map((country) => (
                   <option key={country} value={country}>
@@ -231,7 +231,7 @@ function Field({
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 rounded-[12px] border-slate-200 focus-visible:border-[#174d7a] focus-visible:ring-[#174d7a]/20"
+        className="h-11 rounded-[12px] border-border focus-visible:border-primary focus-visible:ring-primary/20"
       />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
@@ -253,9 +253,9 @@ export function PaymentOverlay({ language }: { language: Language }) {
       aria-live="polite"
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-white/95 px-6 text-center backdrop-blur-sm"
     >
-      <Loader2 className="h-11 w-11 animate-spin text-[#174d7a]" />
+      <Loader2 className="h-11 w-11 animate-spin text-primary" />
       <div>
-        <p className="font-serif text-2xl text-[#173a57]">{copy.payOpening}</p>
+        <p className="font-serif text-2xl text-foreground">{copy.payOpening}</p>
         <p className="mt-2 max-w-sm text-muted-foreground">{copy.payOpeningLead}</p>
       </div>
     </div>

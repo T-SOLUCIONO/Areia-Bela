@@ -52,7 +52,7 @@ export function PriceBreakdownCard({
 
   return (
     <div
-      className={`rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ${className ?? ''}`}
+      className={`rounded-[24px] border border-border bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ${className ?? ''}`}
     >
       {propertyPreview && (
         <div className="flex gap-4 border-b border-slate-100 pb-5">
@@ -65,10 +65,10 @@ export function PriceBreakdownCard({
             />
           </div>
           <div>
-            <p className="line-clamp-2 font-medium text-[#173a57]">{propertyData.name}</p>
+            <p className="line-clamp-2 font-medium text-foreground">{propertyData.name}</p>
             <div className="mt-1 flex items-center gap-1">
-              <Star className="h-3.5 w-3.5 fill-[#173a57] text-[#173a57]" />
-              <span className="text-sm font-medium text-[#173a57]">
+              <Star className="h-3.5 w-3.5 fill-foreground text-foreground" />
+              <span className="text-sm font-medium text-foreground">
                 {propertyData.rating.toFixed(2)}
               </span>
               <span className="text-sm text-muted-foreground">({propertyData.reviewsCount})</span>
@@ -79,10 +79,10 @@ export function PriceBreakdownCard({
 
       <div className="space-y-3 border-b border-slate-100 py-5">
         <div className="flex items-center justify-between">
-          <span className="text-slate-600 underline">
+          <span className="text-muted-foreground underline">
             {currency(quote.pricePerNight)} x {quote.nights} {copy.nights}
           </span>
-          <span className="text-slate-800">{currency(quote.subtotal)}</span>
+          <span className="text-foreground">{currency(quote.subtotal)}</span>
         </div>
 
         {hasDiscount && savings > 0 && (
@@ -97,39 +97,39 @@ export function PriceBreakdownCard({
             service fee to zero from the panel and it simply stops appearing. */}
         {quote.cleaningFee > 0 && (
           <div className="flex items-center justify-between">
-            <span className="text-slate-600 underline">{copy.cleaningFee}</span>
-            <span className="text-slate-800">{currency(quote.cleaningFee)}</span>
+            <span className="text-muted-foreground underline">{copy.cleaningFee}</span>
+            <span className="text-foreground">{currency(quote.cleaningFee)}</span>
           </div>
         )}
 
         {quote.serviceFee > 0 && (
           <div className="flex items-center justify-between">
-            <span className="text-slate-600 underline">{copy.serviceFee}</span>
-            <span className="text-slate-800">{currency(quote.serviceFee)}</span>
+            <span className="text-muted-foreground underline">{copy.serviceFee}</span>
+            <span className="text-foreground">{currency(quote.serviceFee)}</span>
           </div>
         )}
 
         {quote.taxes > 0 && (
           <div className="flex items-center justify-between">
-            <span className="text-slate-600 underline">{copy.taxes}</span>
-            <span className="text-slate-800">{currency(quote.taxes)}</span>
+            <span className="text-muted-foreground underline">{copy.taxes}</span>
+            <span className="text-foreground">{currency(quote.taxes)}</span>
           </div>
         )}
       </div>
 
       <div className="pt-5">
         <div className="flex items-center justify-between">
-          <span className="text-base font-semibold text-[#173a57]">{copy.total}</span>
-          <span className="text-xl font-semibold text-[#173a57]">{currency(quote.total)}</span>
+          <span className="text-base font-semibold text-foreground">{copy.total}</span>
+          <span className="text-xl font-semibold text-foreground">{currency(quote.total)}</span>
         </div>
       </div>
 
-      <div className="mt-5 rounded-[16px] bg-[#f7f2ea] p-4">
+      <div className="mt-5 rounded-[16px] bg-background p-4">
         <div className="flex items-start gap-3">
-          <Clock className="mt-0.5 h-5 w-5 text-[#174d7a]" />
+          <Clock className="mt-0.5 h-5 w-5 text-primary" />
           <div>
-            <p className="font-semibold text-[#173a57]">{copy.freeCancellation}</p>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="font-semibold text-foreground">{copy.freeCancellation}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
               {copy.cancelBefore} {cancellationDate} {copy.partialRefund}
             </p>
           </div>

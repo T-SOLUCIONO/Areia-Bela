@@ -162,12 +162,12 @@ export function StayCalendar({
               // Neutralises the shared button's dark `bg-accent` on mid-range
               // days: the tint lives on the cell, so check-in and check-out are
               // the only solid blocks and the stay reads as a band with two ends.
-              'rounded-full data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-[#173a57]',
-              'data-[range-start=true]:bg-[#174d7a] data-[range-end=true]:bg-[#174d7a]',
-              'data-[selected-single=true]:bg-[#174d7a]',
+              'rounded-full data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-foreground',
+              'data-[range-start=true]:bg-primary data-[range-end=true]:bg-primary',
+              'data-[selected-single=true]:bg-primary',
               // A free night to come: the panel's own "free" tint, so an
               // available day looks available rather than merely blank.
-              'bg-secondary/30 hover:bg-[#f7f2ea]',
+              'bg-secondary/30 hover:bg-background',
               unavailable.has(iso) && 'bg-transparent hover:bg-transparent',
               // Painted on the button, not the cell: the cell's fill sits
               // underneath and the free-night tint above would swallow it.
@@ -295,7 +295,7 @@ export function StayCalendar({
           // Flat grey: a day that is simply gone. No hatch, no strike-through —
           // those say "someone has this", and nobody has yesterday.
           past: 'text-slate-400',
-          previewRange: 'bg-[#174d7a]/10 rounded-none',
+          previewRange: 'bg-primary/10 rounded-none',
         }}
         classNames={{
           // The shared calendar paints today with `bg-accent`, and on this site
@@ -305,9 +305,9 @@ export function StayCalendar({
           // same on both sides of the product.
           today:
             'rounded-full ring-2 ring-ring ring-offset-2 ring-offset-white font-semibold data-[selected=true]:ring-0 data-[selected=true]:ring-offset-0',
-          range_middle: 'rounded-none bg-[#174d7a]/10',
-          range_start: 'rounded-l-full bg-[#174d7a]/10',
-          range_end: 'rounded-r-full bg-[#174d7a]/10',
+          range_middle: 'rounded-none bg-primary/10',
+          range_start: 'rounded-l-full bg-primary/10',
+          range_end: 'rounded-r-full bg-primary/10',
           // --- Solo en el modo apilado -------------------------------------
           // El calendario compartido es `w-fit`, que es lo correcto dentro de
           // un popover y lo que impide llenar una pantalla.
@@ -321,7 +321,7 @@ export function StayCalendar({
                 // Alineado a la izquierda como un encabezado, no centrado como
                 // un control: aquí no hay nada que pulsar, se desplaza.
                 month_caption: 'px-1 justify-start h-auto',
-                caption_label: 'text-[17px] font-semibold text-slate-900',
+                caption_label: 'text-[17px] font-semibold text-foreground',
                 // Las flechas sobran cuando el gesto es deslizar, y ocupan el
                 // sitio del nombre del mes.
                 nav: 'hidden',
