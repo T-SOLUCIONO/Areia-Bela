@@ -75,7 +75,7 @@ export function GuestPicker({ value, onChange, maxGuests, onServiceAnimal, langu
             <div className="min-w-0">
               <p className="text-[15px] font-medium text-slate-900">{row.title}</p>
               {row.description && (
-                <p className="mt-0.5 text-sm text-slate-500">{row.description}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{row.description}</p>
               )}
               {row.hint && (
                 <button

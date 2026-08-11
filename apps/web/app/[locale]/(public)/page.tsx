@@ -253,7 +253,7 @@ export default function HomePage() {
         >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-amber-600">
+              <p className="mb-2 text-xs uppercase tracking-widest text-amber-700">
                 {text(reviewsSection, 'eyebrow', home.reviewsIntro)}
               </p>
               <h2 className="font-serif text-4xl text-[#173a57]">
@@ -274,7 +274,7 @@ export default function HomePage() {
                     <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {text(reviewsSection, 'statLabel', `${propertyData.reviewsCount} ${ui.reviews}`)}
                 </p>
               </div>
@@ -360,7 +360,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       {stayedAt && (
-                        <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-gray-400">
+                        <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-muted-foreground">
                           {stayedAt}
                         </span>
                       )}
@@ -386,7 +386,7 @@ export default function HomePage() {
                         <p className="truncate text-sm text-[#173a57]">{review.authorName}</p>
                       </div>
                       {review.verified && (
-                        <div className="flex shrink-0 items-center gap-1 text-[11px] text-gray-400">
+                        <div className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
                           <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
                           {home.verified}
                         </div>
@@ -490,7 +490,7 @@ export default function HomePage() {
                 and the eye already knows where to start. */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-600">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
                   {text(host, 'eyebrow', home.hostKicker)}
                 </p>
                 <h2 className="mt-3 font-serif text-3xl text-[#173a57] sm:text-4xl">
@@ -554,7 +554,7 @@ export default function HomePage() {
                     <dl className="flex flex-wrap gap-x-10 gap-y-4 border-t border-slate-200 pt-6">
                       {hostStats.map((stat) => (
                         <div key={stat.id}>
-                          <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-slate-500">
+                          <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
                             <ContentIcon name={stat.icon} className="h-3.5 w-3.5 text-[#174d7a]" />
                             {stat.label}
                           </dt>

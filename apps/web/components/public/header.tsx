@@ -87,10 +87,27 @@ export function Header() {
   // Choosing a language is LanguageMenu's job now; this only reads it.
   const { language } = useLanguage()
   const copy = translations[language]
-  const navigation = publicNavItems.map((item, index) => ({
-    name: copy.nav[index],
-    href: item.href,
-  }))
+  /**
+   * Paired by position, which had already gone wrong.
+   *
+   * `publicNavItems` lists five sections and every one of the five locales
+   * defines four labels, so the fifth — `#reviews` — got `copy.nav[4]`, which is
+   * `undefined`. It rendered a link with no text: 24px wide, invisible, and
+   * announced by a screen reader as a link with no name, with a tab stop that
+   * goes nowhere. On every page, in every language.
+   *
+   * Filtering rather than adding a label: putting "Reviews" in five languages
+   * would be inventing copy, and the site already behaves as if the nav has four
+   * items. So an item without a label is dropped instead of rendered empty, which
+   * also means the next section added to `publicNavItems` fails visibly by being
+   * absent rather than invisibly by being blank.
+   *
+   * If Reviews belongs in the nav, it needs a fifth label in all five locales —
+   * that is copy the host owns, not something to guess here.
+   */
+  const navigation = publicNavItems
+    .map((item, index) => ({ name: copy.nav[index] as string | undefined, href: item.href }))
+    .filter((item): item is { name: string; href: string } => Boolean(item.name?.trim()))
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/60 bg-[rgba(255,251,246,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[rgba(255,251,246,0.72)]">
@@ -110,7 +127,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:text-primary"
+              className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:text-primary"
             >
               {item.name}
             </Link>

@@ -14,14 +14,14 @@ export function Reserve() {
     <div className="sticky bottom-0 z-40 border-t border-white/70 bg-[rgba(247,242,234,0.96)] px-4 py-3 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
             {copy.from}
           </div>
           <div className="text-lg font-semibold text-foreground">
             ${propertyData.pricing.price_per_night}{' '}
-            <span className="text-sm font-normal text-slate-500">{copy.perNight}</span>
+            <span className="text-sm font-normal text-muted-foreground">{copy.perNight}</span>
           </div>
-          <p className="truncate text-xs text-slate-500">{copy.tagline}</p>
+          <p className="truncate text-xs text-muted-foreground">{copy.tagline}</p>
         </div>
         <Button asChild variant="brand" size="lg" className="px-5 text-sm font-semibold">
           <Link href="#reservar">{copy.bookNow}</Link>

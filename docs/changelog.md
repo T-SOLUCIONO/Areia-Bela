@@ -6998,3 +6998,82 @@ pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (399)
 
 Medido en el navegador sobre la web construida, en dos anchuras, con capturas
 revisadas a ojo además de las cifras.
+
+## 50. Auditoría con `ui-ux-pro-max`: seis defectos, uno de accesibilidad real
+
+El marketplace `ui-ux-pro-max-skill` **estaba añadido pero el plugin no instalado**,
+que es por lo que no aparecía entre los skills disponibles. Se puede instalar con
+`/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`; entretanto se leyó su
+`SKILL.md` y se consultó su base con `scripts/search.py`, que es lo mismo que haría
+la invocación.
+
+Su checklist pone la accesibilidad en prioridad 1 con umbrales concretos —
+contraste 4.5:1, objetivos táctiles 44×44 px con 8 px de separación, anillos de
+foco, texto alternativo, sin scroll horizontal— así que se auditaron esos umbrales
+en el navegador sobre `/es`, `/es/my-booking` y la confirmación, a 390 y 1280 px.
+
+### Contraste: diez fallos, todos por color fijo o por opacidad
+
+| Clase                    | Medido   | Ahora                        |
+| ------------------------ | -------- | ---------------------------- |
+| `text-gray-400`          | **2.28** | `text-muted-foreground` 5.35 |
+| `text-amber-600` (texto) | **2.86** | `text-amber-700` 4.51        |
+| `text-slate-500`         | 4.27     | `text-muted-foreground` 5.35 |
+| `text-[#174d7a]/70`      | 4.06     | `text-primary`               |
+| `text-slate-400`         | **2.63** | `text-muted-foreground`      |
+
+Los cuatro `text-amber-600` que son **iconos** no se tocaron: van sobre un círculo
+ámbar y la regla de contraste no textual es otra. Distinguirlos exigió mirar cada
+uso, no un reemplazo global.
+
+### Objetivos táctiles
+
+La navegación medía 36 px de alto y los enlaces del pie 38, contra un mínimo de 44.
+`py-2` con `text-sm` no llega; ahora llevan `min-h-11` con centrado flex. Igual el
+botón «Ver todas las fotos» de la galería, que además pasa a tokens.
+
+### El hallazgo que no buscaba: un enlace sin nombre en la navegación
+
+El auditor encontró un `<a>` de 24×44 px **sin texto y sin `aria-label`**. La causa:
+
+```ts
+const navigation = publicNavItems.map((item, index) => ({ name: copy.nav[index], … }))
+```
+
+`publicNavItems` lista **cinco** secciones y los **cinco** idiomas definen
+**cuatro** etiquetas. La quinta —`#reviews`— recibía `copy.nav[4]`, o sea
+`undefined`, y renderizaba un enlace vacío: invisible, con una parada de tabulador
+que no lleva a ninguna parte, anunciado por un lector de pantalla como un enlace
+sin nombre. En todas las páginas y en los cinco idiomas.
+
+Se corrige **filtrando**, no añadiendo etiqueta: poner «Reseñas» en cinco idiomas
+sería inventar textos, y el sitio ya se comporta como si la navegación tuviera
+cuatro elementos. Un elemento sin etiqueta se descarta en vez de renderizarse
+vacío, así que la próxima sección que se añada a `publicNavItems` fallará de forma
+visible —estando ausente— y no de forma invisible. **Si Reseñas debe estar en la
+navegación, hace falta una quinta etiqueta en los cinco idiomas: eso es copy de la
+anfitriona, no algo que adivinar aquí.**
+
+### Un falso positivo que casi me cuesta un arreglo inventado
+
+El auditor daba `text-white` a 1.10:1 en «Angélica». Antes de tocarlo: ese texto
+va **sobre una foto**, y la medición compone fondos CSS pero no imágenes. Hay
+además un velo (`bg-gradient-to-t from-[#173a57]/55`) justo debajo. No era un
+defecto. El auditor ahora excluye el texto que se apoya sobre una `<img>` o
+`<video>`, porque ahí el fondo CSS no es el fondo real. Es el segundo falso
+positivo de esta tanda —el primero fue el `oklab` de la sección 49— y los dos se
+detectaron por desconfiar de una cifra demasiado rara.
+
+### Estado final, medido
+
+```
+/es · /es/my-booking · /es/confirmation   a 390 px y 1280 px
+contraste AA: OK    táctil ≥44px: OK    controles sin nombre: OK    scroll horizontal: no
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (399)
+```
+
+### Pendiente
+
+`/es/gallery` responde **404** en el servidor de producción — la galería vive en un
+ancla de la home (`#gallery`), no en su propia ruta. Queda anotado por si esa URL
+está publicada en algún sitio.

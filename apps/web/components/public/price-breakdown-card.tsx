@@ -71,7 +71,7 @@ export function PriceBreakdownCard({
               <span className="text-sm font-medium text-[#173a57]">
                 {propertyData.rating.toFixed(2)}
               </span>
-              <span className="text-sm text-slate-500">({propertyData.reviewsCount})</span>
+              <span className="text-sm text-muted-foreground">({propertyData.reviewsCount})</span>
             </div>
           </div>
         </div>

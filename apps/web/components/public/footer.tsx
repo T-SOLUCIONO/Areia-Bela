@@ -83,19 +83,19 @@ export function Footer() {
             <div className="flex flex-col gap-3 text-sm text-muted-foreground">
               <Link
                 href="#gallery"
-                className="inline-flex items-center justify-between rounded-full border border-border/70 px-4 py-2 transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex min-h-11 items-center justify-between rounded-full border border-border/70 px-4 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {copy.photos} <ArrowUpRight className="h-4 w-4" />
               </Link>
               <Link
                 href="#amenities"
-                className="inline-flex items-center justify-between rounded-full border border-border/70 px-4 py-2 transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex min-h-11 items-center justify-between rounded-full border border-border/70 px-4 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {copy.services} <ArrowUpRight className="h-4 w-4" />
               </Link>
               <Link
                 href="#reviews"
-                className="inline-flex items-center justify-between rounded-full border border-border/70 px-4 py-2 transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex min-h-11 items-center justify-between rounded-full border border-border/70 px-4 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {copy.reviews} <ArrowUpRight className="h-4 w-4" />
               </Link>

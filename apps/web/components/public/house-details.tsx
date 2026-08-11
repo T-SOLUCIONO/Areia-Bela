@@ -90,7 +90,7 @@ export function HouseDetails({
 
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-amber-600">
+            <div className="flex items-center gap-2 text-amber-700">
               <BookOpen className="h-5 w-5" aria-hidden />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                 {copy.eyebrow}
@@ -198,7 +198,7 @@ export function HouseDetails({
 function ColumnHeading({ label, count }: { label: string; count: number }) {
   return (
     <div className="mb-1 flex items-baseline gap-2 border-b border-slate-200/80 pb-3">
-      {/* <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</h3>
+      {/* <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</h3>
       <span className="text-xs tabular-nums text-slate-400">{count}</span>*/}
     </div>
   )

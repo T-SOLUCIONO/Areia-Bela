@@ -67,7 +67,7 @@ function DateBox({
           type="button"
           onClick={onClear}
           aria-label={`${clearLabel}: ${label}`}
-          className="shrink-0 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-slate-100 hover:text-slate-800"
         >
           <X className="h-4 w-4" />
         </button>
@@ -308,7 +308,7 @@ export function AvailabilityCard({ className }: Props) {
                     ? copy.nightSelected
                     : fill(copy.nightsSelected, { count: String(nights) })}
               </SheetTitle>
-              <SheetDescription className="text-sm text-slate-500">
+              <SheetDescription className="text-sm text-muted-foreground">
                 {checkIn && checkOut
                   ? `${format(checkIn, 'd MMM yyyy', { locale })} - ${format(checkOut, 'd MMM yyyy', { locale })}`
                   : checkIn
@@ -376,7 +376,7 @@ export function AvailabilityCard({ className }: Props) {
                       ? copy.nightSelected
                       : fill(copy.nightsSelected, { count: String(nights) })}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {checkIn && checkOut
                     ? `${format(checkIn, 'd MMM yyyy', { locale })} - ${format(checkOut, 'd MMM yyyy', { locale })}`
                     : checkIn
@@ -451,7 +451,7 @@ export function AvailabilityCard({ className }: Props) {
               </div>
               <ChevronDown
                 className={cn(
-                  'h-5 w-5 text-slate-500 transition-transform',
+                  'h-5 w-5 text-muted-foreground transition-transform',
                   guestsOpen && 'rotate-180',
                 )}
               />
@@ -472,7 +472,7 @@ export function AvailabilityCard({ className }: Props) {
               language={language}
             />
 
-            <p className="border-t border-slate-200 pt-5 text-[13px] leading-6 text-slate-500">
+            <p className="border-t border-slate-200 pt-5 text-[13px] leading-6 text-muted-foreground">
               {fill(copy.capacityNote, { max: String(propertyData.capacity) })}
             </p>
 
@@ -564,7 +564,7 @@ export function AvailabilityCard({ className }: Props) {
 
       {/* Says out loud that the button does not take money — the single line
           that stops people hesitating over a booking button. */}
-      <p className="mt-3 text-center text-[13px] text-slate-500">{copy.noChargeYet}</p>
+      <p className="mt-3 text-center text-[13px] text-muted-foreground">{copy.noChargeYet}</p>
 
       <div className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />

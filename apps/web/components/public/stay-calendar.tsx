@@ -41,7 +41,7 @@ export function StayCalendarWeekdays({ language }: { language: Language }) {
         return (
           <div
             key={index}
-            className="flex-1 text-center text-[11px] font-medium uppercase tracking-wide text-slate-500"
+            className="flex-1 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
           >
             {format(date, 'EEEEE', { locale })}
           </div>
