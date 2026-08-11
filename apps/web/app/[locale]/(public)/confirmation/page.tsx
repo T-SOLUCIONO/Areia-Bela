@@ -167,18 +167,22 @@ function ConfirmationContent() {
     <div className="min-h-screen bg-background">
       <main className="mx-auto max-w-3xl px-4 py-10 md:px-12">
         <div className="mb-10 text-center">
+          {/* Smaller than it was, and the headline larger. An 80px green disc is
+              the stock answer to "confirmation page", and at that size it was
+              competing with the sentence that actually says what happened. The
+              mark reassures; the words inform. */}
           <div
-            className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
+            className={`mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full ${
               settled ? 'bg-success/15' : 'bg-amber-100'
             }`}
           >
             {settled ? (
-              <CheckCircle className="h-11 w-11 text-success" />
+              <CheckCircle className="h-8 w-8 text-success" />
             ) : (
-              <Loader2 className="h-11 w-11 animate-spin text-amber-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
             )}
           </div>
-          <h1 className="mb-2 font-serif text-3xl text-foreground">
+          <h1 className="mb-2 font-serif text-3xl text-foreground md:text-4xl">
             {settled ? copy.confirmed : copy.pending}
           </h1>
           <p className="mx-auto max-w-lg text-lg text-muted-foreground">
@@ -186,80 +190,102 @@ function ConfirmationContent() {
           </p>
         </div>
 
-        {/* The reference, given its own weight: it is the one thing worth
-            writing down, and the only handle a guest has on their booking. */}
-        {/* `bg-[#f7f2ea]` was the exact value of `--background`: a panel the
-            same colour as the page it sat on, measuring 1.00:1. It was invisible
-            by definition, and it took the hierarchy with it — the one fact worth
-            writing down read as loose text. */}
-        <div className="mb-8 rounded-[24px] border border-border bg-secondary px-6 py-7 text-center shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">
-            {copy.reference}
-          </p>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-wider text-foreground">
-            {booking.reference}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">{copy.referenceNote}</p>
-        </div>
-
-        {/* A surface, not just an outline. A border alone cannot separate two
-            colours 1.1:1 apart, which is why the card had no edges on screen —
-            the shadow is what does the lifting on a palette this soft. */}
-        <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-          <div className="flex flex-col gap-6 md:flex-row">
-            <div className="relative h-40 w-full flex-shrink-0 overflow-hidden rounded-xl md:h-32 md:w-44">
-              <Image
-                src={propertyData.photos[0].large}
-                alt={propertyData.name}
-                fill
-                className="object-cover"
-              />
+        {/* One object, not three.
+        
+            The reference used to be its own tinted panel above the booking, which
+            put three blocks of near-equal weight on the page in a tan / white /
+            tan rhythm and read as three separate things. It is not a sibling of
+            the booking — it is the booking's identifier, so it belongs to it, as
+            its masthead. That also lets the code sit against a label instead of
+            being centred under one, which is the arrangement every document with
+            a number uses and the reason it reads as a number worth keeping.
+        
+            A surface, not just an outline: a border alone cannot separate two
+            colours 1.1:1 apart, so the shadow does the lifting. */}
+        <div className="mb-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-border bg-secondary px-6 py-5 sm:flex-row sm:items-center sm:justify-between md:px-8">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-primary">
+                {copy.reference}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{copy.referenceNote}</p>
             </div>
+            <p className="font-mono text-2xl font-semibold tracking-wider text-foreground sm:text-3xl">
+              {booking.reference}
+            </p>
+          </div>
 
-            <div className="flex-1">
-              <h2 className="mb-1 font-serif text-xl text-foreground">{propertyData.name}</h2>
-              <div className="mb-5 flex items-center gap-1 text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                <span>
-                  {propertyData.city}, {propertyData.country}
-                </span>
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col gap-6 md:flex-row">
+              <div className="relative h-40 w-full flex-shrink-0 overflow-hidden rounded-xl md:h-32 md:w-44">
+                <Image
+                  src={propertyData.photos[0].large}
+                  alt={propertyData.name}
+                  fill
+                  className="object-cover"
+                />
               </div>
 
-              {/* The stay as one thing with two ends — the same shape the
+              <div className="flex-1">
+                <h2 className="mb-1 font-serif text-xl text-foreground">{propertyData.name}</h2>
+                <div className="mb-5 flex items-center gap-1 text-muted-foreground">
+                  <MapPin className="h-4 w-4" />
+                  <span>
+                    {propertyData.city}, {propertyData.country}
+                  </span>
+                </div>
+
+                {/* The stay as one thing with two ends — the same shape the
                   calendar used when they picked it — instead of four
                   disconnected facts in a grid. */}
-              <StayBand
-                checkIn={booking.checkIn}
-                checkOut={booking.checkOut}
-                nights={booking.nights}
-                nightsLabel={fill(nightsLabel, { count: String(booking.nights) })}
-                arrivalLabel={copy.checkIn}
-                departureLabel={copy.checkOut}
-                checkInTime={booking.checkInTime}
-                checkOutTime={booking.checkOutTime}
-                language={language}
-              />
+                <StayBand
+                  checkIn={booking.checkIn}
+                  checkOut={booking.checkOut}
+                  nights={booking.nights}
+                  nightsLabel={fill(nightsLabel, { count: String(booking.nights) })}
+                  arrivalLabel={copy.checkIn}
+                  departureLabel={copy.checkOut}
+                  checkInTime={booking.checkInTime}
+                  checkOutTime={booking.checkOutTime}
+                  language={language}
+                />
 
-              <p className="mt-5 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                {/* Was `copy.guests.toLowerCase()`, a fixed plural: a booking for
+                <p className="mt-5 inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  {/* Was `copy.guests.toLowerCase()`, a fixed plural: a booking for
                     one person read "1 huéspedes". */}
-                {booking.guests}{' '}
-                {(booking.guests === 1 ? guestWord.guestOne : guestWord.guestMany).toLowerCase()}
-              </p>
+                  {booking.guests}{' '}
+                  {(booking.guests === 1 ? guestWord.guestOne : guestWord.guestMany).toLowerCase()}
+                </p>
+              </div>
             </div>
+
+            <div className="my-6 h-px bg-border" />
+
+            {/* Stacked, not two columns.
+            
+                Side by side they were a summary of four lines beside five hundred
+                pixels of prose, so half the card was empty — a hole you read as a
+                mistake. They are not siblings of equal weight: one is the money,
+                which is a short closed list, and the other is the conditions,
+                which are paragraphs. So the money gets a surface of its own,
+                tinted to tie it to the reference above it, and the conditions run
+                underneath at full width.
+            
+                This is also what the layout already did on a phone, so the two
+                sizes now agree instead of being two different designs. */}
+            <div className="rounded-xl border border-border bg-secondary/60 p-5">
+              <BookingBillLines bill={booking.bill} nights={booking.nights} language={language} />
+            </div>
+
+            <div className="mt-8">
+              <BookingTerms booking={booking} language={language} />
+            </div>
+
+            <p className="mt-6 border-t border-border pt-5 text-sm text-muted-foreground">
+              {copy.emailedTo} <span className="font-medium">{booking.guestEmail}</span>
+            </p>
           </div>
-
-          <div className="my-6 h-px bg-border" />
-
-          <div className="grid gap-8 sm:grid-cols-2">
-            <BookingBillLines bill={booking.bill} nights={booking.nights} language={language} />
-            <BookingTerms booking={booking} language={language} />
-          </div>
-
-          <p className="mt-6 border-t border-border pt-5 text-sm text-muted-foreground">
-            {copy.emailedTo} <span className="font-medium">{booking.guestEmail}</span>
-          </p>
         </div>
 
         <div className="mb-10 rounded-[24px] border border-border bg-secondary p-6 shadow-sm md:p-8">
@@ -282,11 +308,18 @@ function ConfirmationContent() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+        {/* The order was upside down: the filled button was "back to home", so
+            the loudest thing on a page whose job is handing over a booking sent
+            the guest away from it, while the document they would actually want to
+            keep sat in a quiet outline.
+        
+            Now it reads as one next step, one alternative, and a way out — which
+            is the real shape of what someone does here. */}
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           {/* Downloadable without signing in: asking someone to request an
               email link before they can keep the receipt for the payment they
               made thirty seconds ago would be absurd. */}
-          <Button asChild variant="outline" size="lg" className="w-full px-6 sm:w-auto">
+          <Button asChild variant="brand" size="lg" className="w-full px-6 font-medium sm:w-auto">
             <a
               href={`${API_URL}/bookings/session/${encodeURIComponent(sessionId ?? '')}/pdf?locale=${language}`}
             >
@@ -297,7 +330,7 @@ function ConfirmationContent() {
           <Button asChild variant="outline" size="lg" className="w-full px-6 sm:w-auto">
             <Link href="/#contact">{copy.contactHost}</Link>
           </Button>
-          <Button asChild variant="brand" size="lg" className="w-full px-6 font-medium sm:w-auto">
+          <Button asChild variant="ghost" size="lg" className="w-full px-6 sm:w-auto">
             <Link href="/">{copy.backHome}</Link>
           </Button>
         </div>

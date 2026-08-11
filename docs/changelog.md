@@ -6919,3 +6919,82 @@ pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (399)
 Medido en el navegador contra la web construida, apuntando a la API de QA y con la
 reserva interceptada: superficies, bordes, sombras y **todas** las cadenas de texto
 de la página. No es una revisión a ojo.
+
+## 49. La confirmación, con el skill `frontend-design`
+
+Antes que nada, una corrección: en la sección 48 escribí que «no hay ningún skill
+de frontend instalado». **Es falso.** Existe `frontend-design`, instalado como
+plugin (`example-skills`), junto con `theme-factory`, `canvas-design` y
+`webapp-testing`. Solo miré `.claude/skills/` y `~/.claude/skills/`, no la caché de
+plugins, y afirmé una ausencia sobre una búsqueda incompleta.
+
+El skill advierte, en su propia calibración, que uno de los tres «looks por
+defecto de IA» es _fondo crema cerca de #F4F1EA con serif de alto contraste_ — que
+es exactamente la paleta de Areia Bela. Pero también dice que cuando el brief fija
+una dirección, el brief gana. La marca ya existe y está en producción, así que
+**no se tocó paleta, tipografías ni logo**: se aplicaron sus principios dentro de
+la identidad.
+
+### Tres cambios, ninguno de gusto
+
+**1. La referencia deja de ser un panel hermano y pasa a ser la cabecera de la
+tarjeta.** Había tres bloques de peso casi igual en un ritmo crema / blanco /
+crema, que se leían como tres cosas separadas. La referencia no es hermana de la
+reserva: es su identificador. Como cabecera, además, el código queda _junto_ a su
+etiqueta en vez de centrado debajo, que es la disposición de cualquier documento
+con número y la razón por la que se lee como un dato que conviene guardar.
+
+**2. La jerarquía de acciones estaba invertida.** El botón relleno era «Volver al
+inicio»: lo más llamativo de una página cuyo trabajo es entregar una reserva
+mandaba al huésped fuera de ella, mientras el PDF que querría conservar era un
+botón secundario. Ahora es un paso siguiente, una alternativa y una salida
+discreta.
+
+**3. El importe y las condiciones dejan de ser dos columnas.** Lado a lado eran un
+resumen de cuatro líneas junto a quinientos píxeles de prosa, así que **media
+tarjeta quedaba vacía** — un hueco que se lee como un error. No son hermanos del
+mismo peso: uno es dinero (lista corta y cerrada) y el otro son párrafos. El
+dinero recibe superficie propia y las condiciones corren debajo a todo lo ancho,
+que es lo que el diseño ya hacía en un móvil: ahora los dos tamaños coinciden en
+vez de ser dos diseños distintos.
+
+La marca de verificación baja de 80 a 56 px y el titular sube: un disco verde
+grande es la respuesta de catálogo a «página de confirmación», y a ese tamaño
+competía con la frase que de verdad dice qué ha pasado.
+
+### Cinco fallos de contraste reales, en otro sitio
+
+Auditadas las 33 cadenas de la página a 1280 y a 390 px: los fallos no estaban en
+lo nuevo sino en `stay-band.tsx`, y venían de usar opacidad sobre un color fijo.
+Los horarios de entrada y salida (`text-slate-400`) medían **2.63:1**, el peor
+valor de la página; las etiquetas `LLEGADA` / `SALIDA` / `5 NOCHES`
+(`text-[#174d7a]/70`) medían 4.06 donde AA pide 4.50. Una etiqueta pequeña ya es
+discreta por tamaño y peso: bajarla de opacidad no añadía jerarquía, solo la hacía
+más difícil de leer. Todo el componente pasa a tokens, incluidos los puntos y la
+línea de la banda, que no cambian de color hoy pero dejan de ser una segunda
+fuente de verdad.
+
+Resultado final: **cero fallos AA en escritorio y en móvil**, sin desbordamiento
+horizontal en ninguna de las dos.
+
+### El auditor estaba mal, y casi me cuesta tres arreglos falsos
+
+La primera medición del recuadro nuevo daba tres fallos, uno de ellos de 1.78:1 —
+un valor demasiado raro para creérselo. La causa era el propio script: Tailwind v4
+emite `bg-secondary/60` como `oklab(0.929 0.0016 0.021 / 0.6)`, y el regex tomaba
+sus tres primeros números como si fueran RGB, o sea casi negro. Un `oklch` de los
+tokens habría fallado igual.
+
+Arreglado componiendo el color en un `<canvas>` de 1×1 y leyendo el píxel: el
+navegador hace la conversión y la mezcla de alfa, que es justo lo que un regex
+sobre una cadena CSS no puede hacer. Sin eso habría «corregido» tres problemas que
+no existían y no habría encontrado los cinco que sí.
+
+### Verificación
+
+```
+pnpm build ✅   pnpm lint ✅   pnpm typecheck ✅   pnpm test ✅ (399)
+```
+
+Medido en el navegador sobre la web construida, en dos anchuras, con capturas
+revisadas a ojo además de las cifras.

@@ -58,15 +58,15 @@ export function StayBand({
 
       {/* The span. Its width is the whole point, so it takes the free space. */}
       <div className="flex min-w-0 flex-1 flex-col items-center justify-center pt-6">
-        <span className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">
+        <span className="text-xs font-medium uppercase tracking-wider text-primary">
           {nightsLabel}
         </span>
         <div className="mt-1.5 flex w-full items-center" aria-hidden>
-          <span className="h-2 w-2 shrink-0 rounded-full bg-[#174d7a]" />
-          <span className="h-px flex-1 bg-[#174d7a]/30" />
-          <span className="text-[10px] tabular-nums text-[#174d7a]/50">{nights}</span>
-          <span className="h-px flex-1 bg-[#174d7a]/30" />
-          <span className="h-2 w-2 shrink-0 rounded-full bg-[#174d7a]" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+          <span className="h-px flex-1 bg-primary/30" />
+          <span className="text-[10px] tabular-nums text-muted-foreground">{nights}</span>
+          <span className="h-px flex-1 bg-primary/30" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
         </div>
       </div>
 
@@ -99,12 +99,12 @@ function End({
 }) {
   return (
     <div className={cn('shrink-0', align === 'right' && 'text-right')}>
-      <p className="text-xs font-medium uppercase tracking-wider text-[#174d7a]/70">{label}</p>
-      <p className="mt-1 font-serif text-2xl leading-none text-[#173a57]">{day}</p>
-      <p className="mt-1 text-sm capitalize text-slate-500">
+      <p className="text-xs font-medium uppercase tracking-wider text-primary">{label}</p>
+      <p className="mt-1 font-serif text-2xl leading-none text-foreground">{day}</p>
+      <p className="mt-1 text-sm capitalize text-muted-foreground">
         {weekday} · {year}
       </p>
-      {time && <p className="text-xs text-slate-400">{time}</p>}
+      {time && <p className="text-xs text-muted-foreground">{time}</p>}
     </div>
   )
 }
