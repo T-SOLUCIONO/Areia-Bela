@@ -7192,3 +7192,47 @@ tema recurrente de esta sesión:
 el cambio les llega, pero requieren sesión de administrador y no tengo la
 contraseña. Queda pendiente abrir el panel y confirmar que las tarjetas y los
 botones se leen bien con el fondo nuevo.
+
+## 52. WhatsApp funciona: plantilla aprobada y probada de punta a punta
+
+Meta aprobó `areia_bela_aviso`. Probado disparando un aviso real por el
+formulario de contacto público, que recorre exactamente el mismo camino que una
+reserva:
+
+```
+Sent "Mensaje de Prueba de plantilla" over WhatsApp (Meta)
+Sent "Mensaje de Prueba de plantilla" over Telegram
+Sent "Mensaje de Prueba de plantilla" over Email
+```
+
+Los tres canales entregaron. El aviso por WhatsApp ya **no depende de la ventana
+de 24 horas**: sale como plantilla aprobada, así que una reserva a las tres de la
+mañana llega.
+
+Estado de las tres plantillas de la cuenta:
+
+| Nombre                 | Estado     | Idioma  | Cabecera   | Variables   | Sirve                                     |
+| ---------------------- | ---------- | ------- | ---------- | ----------- | ----------------------------------------- |
+| `areia_bela_aviso`     | `APPROVED` | `es`    | —          | 1, 2        | **Sí** — es la que usa el código          |
+| `areia_bela_aviso_pdf` | `PENDING`  | `es`    | `DOCUMENT` | 1, 2        | Cuando la aprueben, para el aviso con PDF |
+| `areia_bela_reserva`   | `APPROVED` | `es_PE` | `IMAGE`    | **ninguna** | No                                        |
+
+**`areia_bela_reserva` no se puede usar aunque esté aprobada.** Tiene cero
+variables, y Meta rechaza todo envío cuyo número de parámetros no coincida con la
+plantilla. Sin variables no transporta ni el huésped, ni las fechas, ni el total:
+solo un texto fijo. Estar aprobada y servir para algo son cosas distintas.
+
+Comportamiento actual del aviso de reserva, que es el diseñado en la sección 47:
+con la plantilla de texto aprobada y la de documento todavía en revisión, el
+adjunto **se descarta en WhatsApp** —el aviso llega siempre, que es lo que
+importa— y el PDF llega por Telegram. Cuando aprueben `areia_bela_aviso_pdf` y se
+defina `META_WHATSAPP_DOCUMENT_TEMPLATE`, el PDF empezará a llegar también por
+WhatsApp sin tocar código.
+
+### Un matiz sobre lo verificado
+
+«Sent» significa que **Meta aceptó el mensaje**, no que apareciera en el teléfono.
+El número emisor sigue siendo el de pruebas de Meta, que solo escribe a una lista
+blanca de hasta cinco destinatarios; un destinatario fuera de la lista suele
+devolver error, pero la confirmación de que el mensaje se ve en el móvil es del
+usuario, no de los logs.
