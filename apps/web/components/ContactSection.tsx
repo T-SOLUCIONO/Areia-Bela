@@ -66,7 +66,7 @@ export function ContactSection() {
   return (
     <div
       id="contact"
-      className="overflow-hidden rounded-[28px] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
+      className="overflow-hidden rounded-[28px] bg-card shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
     >
       {/* Host header */}
       <div className="bg-background px-6 pb-7 pt-8 sm:px-8">

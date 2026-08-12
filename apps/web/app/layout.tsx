@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
-import { Inter, Playfair_Display } from 'next/font/google'
+import { Inter, Sora } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { ThemeProvider } from '@/components/theme-provider'
 import { SITE_URL } from '@/lib/site-url'
 
 const inter = Inter({
@@ -9,9 +10,18 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-const playfair = Playfair_Display({
+/**
+ * Sora carries the headings, in place of Playfair Display.
+ *
+ * A geometric sans rather than a high-contrast serif: it is what the reference
+ * uses, and it is most of what makes the two designs read as different products
+ * rather than the same one in other colours. Only the three weights the headings
+ * use are loaded.
+ */
+const sora = Sora({
   subsets: ['latin'],
-  variable: '--font-playfair',
+  weight: ['500', '600', '700'],
+  variable: '--font-sora',
 })
 
 export const metadata: Metadata = {
@@ -75,10 +85,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${sora.variable}`}>
       <body className="antialiased min-h-screen">
-        {children}
-        <Analytics />
+        <ThemeProvider>
+          {children}
+          <Analytics />
+        </ThemeProvider>
       </body>
     </html>
   )

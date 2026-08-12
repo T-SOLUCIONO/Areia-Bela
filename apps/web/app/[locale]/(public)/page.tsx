@@ -183,7 +183,7 @@ export default function HomePage() {
                   return (
                     <article
                       key={card.id}
-                      className="overflow-hidden rounded-[28px] border border-white/70 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]"
+                      className="overflow-hidden rounded-[28px] border border-border bg-card/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]"
                     >
                       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
                         <Image
@@ -323,10 +323,10 @@ export default function HomePage() {
                         alt={featured.authorName}
                         width={48}
                         height={48}
-                        className="h-12 w-12 rounded-full border-2 border-white/30 object-cover"
+                        className="h-12 w-12 rounded-full border-2 border-border object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 text-white">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-border bg-card/10 text-white">
                         <Star className="h-6 w-6 fill-current" />
                       </div>
                     )}
@@ -352,7 +352,7 @@ export default function HomePage() {
                 return (
                   <article
                     key={review.id}
-                    className="flex flex-col gap-4 rounded-[24px] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md"
+                    className="flex flex-col gap-4 rounded-[24px] border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex gap-0.5">
@@ -369,7 +369,7 @@ export default function HomePage() {
                     <p className="flex-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
                       &ldquo;{review.text}&rdquo;
                     </p>
-                    <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
+                    <div className="flex items-center gap-3 border-t border-border pt-3">
                       {review.authorPhotoUrl ? (
                         <Image
                           src={review.authorPhotoUrl}
@@ -415,7 +415,7 @@ export default function HomePage() {
                 {text(location, 'subtitle', home.locationSub)}
               </p>
 
-              <div className="mt-6 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+              <div className="mt-6 overflow-hidden rounded-[28px] border border-border bg-card shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
                 <div className="relative h-[360px] w-full sm:h-[480px]">
                   <iframe
                     src={
@@ -433,7 +433,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-col justify-end space-y-4">
-              <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+              <div className="rounded-[28px] border border-border bg-card/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
                 <h3 className="font-serif text-2xl text-foreground">
                   {text(location, 'body', home.nearbyTitle)}
                 </h3>
@@ -461,7 +461,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-white/70 bg-primary p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
+              <div className="rounded-[28px] border border-border bg-primary p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
                 <div className="flex items-center gap-2 text-white/80">
                   <Sparkles className="h-5 w-5" />
                   <span className="text-sm font-semibold uppercase tracking-[0.2em]">
@@ -473,7 +473,7 @@ export default function HomePage() {
                 </p>
                 <Button
                   asChild
-                  className="mt-5 h-11 rounded-full bg-white px-5 font-semibold text-primary hover:bg-white/90"
+                  className="mt-5 h-11 rounded-full bg-card px-5 font-semibold text-primary hover:bg-card/90"
                 >
                   <Link href={directBooking?.ctaHref || '#reservar'}>
                     {text(directBooking, 'ctaLabel', home.directCta)}
@@ -486,7 +486,7 @@ export default function HomePage() {
       )}
 
       {shows(host) && (
-        <section className="border-t border-white/70 bg-background py-14 lg:py-20">
+        <section className="border-t border-border bg-background py-14 lg:py-20">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
             {/* Left-aligned like the amenities and details sections, rather
                 than a centred stack: this page introduces things from the left
@@ -526,7 +526,7 @@ export default function HomePage() {
                       {propertyData.host.firstName}
                     </span>
                     {text(host, 'subtitle', home.hostBadge) && (
-                      <span className="flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs text-foreground backdrop-blur-sm">
+                      <span className="flex items-center gap-1 rounded-full bg-card/90 px-3 py-1 text-xs text-foreground backdrop-blur-sm">
                         <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
                         {text(host, 'subtitle', home.hostBadge)}
                       </span>
@@ -535,7 +535,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="flex flex-col justify-between gap-8 rounded-[28px] border border-white/70 bg-white p-7 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-10">
+              <div className="flex flex-col justify-between gap-8 rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-10">
                 {/* Her own words, set as a quote rather than a grey paragraph.
                     It is the most human thing on the page and it was being
                     treated as filler. */}
@@ -573,7 +573,7 @@ export default function HomePage() {
                         <Quote className="h-4 w-4" /> {text(host, 'ctaLabel', home.contactHost)}
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-none bg-transparent p-0 shadow-none [&>button]:z-10 [&>button]:rounded-full [&>button]:bg-white [&>button]:p-1.5 [&>button]:opacity-100 [&>button]:shadow-md">
+                    <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-none bg-transparent p-0 shadow-none [&>button]:z-10 [&>button]:rounded-full [&>button]:bg-card [&>button]:p-1.5 [&>button]:opacity-100 [&>button]:shadow-md">
                       <DialogTitle className="sr-only">
                         {text(host, 'ctaLabel', home.contactHost)}
                       </DialogTitle>

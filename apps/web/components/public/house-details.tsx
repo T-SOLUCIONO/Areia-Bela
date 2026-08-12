@@ -79,7 +79,7 @@ export function HouseDetails({
       className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10"
       aria-labelledby="details-heading"
     >
-      <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-10">
+      <div className="relative overflow-hidden rounded-[32px] border border-border bg-card/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-10">
         {/* A wash of brand colour in the corner, echoing the gallery section —
             enough that a tall block of text doesn't read as a plain white box. */}
         <div
@@ -112,7 +112,7 @@ export function HouseDetails({
               {amenityTags.map((tag) => (
                 <span
                   key={tag.key}
-                  className="flex items-center gap-2.5 rounded-full border border-border/80 bg-white py-1.5 pl-1.5 pr-4 text-sm text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                  className="flex items-center gap-2.5 rounded-full border border-border/80 bg-card py-1.5 pl-1.5 pr-4 text-sm text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                 >
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
                     <ContentIcon name={tag.icon} className="h-3.5 w-3.5" />

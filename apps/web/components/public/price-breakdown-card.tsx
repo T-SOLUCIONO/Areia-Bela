@@ -52,10 +52,10 @@ export function PriceBreakdownCard({
 
   return (
     <div
-      className={`rounded-[24px] border border-border bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ${className ?? ''}`}
+      className={`rounded-[24px] border border-border bg-card p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] ${className ?? ''}`}
     >
       {propertyPreview && (
-        <div className="flex gap-4 border-b border-slate-100 pb-5">
+        <div className="flex gap-4 border-b border-border pb-5">
           <div className="relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-[14px]">
             <Image
               src={propertyData.photos[0].large}
@@ -77,7 +77,7 @@ export function PriceBreakdownCard({
         </div>
       )}
 
-      <div className="space-y-3 border-b border-slate-100 py-5">
+      <div className="space-y-3 border-b border-border py-5">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground underline">
             {currency(quote.pricePerNight)} x {quote.nights} {copy.nights}

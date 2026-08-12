@@ -256,7 +256,7 @@ export function AvailabilityCard({ className }: Props) {
   return (
     <aside
       className={cn(
-        'w-full rounded-[28px] bg-white/95 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] ring-1 ring-black/5 sm:p-6',
+        'w-full rounded-[28px] bg-card/95 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] ring-1 ring-black/5 sm:p-6',
         className,
       )}
     >
@@ -340,7 +340,7 @@ export function AvailabilityCard({ className }: Props) {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 border-t border-border bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between gap-4 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={clearStay}
@@ -420,7 +420,7 @@ export function AvailabilityCard({ className }: Props) {
               onHoverDate={setHoverDate}
             />
 
-            <div className="mt-4 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
+            <div className="mt-4 flex items-center justify-end gap-4 border-t border-border pt-4">
               <button
                 type="button"
                 onClick={clearStay}
@@ -440,7 +440,7 @@ export function AvailabilityCard({ className }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="w-full rounded-b-[14px] border border-border bg-white px-4 py-2.5 text-left transition hover:bg-slate-50"
+            className="w-full rounded-b-[14px] border border-border bg-card px-4 py-2.5 text-left transition hover:bg-slate-50"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -519,7 +519,7 @@ export function AvailabilityCard({ className }: Props) {
               <span className="h-3 w-14 animate-pulse rounded-full bg-slate-100" />
             </div>
           ))}
-          <div className="flex items-center justify-between gap-6 border-t border-slate-100 pt-3">
+          <div className="flex items-center justify-between gap-6 border-t border-border pt-3">
             <span className="h-4 w-20 animate-pulse rounded-full bg-slate-200" />
             <span className="h-5 w-24 animate-pulse rounded-full bg-slate-200" />
           </div>
@@ -566,7 +566,7 @@ export function AvailabilityCard({ className }: Props) {
           that stops people hesitating over a booking button. */}
       <p className="mt-3 text-center text-[13px] text-muted-foreground">{copy.noChargeYet}</p>
 
-      <div className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-sm text-muted-foreground">
+      <div className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
         <span>{copy.footer}</span>
       </div>

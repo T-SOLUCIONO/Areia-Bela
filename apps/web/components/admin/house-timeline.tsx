@@ -125,7 +125,7 @@ export function HouseTimeline() {
                       stay
                         ? 'border-emerald-600 bg-emerald-600 text-white'
                         : blocked
-                          ? 'border-slate-400 bg-slate-200 text-foreground'
+                          ? 'border-border bg-slate-200 text-foreground'
                           : 'border-border bg-secondary/40 text-foreground',
                       isToday && 'ring-2 ring-ring ring-offset-2 ring-offset-card',
                     )}
@@ -154,7 +154,7 @@ export function HouseTimeline() {
                 {isEnglish ? 'Booked' : 'Reservada'}
               </span>
               <span className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded border border-slate-400 bg-slate-200" />
+                <span className="h-3 w-3 rounded border border-border bg-slate-200" />
                 {isEnglish ? 'Blocked by you' : 'Bloqueada por ti'}
               </span>
               <span className="flex items-center gap-2">

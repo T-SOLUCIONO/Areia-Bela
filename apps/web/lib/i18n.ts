@@ -36,6 +36,8 @@ export const translations = {
       close: 'Close',
     },
     ui: {
+      themeDark: 'Switch to dark mode',
+      themeLight: 'Switch to light mode',
       amenities: 'Amenities',
       reviews: 'reviews',
       verifiedStay: 'Verified stay',
@@ -334,6 +336,8 @@ export const translations = {
       close: 'Cerrar',
     },
     ui: {
+      themeDark: 'Cambiar a modo oscuro',
+      themeLight: 'Cambiar a modo claro',
       amenities: 'Servicios',
       reviews: 'reseñas',
       verifiedStay: 'Estadía verificada',
@@ -633,6 +637,8 @@ export const translations = {
       close: 'Fechar',
     },
     ui: {
+      themeDark: 'Mudar para modo escuro',
+      themeLight: 'Mudar para modo claro',
       amenities: 'Comodidades',
       reviews: 'avaliações',
       verifiedStay: 'Estadia verificada',
@@ -930,6 +936,8 @@ export const translations = {
       close: 'Fermer',
     },
     ui: {
+      themeDark: 'Passer en mode sombre',
+      themeLight: 'Passer en mode clair',
       amenities: 'Équipements',
       reviews: 'avis',
       verifiedStay: 'Séjour vérifié',
@@ -1230,6 +1238,8 @@ export const translations = {
       close: 'Schließen',
     },
     ui: {
+      themeDark: 'Zu dunklem Modus wechseln',
+      themeLight: 'Zu hellem Modus wechseln',
       amenities: 'Ausstattung',
       reviews: 'Bewertungen',
       verifiedStay: 'Verifizierter Aufenthalt',

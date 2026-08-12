@@ -11,7 +11,7 @@ export function Reserve() {
   const copy = translations[language].quote
 
   return (
-    <div className="sticky bottom-0 z-40 border-t border-white/70 bg-[rgba(247,242,234,0.96)] px-4 py-3 backdrop-blur md:hidden">
+    <div className="sticky bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-4 py-3 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">

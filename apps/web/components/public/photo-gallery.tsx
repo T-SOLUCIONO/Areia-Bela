@@ -108,7 +108,7 @@ export function PhotoGallery({ photos, propertyName, showAllLabel, closeLabel }:
               variant="outline"
               size="icon"
               onClick={() => setOpen(false)}
-              className="absolute right-2 top-2 z-10 rounded-full bg-white"
+              className="absolute right-2 top-2 z-10 rounded-full bg-card"
             >
               <X className="h-4 w-4" />
               {/* An icon is not a name. Without this a screen reader announces

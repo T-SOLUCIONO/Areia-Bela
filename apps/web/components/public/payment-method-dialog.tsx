@@ -251,7 +251,7 @@ export function PaymentOverlay({ language }: { language: Language }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-white/95 px-6 text-center backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-card/95 px-6 text-center backdrop-blur-sm"
     >
       <Loader2 className="h-11 w-11 animate-spin text-primary" />
       <div>

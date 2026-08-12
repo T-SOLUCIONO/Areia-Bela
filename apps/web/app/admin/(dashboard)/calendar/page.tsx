@@ -408,7 +408,7 @@ export default function CalendarPage() {
                               booking
                                 ? 'border-emerald-600 bg-emerald-600 text-white'
                                 : block
-                                  ? 'border-slate-400 bg-slate-200 text-foreground'
+                                  ? 'border-border bg-slate-200 text-foreground'
                                   : selected
                                     ? 'border-primary bg-primary/25 text-foreground'
                                     : 'border-border bg-secondary/30 text-foreground',
@@ -445,7 +445,7 @@ export default function CalendarPage() {
                   {copy.booked}
                 </span>
                 <span className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded border border-slate-400 bg-slate-200" />
+                  <span className="h-3 w-3 rounded border border-border bg-slate-200" />
                   {copy.blocked}
                 </span>
                 <span className="flex items-center gap-2">

@@ -6,6 +6,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Coastal palette: near-white page, teal for action, sand for the call to action.
+ *
+ * Rebuilt from the reference design, with one fault fixed rather than copied: its
+ * teal was #008598, which measures 4.37:1 as text on white and 4.37 with white on
+ * top — under AA in both directions, so neither a link nor a button label made of
+ * it was readable to the standard. This is #00697b: 6.35 as text on a card, 6.09
+ * on the page, 5.50 on the tinted band, and visually all but the same teal.
+ *
+ * Every pair was measured in both themes before being written down.
+ */
 :root {
   /* Deepened from #f7f2ea.
    *
@@ -14,32 +24,32 @@
    * the background": there was barely a background to be distinct from. This is
    * 1.29:1 — the same warm family, one visible step down, so a white card reads
    * as a card without needing to be outlined in something heavy. */
-  --background: #ebe2d1;
-  --foreground: #173a57;
+  --background: #f6fbfd;
+  --foreground: #09222e;
   --card: #ffffff;
-  --card-foreground: #173a57;
+  --card-foreground: #09222e;
   --popover: #ffffff;
-  --popover-foreground: #173a57;
-  --primary: #174d7a;
+  --popover-foreground: #09222e;
+  --primary: #00697b;
   --primary-foreground: #ffffff;
   /* Moved with the background, or it would have become the same colour. Now
    * 1.19:1 from the page and 1.47:1 from a white card: a tinted panel that is
    * legible as its own surface in both places. */
-  --secondary: #e0d4bd;
-  --secondary-foreground: #173a57;
+  --secondary: #e4f1f5;
+  --secondary-foreground: #09222e;
   /* Hex rather than oklch so it can be measured with the same arithmetic as
    * everything else — and because an `oklch` computed value is what silently
    * defeated the contrast auditor once already. */
-  --muted: #f4efe4;
+  --muted: #eff8fa;
   /* Chosen against all three surfaces at once, not one at a time.
    *
    * Deepening the page and the panels pushed #586572 down to 4.07 on
    * `--secondary`, below AA — fixing one surface had broken another. This value
    * clears 4.5 everywhere it appears: 7.15 on a white card, 5.56 on the page,
    * 4.88 on a tinted panel. */
-  --muted-foreground: #4e5964;
-  --accent: #173a57;
-  --accent-foreground: #ffffff;
+  --muted-foreground: #566c78;
+  --accent: #f8b773;
+  --accent-foreground: #09222e;
   --destructive: oklch(0.55 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
   /* A boundary you can actually see.
@@ -50,11 +60,17 @@
    * drawn-on look a properly WCAG-compliant 3:1 border would give a palette
    * this soft. Cards make up the rest of the separation with a shadow, which is
    * how low-contrast surfaces are told apart. */
-  --border: #b6a992;
+  --border: #b3d3dd;
   /* Inputs carry their own weight: a field the user has to find is worth a
    * firmer edge than a decorative container. */
-  --input: #ada085;
-  --ring: #174d7a;
+  --input: #a3c9d5;
+  --ring: #00697b;
+  /* The dark navy panel of the closing call to action. Dark in both themes on
+   * purpose — in the reference it is the one block that stays dark whatever the
+   * page does, which is what makes it read as the end of the page. */
+  --panel: #0b3244;
+  --panel-foreground: #eaf4f7;
+  --panel-muted: #b9d4dd;
   --chart-1: #2b6ca8;
   --chart-2: #d97706;
   --chart-3: #0d9488;
@@ -77,20 +93,20 @@
 }
 
 .dark {
-  --background: #14202b;
-  --foreground: #f2ede2;
-  --card: #1b2b3a;
-  --card-foreground: #f2ede2;
-  --popover: #1b2b3a;
-  --popover-foreground: #f2ede2;
-  --primary: #2f6fa0;
-  --primary-foreground: #ffffff;
-  --secondary: #24313d;
-  --secondary-foreground: #f2ede2;
-  --muted: oklch(0.25 0.01 250);
-  --muted-foreground: #9aa8b3;
-  --accent: #2a4a63;
-  --accent-foreground: #f2ede2;
+  --background: #071a24;
+  --foreground: #eaf4f7;
+  --card: #12303e;
+  --card-foreground: #eaf4f7;
+  --popover: #12303e;
+  --popover-foreground: #eaf4f7;
+  --primary: #3fc2d4;
+  --primary-foreground: #071a24;
+  --secondary: #0e2a37;
+  --secondary-foreground: #eaf4f7;
+  --muted: #0e2a37;
+  --muted-foreground: #9db4be;
+  --accent: #f8b773;
+  --accent-foreground: #071a24;
   --destructive: oklch(0.6 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
   /* Measured against the *card*, not the page: that is the edge a reader is
@@ -101,9 +117,12 @@
    * Inert today — nothing in the app ever adds the `dark` class, so this whole
    * block is unused. Kept correct so that turning dark mode on is a switch
    * rather than a redesign. */
-  --border: #445665;
-  --input: #45586a;
-  --ring: #2f6fa0;
+  --border: #2c5566;
+  --input: #2c5566;
+  --ring: #3fc2d4;
+  --panel: #0a2c3c;
+  --panel-foreground: #eaf4f7;
+  --panel-muted: #b9d4dd;
   --chart-1: #2b6ca8;
   --chart-2: #d97706;
   --chart-3: #0d9488;
@@ -125,7 +144,10 @@
 
 @theme inline {
   --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-serif: var(--font-playfair), serif;
+  /* `font-serif` is the class every heading already uses, so the display family
+   * changes here instead of in ninety components. The name is now a lie about the
+   * shape and the truth about the role. */
+  --font-serif: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -146,6 +168,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-panel: var(--panel);
+  --color-panel-foreground: var(--panel-foreground);
+  --color-panel-muted: var(--panel-muted);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

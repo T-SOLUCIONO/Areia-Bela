@@ -69,7 +69,7 @@ export function GuestPicker({ value, onChange, maxGuests, onServiceAnimal, langu
             className={
               index === 0
                 ? 'flex items-start justify-between gap-4 py-4'
-                : 'flex items-start justify-between gap-4 border-t border-slate-100 py-4'
+                : 'flex items-start justify-between gap-4 border-t border-border py-4'
             }
           >
             <div className="min-w-0">

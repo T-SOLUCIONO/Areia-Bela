@@ -24,6 +24,7 @@ import { translations } from '@/lib/i18n'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { publicNavItems } from '@/components/public/public-navigation'
+import { ThemeToggle } from '@/components/public/theme-toggle'
 import { cn } from '@/lib/utils'
 
 /**
@@ -48,7 +49,7 @@ function LanguageMenu({ compact = false }: { compact?: boolean }) {
           variant="outline"
           size={compact ? 'default' : 'lg'}
           className={cn(
-            'gap-2 rounded-full bg-white/80',
+            'gap-2 rounded-full bg-card/80',
             // 44px is the touch minimum, and this one sits beside the menu
             // button where a mis-tap opens the wrong thing.
             compact && 'h-11 px-3',
@@ -110,7 +111,7 @@ export function Header() {
     .filter((item): item is { name: string; href: string } => Boolean(item.name?.trim()))
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/60 bg-[rgba(255,251,246,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[rgba(255,251,246,0.72)]">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/70">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <Image
@@ -138,6 +139,7 @@ export function Header() {
           <Button asChild variant="brand" size="lg" className="font-semibold">
             <Link href="#reservar">{copy.bookNow}</Link>
           </Button>
+          <ThemeToggle />
           <LanguageMenu />
         </div>
 
@@ -146,6 +148,7 @@ export function Header() {
             burying it behind the hamburger asked for two taps and a guess about
             where it lived. */}
         <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
           <LanguageMenu compact />
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
