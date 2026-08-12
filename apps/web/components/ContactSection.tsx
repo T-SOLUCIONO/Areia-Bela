@@ -106,14 +106,14 @@ export function ContactSection() {
         <div className="grid grid-cols-3 gap-2">
           <a
             href={`tel:${contact.phoneHref}`}
-            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-slate-50"
+            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-muted"
           >
             <Phone className="h-4 w-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground">{copy.call}</span>
           </a>
           <a
             href={`mailto:${contact.email}`}
-            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-slate-50"
+            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-muted"
           >
             <Mail className="h-4 w-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground">Email</span>
@@ -122,7 +122,7 @@ export function ContactSection() {
             href={`https://wa.me/${contact.whatsapp}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-slate-50"
+            className="flex flex-col items-center gap-1.5 rounded-[16px] border border-border py-3 text-center transition-colors hover:border-border hover:bg-muted"
           >
             <MessageCircle className="h-4 w-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground">WhatsApp</span>
@@ -130,11 +130,11 @@ export function ContactSection() {
         </div>
 
         <div className="my-7 flex items-center gap-3">
-          <span className="h-px flex-1 bg-slate-100" />
+          <span className="h-px flex-1 bg-muted" />
           <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
             {copy.orMessage}
           </span>
-          <span className="h-px flex-1 bg-slate-100" />
+          <span className="h-px flex-1 bg-muted" />
         </div>
 
         {sent ? (

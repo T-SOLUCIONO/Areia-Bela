@@ -240,7 +240,7 @@ export default function PaymentsPage() {
               Said out loud rather than silently showing two stacks of numbers
               that look like they should add up. */}
           {report.mixedCurrencies && (
-            <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 dark:bg-amber-950 p-4 text-sm text-amber-900">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
                 {fill(copy.mixedCurrencies, {
@@ -283,7 +283,7 @@ export default function PaymentsPage() {
               {/* The conversion fee is the one nobody expects, so it is named
                   rather than folded into a single "fees" figure. */}
               {block.converts && block.conversionFees > 0 && (
-                <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="flex items-start gap-3 rounded-[12px] border border-amber-200 bg-amber-50 dark:bg-amber-950 p-4 text-sm text-amber-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>
                     {fill(copy.conversionWarning, {
@@ -633,7 +633,7 @@ export default function PaymentsPage() {
                                   {/* Only when Stripe flags it. A "normal" badge on
                                       every row would train the eye to skip it. */}
                                   {row.riskLevel && row.riskLevel !== 'normal' && (
-                                    <span className="mt-1 block text-xs font-medium text-amber-800">
+                                    <span className="mt-1 block text-xs font-medium text-amber-800 dark:text-amber-200">
                                       {(copy as unknown as Record<string, string>)[
                                         `risk${row.riskLevel}`
                                       ] ?? row.riskLevel}

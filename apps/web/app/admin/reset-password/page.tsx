@@ -102,7 +102,7 @@ function ResetForm() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary-foreground">
           <KeyRound className="h-8 w-8 text-primary" />
         </div>
         <CardTitle className="font-serif text-2xl">

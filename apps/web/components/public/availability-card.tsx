@@ -67,7 +67,7 @@ function DateBox({
           type="button"
           onClick={onClear}
           aria-label={`${clearLabel}: ${label}`}
-          className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-slate-100 hover:text-foreground"
+          className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -241,7 +241,7 @@ export function AvailabilityCard({ className }: Props) {
           [copy.departure, checkOut],
         ] as const
       ).map(([label, value], index) => (
-        <span key={index} className="block px-4 py-2.5 transition hover:bg-slate-50">
+        <span key={index} className="block px-4 py-2.5 transition hover:bg-muted">
           <span className="block text-[10px] font-bold uppercase tracking-wide text-foreground">
             {label}
           </span>
@@ -274,11 +274,11 @@ export function AvailabilityCard({ className }: Props) {
           // The dates are chosen; only the figure is missing. Saying "pick
           // your dates" here would be telling the guest to redo what they
           // just did.
-          <span className="h-8 w-44 animate-pulse rounded-full bg-slate-100" aria-hidden />
+          <span className="h-8 w-44 animate-pulse rounded-full bg-muted" aria-hidden />
         ) : (
           <p className="text-[15px] text-muted-foreground">{copy.pickDates}</p>
         )}
-        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/70">
+        <span className="rounded-full bg-amber-50 dark:bg-amber-950 px-3 py-1 text-[11px] font-medium text-amber-800 dark:text-amber-200 ring-1 ring-amber-200/70">
           {copy.guaranteed}
         </span>
       </div>
@@ -440,7 +440,7 @@ export function AvailabilityCard({ className }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="w-full rounded-b-[14px] border border-border bg-card px-4 py-2.5 text-left transition hover:bg-slate-50"
+            className="w-full rounded-b-[14px] border border-border bg-card px-4 py-2.5 text-left transition hover:bg-muted"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -515,13 +515,13 @@ export function AvailabilityCard({ className }: Props) {
         >
           {[0, 1, 2].map((row) => (
             <div key={row} className="flex items-center justify-between gap-6">
-              <span className="h-3 flex-1 animate-pulse rounded-full bg-slate-100" />
-              <span className="h-3 w-14 animate-pulse rounded-full bg-slate-100" />
+              <span className="h-3 flex-1 animate-pulse rounded-full bg-muted" />
+              <span className="h-3 w-14 animate-pulse rounded-full bg-muted" />
             </div>
           ))}
           <div className="flex items-center justify-between gap-6 border-t border-border pt-3">
-            <span className="h-4 w-20 animate-pulse rounded-full bg-slate-200" />
-            <span className="h-5 w-24 animate-pulse rounded-full bg-slate-200" />
+            <span className="h-4 w-20 animate-pulse rounded-full bg-muted" />
+            <span className="h-5 w-24 animate-pulse rounded-full bg-muted" />
           </div>
         </div>
       )}
@@ -538,7 +538,7 @@ export function AvailabilityCard({ className }: Props) {
       {stayLength && (
         <p
           role="alert"
-          className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-center text-[13px] text-amber-800"
+          className="mt-4 rounded-2xl bg-amber-50 dark:bg-amber-950 px-4 py-3 text-center text-[13px] text-amber-800 dark:text-amber-200"
         >
           {stayLength.kind === 'tooShort'
             ? fill(copy.minNights, { count: String(stayLength.minNights) })
@@ -547,7 +547,7 @@ export function AvailabilityCard({ className }: Props) {
       )}
 
       {quote && !stayLength && (
-        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-center text-[13px] text-muted-foreground">
+        <p className="mt-4 rounded-2xl bg-muted px-4 py-3 text-center text-[13px] text-muted-foreground">
           {fill(copy.cancelBefore, { date: cancellationDate })}
         </p>
       )}
@@ -567,7 +567,7 @@ export function AvailabilityCard({ className }: Props) {
       <p className="mt-3 text-center text-[13px] text-muted-foreground">{copy.noChargeYet}</p>
 
       <div className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
-        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" />
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-800 dark:text-amber-200" />
         <span>{copy.footer}</span>
       </div>
     </aside>

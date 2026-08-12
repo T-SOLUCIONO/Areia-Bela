@@ -62,11 +62,11 @@ export function StayBand({
           {nightsLabel}
         </span>
         <div className="mt-1.5 flex w-full items-center" aria-hidden>
-          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-          <span className="h-px flex-1 bg-primary/30" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-primary text-primary-foreground" />
+          <span className="h-px flex-1 bg-primary/30 text-primary-foreground" />
           <span className="text-[10px] tabular-nums text-muted-foreground">{nights}</span>
-          <span className="h-px flex-1 bg-primary/30" />
-          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+          <span className="h-px flex-1 bg-primary/30 text-primary-foreground" />
+          <span className="h-2 w-2 shrink-0 rounded-full bg-primary text-primary-foreground" />
         </div>
       </div>
 

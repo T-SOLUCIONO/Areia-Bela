@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
 
         <Card>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary-foreground">
               {sent ? (
                 <MailCheck className="h-8 w-8 text-primary" />
               ) : (

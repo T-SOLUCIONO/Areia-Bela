@@ -15,7 +15,7 @@ export function DemoDataNotice({ className }: { className?: string }) {
   return (
     <div
       role="note"
-      className={`flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-amber-900 ${className ?? ''}`}
+      className={`flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-amber-900 ${className ?? ''}`}
     >
       <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
       <p className="text-sm">

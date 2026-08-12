@@ -171,7 +171,7 @@ export function StayCalendar({
               unavailable.has(iso) && 'bg-transparent hover:bg-transparent',
               // Painted on the button, not the cell: the cell's fill sits
               // underneath and the free-night tint above would swallow it.
-              isPastFree && 'bg-slate-100 text-slate-400 hover:bg-slate-100',
+              isPastFree && 'bg-muted text-slate-400 hover:bg-muted',
             )}
           >
             {dayProps.day.date.getDate()}
@@ -291,7 +291,7 @@ export function StayCalendar({
           // `available` flag, because which nights are sold and which the host
           // closed is occupancy data a stranger has no business reading.
           blocked:
-            'line-through decoration-slate-400 decoration-[1.5px] text-slate-400 bg-slate-200/70 bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(203_213_225)_3px,rgb(203_213_225)_6px)]',
+            'line-through decoration-slate-400 decoration-[1.5px] text-slate-400 bg-muted bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,rgb(203_213_225)_3px,rgb(203_213_225)_6px)]',
           // Flat grey: a day that is simply gone. No hatch, no strike-through —
           // those say "someone has this", and nobody has yesterday.
           past: 'text-slate-400',

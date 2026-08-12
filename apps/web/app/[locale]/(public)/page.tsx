@@ -185,7 +185,7 @@ export default function HomePage() {
                       key={card.id}
                       className="overflow-hidden rounded-[28px] border border-border bg-card/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]"
                     >
-                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
+                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
                         <Image
                           // A card with no image of its own borrows one from the
                           // gallery rather than leaving a hole in the grid.
@@ -254,7 +254,7 @@ export default function HomePage() {
         >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-amber-800">
+              <p className="mb-2 text-xs uppercase tracking-widest text-amber-800 dark:text-amber-200">
                 {text(reviewsSection, 'eyebrow', home.reviewsIntro)}
               </p>
               <h2 className="font-serif text-4xl text-foreground">
@@ -290,7 +290,7 @@ export default function HomePage() {
                         <span className="w-24 text-xs text-muted-foreground">{score.label}</span>
                         <div className="h-1 w-20 overflow-hidden rounded-full bg-gray-200">
                           <div
-                            className="h-full rounded-full bg-foreground"
+                            className="h-full rounded-full bg-panel"
                             style={{ width: `${Math.min(100, (outOfFive / 5) * 100)}%` }}
                           />
                         </div>
@@ -304,8 +304,8 @@ export default function HomePage() {
           </div>
 
           {featured && (
-            <div className="relative mb-8 mt-10 overflow-hidden rounded-[32px] bg-foreground p-8 md:p-10">
-              <Quote className="absolute left-6 top-6 h-16 w-16 text-white/10" />
+            <div className="relative mb-8 mt-10 overflow-hidden rounded-[32px] bg-panel p-8 md:p-10">
+              <Quote className="absolute left-6 top-6 h-16 w-16 text-panel-muted" />
               <div className="relative z-10 md:flex md:items-start md:gap-8">
                 <div className="flex-1">
                   <div className="mb-4 flex gap-1">
@@ -313,7 +313,7 @@ export default function HomePage() {
                       <Star key={index} className="h-5 w-5 fill-amber-400 text-amber-400" />
                     ))}
                   </div>
-                  <p className="mb-6 whitespace-pre-line text-lg leading-relaxed text-white md:text-xl">
+                  <p className="mb-6 whitespace-pre-line text-lg leading-relaxed text-panel-foreground md:text-xl">
                     &ldquo;{featured.text}&rdquo;
                   </p>
                   <div className="flex items-center gap-3">
@@ -326,12 +326,12 @@ export default function HomePage() {
                         className="h-12 w-12 rounded-full border-2 border-border object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-border bg-card/10 text-white">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-border bg-card/10 text-panel-foreground">
                         <Star className="h-6 w-6 fill-current" />
                       </div>
                     )}
                     <div>
-                      <p className="text-white">- {featured.authorName}</p>
+                      <p className="text-panel-foreground">- {featured.authorName}</p>
                       {featured.verified && (
                         <p className="flex items-center gap-1 text-sm text-blue-300">
                           <ShieldCheck className="h-3.5 w-3.5" /> {ui.verifiedStay}
@@ -361,7 +361,7 @@ export default function HomePage() {
                         ))}
                       </div>
                       {stayedAt && (
-                        <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] text-muted-foreground">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                           {stayedAt}
                         </span>
                       )}
@@ -448,7 +448,7 @@ export default function HomePage() {
                   ).map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center gap-3 rounded-2xl border border-border bg-slate-50 px-4 py-3"
+                      className="flex items-center gap-3 rounded-2xl border border-border bg-muted px-4 py-3"
                     >
                       {item.icon ? (
                         <ContentIcon name={item.icon} className="h-4 w-4 shrink-0 text-primary" />
@@ -461,14 +461,14 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-border bg-primary p-6 text-white shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
-                <div className="flex items-center gap-2 text-white/80">
+              <div className="rounded-[28px] border border-border bg-panel p-6 text-panel-foreground shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
+                <div className="flex items-center gap-2 text-panel-muted">
                   <Sparkles className="h-5 w-5" />
                   <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                     {text(directBooking, 'title', home.directTitle)}
                   </span>
                 </div>
-                <p className="mt-3 text-[15px] leading-7 text-white/85">
+                <p className="mt-3 text-[15px] leading-7 text-panel-muted">
                   {text(directBooking, 'body', home.directBody)}
                 </p>
                 <Button
@@ -493,7 +493,7 @@ export default function HomePage() {
                 and the eye already knows where to start. */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800 dark:text-amber-200">
                   {text(host, 'eyebrow', home.hostKicker)}
                 </p>
                 <h2 className="mt-3 font-serif text-3xl text-foreground sm:text-4xl">
@@ -510,7 +510,7 @@ export default function HomePage() {
             <div className="mt-10 grid gap-8 lg:grid-cols-[0.62fr_1fr] lg:items-stretch lg:gap-12">
               {/* The photo gets real size instead of a 256px sliver. She is
                   the content of this section; the numbers are footnotes. */}
-              <div className="relative overflow-hidden rounded-[28px] bg-slate-100 shadow-[0_18px_50px_rgba(15,23,42,0.10)]">
+              <div className="relative overflow-hidden rounded-[28px] bg-muted shadow-[0_18px_50px_rgba(15,23,42,0.10)]">
                 <div className="relative aspect-[4/5] w-full lg:absolute lg:inset-0 lg:aspect-auto">
                   <Image
                     src={host?.imageUrl ?? propertyData.host.pictureUrl}
@@ -522,7 +522,7 @@ export default function HomePage() {
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-foreground/55 to-transparent" />
 
                   <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center gap-2">
-                    <span className="font-serif text-2xl text-white">
+                    <span className="font-serif text-2xl text-panel-foreground">
                       {propertyData.host.firstName}
                     </span>
                     {text(host, 'subtitle', home.hostBadge) && (

@@ -89,7 +89,7 @@ export function HouseDetails({
 
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-amber-800">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
               <BookOpen className="h-5 w-5" aria-hidden />
               <span className="text-sm font-semibold uppercase tracking-[0.2em]">
                 {copy.eyebrow}
@@ -137,7 +137,7 @@ export function HouseDetails({
                   <AccordionItem key={slug} value={slug} className={ITEM}>
                     <AccordionTrigger className={TRIGGER}>
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-white">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-primary-foreground">
                           <ContentIcon name={icon} className="h-4 w-4" />
                         </span>
                         <span className="font-serif text-lg text-foreground">{page!.title}</span>

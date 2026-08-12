@@ -26,7 +26,7 @@ export function ServiceAnimalDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg gap-0 overflow-hidden rounded-[22px] p-0">
-        <div className="relative aspect-[7/6] w-full bg-slate-100">
+        <div className="relative aspect-[7/6] w-full bg-muted">
           <Image
             src="/images/service-animal.webp"
             alt={copy.serviceAnimalAlt}

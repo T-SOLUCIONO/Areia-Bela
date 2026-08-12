@@ -63,10 +63,10 @@ interface Reservation {
 /** Colour repeats what the label already says; it never carries meaning alone. */
 const STATUS_STYLE: Record<BookingStatus, string> = {
   CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  PENDING: 'bg-amber-50 text-amber-800 ring-amber-200',
-  CANCELLED: 'bg-slate-100 text-muted-foreground ring-slate-200',
+  PENDING: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200 ring-amber-200',
+  CANCELLED: 'bg-muted text-muted-foreground ring-slate-200',
   CHECKED_IN: 'bg-sky-50 text-sky-700 ring-sky-200',
-  CHECKED_OUT: 'bg-slate-50 text-muted-foreground ring-slate-200',
+  CHECKED_OUT: 'bg-muted text-muted-foreground ring-slate-200',
 }
 
 export default function ReservationsPage() {

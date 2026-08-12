@@ -393,7 +393,9 @@ export default function TaxesPage() {
                             <td
                               className={cn(
                                 'whitespace-nowrap px-4 py-3 text-right tabular-nums',
-                                outlier ? 'font-medium text-amber-800' : 'text-muted-foreground',
+                                outlier
+                                  ? 'font-medium text-amber-800 dark:text-amber-200'
+                                  : 'text-muted-foreground',
                               )}
                               title={outlier ? copy.rateOutlier : undefined}
                             >

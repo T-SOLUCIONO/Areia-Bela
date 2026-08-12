@@ -78,7 +78,7 @@ export function PaymentMethodDialog({
           <DialogTitle className="font-serif text-2xl">{copy.payTitle}</DialogTitle>
         </DialogHeader>
 
-        <div className="rounded-[16px] border border-primary bg-primary/5 p-4">
+        <div className="rounded-[16px] border border-primary bg-primary/5 p-4 text-primary-foreground">
           <div className="flex items-start gap-3">
             <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <div>

@@ -196,7 +196,7 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
             </select>
             {/* Said plainly, because it is the part that surprises people: the
                 policy is a promise the host keeps by hand. */}
-            <p className="text-xs text-amber-800">{copy.policyWarning}</p>
+            <p className="text-xs text-amber-800 dark:text-amber-200">{copy.policyWarning}</p>
           </div>
 
           <div className="space-y-2">
@@ -204,7 +204,7 @@ export function StayRules({ property, canEdit, onSaved }: Props) {
             {/* Named, not just flagged: "it has placeholders" sends the host
                 hunting, "these three are left" sends her to them. */}
             {pending.length > 0 && (
-              <p className="flex items-start gap-2 rounded-[10px] bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-inset ring-amber-200">
+              <p className="flex items-start gap-2 rounded-[10px] bg-amber-50 dark:bg-amber-950 p-3 text-xs text-amber-900 ring-1 ring-inset ring-amber-200">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
                   {fill(copy.accessPlaceholders, {

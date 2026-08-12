@@ -126,7 +126,7 @@ export function HomeHero({ images }: HeroProps) {
             id="reservar"
             className="relative z-20 lg:justify-self-end lg:self-center lg:-translate-y-3"
           >
-            <AvailabilityCard className="w-full max-w-[430px] border border-white/75 bg-white/95 shadow-[0_32px_100px_rgba(15,23,42,0.18)] backdrop-blur-xl" />
+            <AvailabilityCard className="w-full max-w-[430px] border border-white/75 bg-card/95 shadow-[0_32px_100px_rgba(15,23,42,0.18)] backdrop-blur-xl" />
           </div>
         </div>
 
@@ -145,7 +145,7 @@ export function HomeHero({ images }: HeroProps) {
             {badges.map((badge) => (
               <div
                 key={badge.id}
-                className="flex min-h-16 items-center gap-3 rounded-full border border-white/75 bg-white/85 px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur-md"
+                className="flex min-h-16 items-center gap-3 rounded-full border border-white/75 bg-card/85 px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur-md"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <ContentIcon name={badge.icon} className="h-5 w-5" />

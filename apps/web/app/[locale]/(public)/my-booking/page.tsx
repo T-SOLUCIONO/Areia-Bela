@@ -21,10 +21,10 @@ type Screen = 'loading' | 'signedOut' | 'sent' | 'signedIn'
 /** Colour repeats what the label says; it never carries the meaning alone. */
 const STATUS_STYLE: Record<MyBooking['status'], string> = {
   CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  PENDING: 'bg-amber-50 text-amber-800 ring-amber-200',
-  CANCELLED: 'bg-slate-100 text-muted-foreground ring-slate-200',
+  PENDING: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200 ring-amber-200',
+  CANCELLED: 'bg-muted text-muted-foreground ring-slate-200',
   CHECKED_IN: 'bg-sky-50 text-sky-700 ring-sky-200',
-  CHECKED_OUT: 'bg-slate-50 text-muted-foreground ring-slate-200',
+  CHECKED_OUT: 'bg-muted text-muted-foreground ring-slate-200',
 }
 
 export default function MyBookingPage() {
@@ -80,7 +80,7 @@ export default function MyBookingPage() {
   if (screen === 'sent') {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-4 text-center">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/15">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/15 text-primary-foreground">
           <Mail className="h-8 w-8 text-primary" />
         </div>
         <h1 className="mb-2 font-serif text-2xl text-foreground">{copy.sentTitle}</h1>
@@ -136,7 +136,7 @@ export default function MyBookingPage() {
         <Button
           variant="outline"
           size="sm"
-          className="border-primary/25 text-primary hover:bg-primary/5"
+          className="border-primary/25 text-primary hover:bg-primary/5 text-primary-foreground"
           onClick={() => void guest.signOut().then(() => setScreen('signedOut'))}
         >
           <LogOut className="h-4 w-4" />
@@ -211,7 +211,7 @@ function BookingCard({
       {/* A blue tint, not the page's own cream: the band used #f7f2ea, which
           is exactly the background behind the card, so the two merged and the
           card lost its edge. */}
-      <div className="bg-primary/[0.07] px-6 py-5">
+      <div className="bg-primary/[0.07] px-6 py-5 text-primary-foreground">
         <StayBand
           checkIn={booking.checkIn}
           checkOut={booking.checkOut}
@@ -265,7 +265,7 @@ function BookingCard({
         {/* An unpaid hold with no way to pay is a dead end. While it lives,
             the same Stripe session is one click away. */}
         {booking.checkoutUrl && (
-          <div className="flex flex-col gap-3 rounded-[16px] bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-[16px] bg-amber-50 dark:bg-amber-950 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-amber-900">{copy.finishPayingLead}</p>
             <Button asChild variant="brand" size="sm" className="shrink-0">
               <a href={booking.checkoutUrl}>{copy.finishPaying}</a>
@@ -292,7 +292,7 @@ function BookingCard({
                 asChild
                 variant="outline"
                 size="sm"
-                className="border-primary/25 text-primary hover:bg-primary/5"
+                className="border-primary/25 text-primary hover:bg-primary/5 text-primary-foreground"
               >
                 <a href={`${API_URL}/guest/bookings/${booking.reference}/pdf`}>
                   <Download className="h-4 w-4" />

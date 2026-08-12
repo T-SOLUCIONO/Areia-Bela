@@ -252,7 +252,7 @@ export default function AdminDashboardPage() {
       {/* Only shown when there is something to do about it. An empty "needs
           attention" panel trains people to stop reading it. */}
       {!loading && (holds.length > 0 || (blockedNights ?? 0) > 0) && (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/50">
           <CardHeader className="pb-3">
             <CardTitle className="font-serif text-base text-amber-900">
               {copy.needsAttention}

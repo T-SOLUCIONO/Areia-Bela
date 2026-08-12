@@ -391,7 +391,7 @@ export default function GuestsPage() {
                       {/* Worth flagging: a returning guest is the cheapest
                           booking this house will ever get. */}
                       {guest.stays > 1 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-200 ring-1 ring-inset ring-amber-200">
                           <Star className="h-3 w-3" />
                           {copy.returning}
                         </span>

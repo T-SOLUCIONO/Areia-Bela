@@ -126,7 +126,7 @@ export function TwoFactorSettings() {
 
       {/* Shown once, right after enabling — these can't be retrieved later. */}
       {recoveryCodes && (
-        <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950 p-4">
           <p className="text-sm font-medium text-amber-900">
             Save these recovery codes now — they are shown only once.
           </p>

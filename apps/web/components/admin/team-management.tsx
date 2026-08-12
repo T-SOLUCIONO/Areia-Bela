@@ -143,7 +143,10 @@ export function TeamManagement() {
 
               <div className="flex flex-wrap items-center gap-2">
                 {isPending && member.active && (
-                  <Badge variant="outline" className="gap-1 border-amber-300 text-amber-800">
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-amber-300 text-amber-800 dark:text-amber-200"
+                  >
                     <Clock className="h-3 w-3" />
                     {t.team.pending}
                   </Badge>

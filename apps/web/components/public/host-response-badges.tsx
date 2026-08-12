@@ -24,7 +24,7 @@ export function HostResponseBadges({
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className ?? ''}`}>
       {isSuperhost && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200/70">
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950 px-3 py-1 text-xs font-medium text-amber-800 dark:text-amber-200 ring-1 ring-amber-200/70">
           <ShieldCheck className="h-3.5 w-3.5" />
           {copy.superhost}
         </span>

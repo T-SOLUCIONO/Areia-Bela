@@ -114,7 +114,7 @@ export function Footer() {
               </p>
               <Button
                 asChild
-                className="mt-4 h-11 w-full rounded-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+                className="mt-4 h-11 w-full rounded-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90 text-primary-foreground"
               >
                 <Link href="#reservar">{copy.availability}</Link>
               </Button>
