@@ -6,15 +6,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Coastal palette: near-white page, teal for action, sand for the call to action.
+/* Coastal palette, with the reference project's exact oklch values.
  *
- * Rebuilt from the reference design, with one fault fixed rather than copied: its
- * teal was #008598, which measures 4.37:1 as text on white and 4.37 with white on
- * top — under AA in both directions, so neither a link nor a button label made of
- * it was readable to the standard. This is #00697b: 6.35 as text on a card, 6.09
- * on the page, 5.50 on the tinted band, and visually all but the same teal.
+ * Copied verbatim rather than converted. Approximating them as hex put
+ * `--ocean-deep` 31 points away from the original, and that token is the colour
+ * of the hero's scrim — so the same gradient formula produced a visibly different
+ * hero. `--accent-foreground` was 88 points off.
  *
- * Every pair was measured in both themes before being written down.
+ * One consequence to be aware of: `--primary` at oklch(0.56 0.11 210) is #008598,
+ * which measures 4.37:1 as text on white and 4.37 with white on top — under the
+ * 4.5 AA asks for, in both directions. It is kept because being identical to the
+ * reference is what was asked for, and the decision was made knowingly. A darker
+ * #00697b clears it at 6.35 if that ever matters more than the match.
  */
 :root {
   /* Deepened from #f7f2ea.
@@ -24,32 +27,32 @@
    * the background": there was barely a background to be distinct from. This is
    * 1.29:1 — the same warm family, one visible step down, so a white card reads
    * as a card without needing to be outlined in something heavy. */
-  --background: #f6fbfd;
-  --foreground: #09222e;
-  --card: #ffffff;
-  --card-foreground: #09222e;
-  --popover: #ffffff;
-  --popover-foreground: #09222e;
-  --primary: #00697b;
-  --primary-foreground: #ffffff;
+  --background: oklch(0.985 0.006 220);
+  --foreground: oklch(0.24 0.035 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.035 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.035 240);
+  --primary: oklch(0.56 0.11 210);
+  --primary-foreground: oklch(0.99 0.005 220);
   /* Moved with the background, or it would have become the same colour. Now
    * 1.19:1 from the page and 1.47:1 from a white card: a tinted panel that is
    * legible as its own surface in both places. */
-  --secondary: #e4f1f5;
-  --secondary-foreground: #09222e;
+  --secondary: oklch(0.95 0.014 220);
+  --secondary-foreground: oklch(0.3 0.04 235);
   /* Hex rather than oklch so it can be measured with the same arithmetic as
    * everything else — and because an `oklch` computed value is what silently
    * defeated the contrast auditor once already. */
-  --muted: #eff8fa;
+  --muted: oklch(0.955 0.01 220);
   /* Chosen against all three surfaces at once, not one at a time.
    *
    * Deepening the page and the panels pushed #586572 down to 4.07 on
    * `--secondary`, below AA — fixing one surface had broken another. This value
    * clears 4.5 everywhere it appears: 7.15 on a white card, 5.56 on the page,
    * 4.88 on a tinted panel. */
-  --muted-foreground: #566c78;
-  --accent: #f8b773;
-  --accent-foreground: #09222e;
+  --muted-foreground: oklch(0.52 0.03 235);
+  --accent: oklch(0.82 0.11 70);
+  --accent-foreground: oklch(0.3 0.05 60);
   --destructive: oklch(0.55 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
   /* A boundary you can actually see.
@@ -60,21 +63,21 @@
    * drawn-on look a properly WCAG-compliant 3:1 border would give a palette
    * this soft. Cards make up the rest of the separation with a shadow, which is
    * how low-contrast surfaces are told apart. */
-  --border: #b3d3dd;
+  --border: oklch(0.9 0.012 220);
   /* Inputs carry their own weight: a field the user has to find is worth a
    * firmer edge than a decorative container. */
-  --input: #a3c9d5;
-  --ring: #00697b;
+  --input: oklch(0.9 0.012 220);
+  --ring: oklch(0.62 0.12 205);
   /* The dark navy panel of the closing call to action. Dark in both themes on
    * purpose — in the reference it is the one block that stays dark whatever the
    * page does, which is what makes it read as the end of the page. */
   /* From the reference project: the two blues and the sand it composes with.
    * `--ocean-deep` is the navy every dark panel and every scrim is built from,
    * which is why the design holds together — one colour, used consistently. */
-  --ocean: #0e8ba0;
-  --ocean-deep: #12384c;
-  --sand: #f6d3a4;
-  --sand-foreground: #6b4715;
+  --ocean: oklch(0.62 0.12 205);
+  --ocean-deep: oklch(0.34 0.07 235);
+  --sand: oklch(0.9 0.05 75);
+  --sand-foreground: oklch(0.42 0.07 55);
   --panel: #0b3244;
   --panel-foreground: #eaf4f7;
   --panel-muted: #b9d4dd;
