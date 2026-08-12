@@ -79,7 +79,7 @@ export const config = {
      * Public site: everything except admin, API routes, Next internals and
      * static files (anything with a file extension) gets the locale rewrite.
      */
-    '/((?!admin|api|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+    '/((?!admin|api|preview|_next/static|_next/image|favicon.ico|.*\\..*).*)',
     // Admin is matched separately so it reaches guardAdmin instead of the
     // locale rewrite, which would turn /admin into /es/admin and 404.
     '/admin',

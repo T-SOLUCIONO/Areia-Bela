@@ -139,7 +139,7 @@ export function Header() {
           <Button asChild variant="brand" size="lg" className="font-semibold">
             <Link href="#reservar">{copy.bookNow}</Link>
           </Button>
-          <ThemeToggle />
+          <ThemeToggle darkLabel={copy.ui.themeDark} lightLabel={copy.ui.themeLight} />
           <LanguageMenu />
         </div>
 
@@ -148,7 +148,7 @@ export function Header() {
             burying it behind the hamburger asked for two taps and a guess about
             where it lived. */}
         <div className="flex items-center gap-2 md:hidden">
-          <ThemeToggle />
+          <ThemeToggle darkLabel={copy.ui.themeDark} lightLabel={copy.ui.themeLight} />
           <LanguageMenu compact />
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
