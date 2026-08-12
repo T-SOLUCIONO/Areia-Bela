@@ -68,6 +68,13 @@
   /* The dark navy panel of the closing call to action. Dark in both themes on
    * purpose — in the reference it is the one block that stays dark whatever the
    * page does, which is what makes it read as the end of the page. */
+  /* From the reference project: the two blues and the sand it composes with.
+   * `--ocean-deep` is the navy every dark panel and every scrim is built from,
+   * which is why the design holds together — one colour, used consistently. */
+  --ocean: #0e8ba0;
+  --ocean-deep: #12384c;
+  --sand: #f6d3a4;
+  --sand-foreground: #6b4715;
   --panel: #0b3244;
   --panel-foreground: #eaf4f7;
   --panel-muted: #b9d4dd;
@@ -120,6 +127,10 @@
   --border: #2c5566;
   --input: #2c5566;
   --ring: #3fc2d4;
+  --ocean: #3fc2d4;
+  --ocean-deep: #0a2c3c;
+  --sand: #f6d3a4;
+  --sand-foreground: #6b4715;
   --panel: #0a2c3c;
   --panel-foreground: #eaf4f7;
   --panel-muted: #b9d4dd;
@@ -168,6 +179,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-ocean: var(--ocean);
+  --color-ocean-deep: var(--ocean-deep);
+  --color-sand: var(--sand);
+  --color-sand-foreground: var(--sand-foreground);
+  /* `font-display` is the class the reference markup uses for every heading, so
+   * the name is kept rather than renamed to fit this repo's `font-serif`. Both
+   * point at Sora; two names for one family is cheaper than editing every file. */
+  --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --color-panel: var(--panel);
   --color-panel-foreground: var(--panel-foreground);
   --color-panel-muted: var(--panel-muted);
@@ -269,5 +288,78 @@
      * background, below AA, and 2.6:1 in dark mode. Pairing `bg-background` with
      * `text-foreground` is what the tokens exist to do. */
     @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  /* The display face, under the name the reference components use. */
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Frosted glass, the surface the hero card and the floating header are made of.
+   * Built from `--card` rather than literal white so it inverts with the theme —
+   * the reference is light-only and hardcodes white, which would leave a bright
+   * slab in the middle of a dark page. */
+  .glass {
+    background: color-mix(in oklab, var(--card) 72%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid color-mix(in oklab, var(--card) 60%, transparent);
+  }
+  .glass-dark {
+    background: color-mix(in oklab, var(--ocean-deep) 55%, transparent);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid color-mix(in oklab, white 18%, transparent);
+  }
+
+  /* Three shadows rather than one: this is what separates the cards from a page
+   * they are only 1.2:1 away from. */
+  .shadow-soft {
+    box-shadow:
+      0 1px 2px color-mix(in oklab, var(--ocean-deep) 4%, transparent),
+      0 8px 24px color-mix(in oklab, var(--ocean-deep) 6%, transparent),
+      0 24px 48px color-mix(in oklab, var(--ocean-deep) 5%, transparent);
+  }
+  .shadow-float {
+    box-shadow:
+      0 2px 4px color-mix(in oklab, var(--ocean-deep) 5%, transparent),
+      0 12px 32px color-mix(in oklab, var(--ocean-deep) 10%, transparent),
+      0 40px 80px color-mix(in oklab, var(--ocean-deep) 12%, transparent);
+  }
+  .shadow-glow {
+    box-shadow:
+      0 10px 30px color-mix(in oklab, var(--primary) 35%, transparent),
+      0 2px 8px color-mix(in oklab, var(--primary) 20%, transparent);
+  }
+
+  .text-gradient {
+    background: linear-gradient(100deg, var(--ocean-deep), var(--ocean) 55%, var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-rise {
+    animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Motion is a preference, not a suggestion: someone who asked their system for
+   * less of it gets the end state without the travel. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rise {
+      animation: none;
+    }
   }
 }
