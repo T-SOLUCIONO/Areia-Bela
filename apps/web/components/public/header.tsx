@@ -105,8 +105,19 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
-  // `/es`, `/en`… and nothing deeper: the landing is the only page with a hero.
-  const overHero = /^\/[a-z]{2}\/?$/.test(pathname ?? '')
+  /**
+   * `/`, `/es`, `/en`… and nothing deeper: the landing is the only page with a
+   * hero to float over.
+   *
+   * The bare `/` matters. The middleware **rewrites** it rather than redirecting,
+   * so the address bar keeps saying `/` while the page being served is `/es` —
+   * and a pattern that only knew about the two-letter prefix put the bar in its
+   * `sticky` mode there. That is the strip: the bar taking up its own space above
+   * the hero instead of floating on it, glass from the first pixel and never
+   * changing on scroll. Same page, two different headers depending on how you
+   * arrived at it.
+   */
+  const overHero = /^\/([a-z]{2})?\/?$/.test(pathname ?? '')
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -174,10 +185,10 @@ export function Header() {
             // wordmark all but disappeared while the teal starfish stayed. One
             // file, both themes — better than asking the host for a second logo.
             className={cn(
-              'h-9 w-auto sm:h-10',
+              'h-9 w-auto sm:h-14',
               // White over the hero's dark scrim, and white again on the dark
               // pill, but left alone on the frosted one in daylight.
-              glass ? 'dark:brightness-0 dark:invert' : 'brightness-0 invert',
+              //glass ? 'dark:brightness-0 dark:invert' : 'brightness-0 invert',
             )}
           />
         </Link>
