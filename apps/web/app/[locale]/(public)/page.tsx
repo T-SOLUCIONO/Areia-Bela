@@ -147,8 +147,10 @@ export default function HomePage() {
             },
           ],
           directTitle: 'Direct booking',
+          directHeadline: 'Book direct and save on your beach getaway',
           directBody:
-            'Book direct for the best rate, clear communication, and a smoother stay from start to finish.',
+            'Clear communication, the best rate, and a smoother stay from start to finish.',
+          directFrom: 'From ${price} per night.',
           directCta: 'Book now',
           hostKicker: 'Your host',
           hostTitle: 'Meet Angélica',
@@ -200,8 +202,10 @@ export default function HomePage() {
             },
           ],
           directTitle: 'Reserva directa',
+          directHeadline: 'Reserva directo y ahorra en tu escapada a la playa',
           directBody:
-            'Reserva directo para obtener la mejor tarifa, comunicación clara y una estadía más fluida de inicio a fin.',
+            'Comunicación clara, la mejor tarifa y una estadía más fluida de inicio a fin.',
+          directFrom: 'Desde ${price} por noche.',
           directCta: 'Reservar ahora',
           hostKicker: 'Tu anfitriona',
           hostTitle: 'Conoce a Angélica',
@@ -635,16 +639,21 @@ export default function HomePage() {
             <div className="relative z-10 max-w-xl text-white">
               <span className="glass-dark inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium">
                 <Star className="h-3.5 w-3.5 fill-current text-accent" aria-hidden />
-                {/* The panel's own promise, not a second copy of the heading:
-                    this section has no eyebrow in /admin/content, and the
+                {/* The section's name and the promise, the way the reference
+                    reads it: "Reserva directa · Mejor tarifa garantizada". The
                     guarantee is already translated in all five locales. */}
+                {text(directBooking, 'title', home.directTitle)} ·{' '}
                 {translations[language].availability.guaranteed}
               </span>
+              {/* The headline sits in the section's `subtitle`, which is empty in
+                  /admin/content — so what shows is the reference's own line,
+                  and the host can replace it from the panel whenever she wants. */}
               <h2 className="mt-5 text-balance font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-                {text(directBooking, 'title', home.directTitle)}
+                {text(directBooking, 'subtitle', home.directHeadline)}
               </h2>
               <p className="mt-4 text-pretty leading-relaxed text-white/90">
-                {text(directBooking, 'body', home.directBody)}
+                {text(directBooking, 'body', home.directBody)}{' '}
+                {home.directFrom.replace('{price}', String(propertyData.pricing.price_per_night))}
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-4">
