@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Quote, ShieldCheck, Sparkles, Star, Users } from 'lucide-react'
+import { BadgeCheck, MapPin, Quote, ShieldCheck, Sparkles, Star } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@areia-bela/ui/dialog'
 import { HomeHero } from '@/components/public/home-hero'
@@ -42,8 +42,18 @@ export default function HomePage() {
     cmsReady ? Boolean(section) : true
   const sections = siteContent?.sections
   const cmsReviews = siteContent?.reviews ?? []
-  const featured = cmsReviews.find((review) => review.featured) ?? cmsReviews[0]
-  const otherReviews = cmsReviews.filter((review) => review.id !== featured?.id).slice(0, 3)
+  /**
+   * Four quotes, the one the host starred first.
+   *
+   * The featured review used to get a navy panel of its own above the others.
+   * The panel is gone — the reference gives every quote the same card — but the
+   * host's choice is not: it still leads.
+   */
+  const featured = cmsReviews.find((review) => review.featured)
+  const shownReviews = [
+    ...(featured ? [featured] : []),
+    ...cmsReviews.filter((review) => review.id !== featured?.id),
+  ].slice(0, 4)
 
   const features = sections?.FEATURES
   const amenities = sections?.AMENITIES
@@ -309,154 +319,113 @@ export default function HomePage() {
       {shows(reviewsSection) && (
         <section
           id="reviews"
-          className="scroll-mt-24 mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
+          className="mx-auto max-w-6xl scroll-mt-24 px-4 py-20 sm:px-6 lg:py-28"
         >
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-amber-800 dark:text-amber-200">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-primary">
+                <BadgeCheck className="h-4 w-4" aria-hidden />
                 {text(reviewsSection, 'eyebrow', home.reviewsIntro)}
-              </p>
-              <h2 className="font-serif text-4xl text-foreground">
+              </span>
+              <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
                 {text(reviewsSection, 'title', home.reviewsTitle)}
               </h2>
-            </div>
 
-            {/* Measured at 1.02:1 against what is behind it, with no border and no
-                shadow — a panel that exists in the markup and not on the screen.
-                The rating is the thing this block is for, so it gets a surface. */}
-            <div className="flex shrink-0 flex-wrap items-center gap-5 rounded-[24px] border border-border bg-card px-6 py-4 shadow-sm">
-              <div className="text-center">
-                <p className="font-serif text-5xl leading-none text-foreground">
-                  {reviewsSection?.statValue || propertyData.rating.toFixed(1)}
-                </p>
-                <div className="mt-1.5 flex justify-center gap-0.5">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
-                  ))}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {text(reviewsSection, 'statLabel', `${propertyData.reviewsCount} ${ui.reviews}`)}
-                </p>
-              </div>
-
-              {reviewScores.length > 0 && (
-                <div className="space-y-1.5 border-l border-gray-200 pl-5">
-                  {reviewScores.map((score) => {
-                    // Stored out of five, drawn as a bar out of a hundred.
-                    const outOfFive = Number(score.value) || 0
-                    return (
-                      <div key={score.id} className="flex items-center gap-2">
-                        <span className="w-24 text-xs text-muted-foreground">{score.label}</span>
-                        <div className="h-1 w-20 overflow-hidden rounded-full bg-gray-200">
-                          <div
-                            className="h-full rounded-full bg-panel"
-                            style={{ width: `${Math.min(100, (outOfFive / 5) * 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{score.value}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {featured && (
-            <div className="relative mb-8 mt-10 overflow-hidden rounded-[32px] bg-panel p-8 md:p-10">
-              <Quote className="absolute left-6 top-6 h-16 w-16 text-panel-muted" />
-              <div className="relative z-10 md:flex md:items-start md:gap-8">
-                <div className="flex-1">
-                  <div className="mb-4 flex gap-1">
-                    {Array.from({ length: featured.rating }).map((_, index) => (
-                      <Star key={index} className="h-5 w-5 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-                  <p className="mb-6 whitespace-pre-line text-lg leading-relaxed text-panel-foreground md:text-xl">
-                    &ldquo;{featured.text}&rdquo;
-                  </p>
-                  <div className="flex items-center gap-3">
-                    {featured.authorPhotoUrl ? (
-                      <Image
-                        src={featured.authorPhotoUrl}
-                        alt={featured.authorName}
-                        width={48}
-                        height={48}
-                        className="h-12 w-12 rounded-full border-2 border-border object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-border bg-card/10 text-panel-foreground">
-                        <Star className="h-6 w-6 fill-current" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-panel-foreground">- {featured.authorName}</p>
-                      {featured.verified && (
-                        <p className="flex items-center gap-1 text-sm text-blue-300">
-                          <ShieldCheck className="h-3.5 w-3.5" /> {ui.verifiedStay}
-                          {featured.stayedAt ? ` · ${featured.stayedAt}` : ''}
-                        </p>
-                      )}
+              <div className="mt-8 rounded-3xl border border-border bg-card p-6 shadow-soft">
+                <div className="flex items-end gap-3">
+                  <span className="font-display text-5xl font-semibold leading-none text-foreground">
+                    {reviewsSection?.statValue || propertyData.rating.toFixed(1)}
+                  </span>
+                  <div className="mb-1">
+                    <div className="flex gap-0.5 text-accent">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star key={index} className="h-4 w-4 fill-current" aria-hidden />
+                      ))}
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {otherReviews.length > 0 && (
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {otherReviews.map((review) => {
-                const stayedAt = review.stayedAt
-                return (
-                  <article
-                    key={review.id}
-                    className="flex flex-col gap-4 rounded-[24px] border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: review.rating }).map((_, index) => (
-                          <Star key={index} className="h-4 w-4 fill-amber-500 text-amber-500" />
-                        ))}
-                      </div>
-                      {stayedAt && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                          {stayedAt}
-                        </span>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {text(
+                        reviewsSection,
+                        'statLabel',
+                        `${propertyData.reviewsCount} ${ui.reviews}`,
                       )}
-                    </div>
-                    <p className="flex-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
-                      &ldquo;{review.text}&rdquo;
                     </p>
-                    <div className="flex items-center gap-3 border-t border-border pt-3">
+                  </div>
+                </div>
+
+                {reviewScores.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    {reviewScores.map((score) => {
+                      // Stored out of five, drawn as a bar out of a hundred.
+                      const outOfFive = Number(score.value) || 0
+                      return (
+                        <div key={score.id} className="flex items-center gap-3">
+                          <span className="w-28 shrink-0 text-sm text-muted-foreground">
+                            {score.label}
+                          </span>
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-ocean to-primary"
+                              style={{ width: `${Math.min(100, (outOfFive / 5) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="w-8 shrink-0 text-right text-sm font-semibold text-foreground">
+                            {score.value}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {shownReviews.length > 0 && (
+              <div className="grid gap-5 sm:grid-cols-2">
+                {shownReviews.map((review) => (
+                  <figure
+                    key={review.id}
+                    className="flex flex-col rounded-3xl border border-border bg-card p-6 shadow-soft transition-all hover:-translate-y-1 hover:shadow-float"
+                  >
+                    <Quote className="h-7 w-7 text-primary/25" fill="currentColor" aria-hidden />
+                    <blockquote className="mt-3 flex-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
+                      {review.text}
+                    </blockquote>
+                    <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
+                      {/* Her photo when there is one, her initial when there is
+                          not — an empty circle says nothing about who wrote
+                          this. */}
                       {review.authorPhotoUrl ? (
                         <Image
                           src={review.authorPhotoUrl}
-                          alt={review.authorName}
+                          alt=""
                           width={40}
                           height={40}
-                          className="h-10 w-10 rounded-full object-cover"
+                          className="h-10 w-10 shrink-0 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-foreground">
-                          <Users className="h-5 w-5" />
-                        </div>
+                        <span
+                          aria-hidden
+                          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 font-display text-sm font-semibold text-primary"
+                        >
+                          {review.authorName.charAt(0)}
+                        </span>
                       )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-foreground">{review.authorName}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {review.authorName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {review.verified ? ui.verifiedStay : ''}
+                          {review.verified && review.stayedAt ? ' · ' : ''}
+                          {review.stayedAt ?? ''}
+                        </p>
                       </div>
-                      {review.verified && (
-                        <div className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                          <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                          {home.verified}
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       )}
 
