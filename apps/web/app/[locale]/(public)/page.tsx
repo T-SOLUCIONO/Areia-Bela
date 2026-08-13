@@ -432,19 +432,15 @@ export default function HomePage() {
       {shows(location) && (
         <section
           id="location"
-          className="scroll-mt-24 mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8 lg:pb-16"
+          className="relative scroll-mt-24 overflow-hidden bg-secondary/60 py-20 lg:py-28"
         >
-          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.75fr]">
-            <div>
-              <h2 className="font-serif text-3xl text-foreground sm:text-4xl">
-                {text(location, 'title', home.locationTitle)}
-              </h2>
-              <p className="mt-2 text-muted-foreground">
-                {text(location, 'subtitle', home.locationSub)}
-              </p>
-
-              <div className="mt-6 overflow-hidden rounded-[28px] border border-border bg-card shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-                <div className="relative h-[360px] w-full sm:h-[480px]">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+              {/* The reference puts a photograph here. This is the real map —
+                  it answers the same question and answers it better, and the
+                  glass pill from the reference sits on it just the same. */}
+              <div className="relative overflow-hidden rounded-3xl border border-border shadow-float">
+                <div className="relative aspect-[4/3] w-full">
                   <iframe
                     src={
                       location?.linkUrl ??
@@ -457,56 +453,85 @@ export default function HomePage() {
                     title="Areia Bela map"
                   />
                 </div>
+                {/* Under the map, not floating on it. The reference's pill sits
+                    on a photograph, where it covers nothing that matters; on a
+                    live map every corner is taken — Google's place card at the
+                    top left, its controls and its required attribution along the
+                    bottom. So it becomes the frame's own footer. */}
+                <div className="flex items-center gap-3 border-t border-border bg-card px-4 py-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                    <MapPin className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="text-sm font-semibold text-foreground">
+                    {text(location, 'subtitle', home.locationSub)}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-col justify-end space-y-4">
-              <div className="rounded-[28px] border border-border bg-card/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
-                <h3 className="font-serif text-2xl text-foreground">
+              <div>
+                {location?.eyebrow && (
+                  <span className="text-sm font-semibold uppercase tracking-widest text-primary">
+                    {location.eyebrow}
+                  </span>
+                )}
+                <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                  {text(location, 'title', home.locationTitle)}
+                </h2>
+
+                <h3 className="mt-8 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                   {text(location, 'body', home.nearbyTitle)}
                 </h3>
-                <div className="mt-4 space-y-4">
+                <ul className="mt-4 space-y-3">
                   {(highlights.length > 0
                     ? highlights.map((item) => ({
                         key: item.id,
                         icon: item.icon,
                         label: item.label,
+                        body: item.body,
                       }))
-                    : home.nearby.map((item) => ({ key: item, icon: '', label: item }))
+                    : home.nearby.map((item) => ({ key: item, icon: '', label: item, body: '' }))
                   ).map((item) => (
-                    <div
+                    <li
                       key={item.key}
-                      className="flex items-center gap-3 rounded-2xl border border-border bg-muted px-4 py-3"
+                      className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft transition-all hover:-translate-y-0.5"
                     >
-                      {item.icon ? (
-                        <ContentIcon name={item.icon} className="h-4 w-4 shrink-0 text-primary" />
-                      ) : (
-                        <MapPin className="h-4 w-4 shrink-0 text-primary" />
-                      )}
-                      <span className="text-sm text-foreground">{item.label}</span>
-                    </div>
+                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                        {item.icon ? (
+                          <ContentIcon name={item.icon} className="h-5 w-5" />
+                        ) : (
+                          <MapPin className="h-5 w-5" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                        {item.body && <p className="text-xs text-muted-foreground">{item.body}</p>}
+                      </div>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ul>
 
-              <div className="rounded-[28px] border border-border bg-panel p-6 text-panel-foreground shadow-[0_18px_50px_rgba(15,23,42,0.12)]">
-                <div className="flex items-center gap-2 text-panel-muted">
-                  <Sparkles className="h-5 w-5" />
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em]">
-                    {text(directBooking, 'title', home.directTitle)}
-                  </span>
-                </div>
-                <p className="mt-3 text-[15px] leading-7 text-panel-muted">
-                  {text(directBooking, 'body', home.directBody)}
-                </p>
-                <Button
-                  asChild
-                  className="mt-5 h-11 rounded-full bg-card px-5 font-semibold text-primary hover:bg-card/90"
-                >
-                  <Link href={directBooking?.ctaHref || '#reservar'}>
-                    {text(directBooking, 'ctaLabel', home.directCta)}
-                  </Link>
-                </Button>
+                {/* Stays here for one more commit. This is the closing panel's
+                    content in the reference, and the closing panel arrives with
+                    the footer — moving it out now would just make it vanish. */}
+                {shows(directBooking) && (
+                  <div className="mt-8 rounded-3xl bg-panel p-6 text-panel-foreground shadow-float">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-accent" aria-hidden />
+                      <span className="text-sm font-semibold uppercase tracking-widest">
+                        {text(directBooking, 'title', home.directTitle)}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-relaxed text-panel-muted">
+                      {text(directBooking, 'body', home.directBody)}
+                    </p>
+                    <Link
+                      href={directBooking?.ctaHref || '#reservar'}
+                      className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-accent-foreground transition-all hover:-translate-y-0.5"
+                    >
+                      {text(directBooking, 'ctaLabel', home.directCta)}
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
