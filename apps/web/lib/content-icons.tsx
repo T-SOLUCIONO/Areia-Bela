@@ -27,6 +27,7 @@ import {
   Refrigerator,
   Shield,
   ShieldCheck,
+  Ship,
   ShoppingBag,
   Snowflake,
   Sparkles,
@@ -68,6 +69,8 @@ export const CONTENT_ICONS = {
   Bike,
   Car,
   Bus,
+  // The boardwalk at John's Pass; the coast is half of what this house sells.
+  Ship,
   Building2,
   ShoppingBag,
   UtensilsCrossed,

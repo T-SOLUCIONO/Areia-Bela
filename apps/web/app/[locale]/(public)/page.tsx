@@ -134,9 +134,17 @@ export default function HomePage() {
           locationSub: 'St. Petersburg, Florida, United States',
           nearbyTitle: 'Highlights nearby',
           nearby: [
-            '5 min from Madeira Beach',
-            "John's Pass Village & Boardwalk",
-            'Local restaurants and cafés',
+            { icon: 'Waves', label: '5 min from Madeira Beach', body: 'White sand and Gulf water' },
+            {
+              icon: 'Ship',
+              label: "John's Pass Village & Boardwalk",
+              body: 'Boardwalk, shops and seafood',
+            },
+            {
+              icon: 'Coffee',
+              label: 'Local restaurants and cafés',
+              body: 'A bike ride or a walk away',
+            },
           ],
           directTitle: 'Direct booking',
           directBody:
@@ -175,9 +183,21 @@ export default function HomePage() {
           locationSub: 'St. Petersburg, Florida, Estados Unidos',
           nearbyTitle: 'Puntos cercanos',
           nearby: [
-            'A 5 min de Madeira Beach',
-            "John's Pass Village & Boardwalk",
-            'Restaurantes y cafés locales',
+            {
+              icon: 'Waves',
+              label: 'A 5 min de Madeira Beach',
+              body: 'Arena blanca y aguas del Golfo',
+            },
+            {
+              icon: 'Ship',
+              label: "John's Pass Village & Boardwalk",
+              body: 'Paseo marítimo, tiendas y mariscos',
+            },
+            {
+              icon: 'Coffee',
+              label: 'Restaurantes y cafés locales',
+              body: 'A distancia de bici o caminando',
+            },
           ],
           directTitle: 'Reserva directa',
           directBody:
@@ -192,6 +212,38 @@ export default function HomePage() {
           verified: 'Verificado',
         }
 
+  /**
+   * The three points near the house, and the icon and line under each.
+   *
+   * The panel holds the three labels but leaves the descriptions empty and gives
+   * all three the generic pin, so the list rendered as the same marker three
+   * times with nothing under it. What the panel does say wins; where it says
+   * nothing, the bundled entry at the same position fills in. The moment the
+   * host picks an icon of her own or writes a line, hers is what shows.
+   */
+  const nearbyPoints =
+    highlights.length > 0
+      ? highlights.map((item, index) => {
+          const fallback = home.nearby[index]
+          return {
+            key: item.id,
+            icon: item.icon && item.icon !== 'MapPin' ? item.icon : (fallback?.icon ?? 'MapPin'),
+            label: item.label,
+            body: item.body || (fallback?.body ?? ''),
+          }
+        })
+      : home.nearby.map((item) => ({ key: item.label, ...item }))
+  /**
+   * The address, split for the two lines the pill wants. The panel stores one
+   * string — "St. Petersburg, Florida, Estados Unidos" — and the last comma is
+   * where the country starts.
+   */
+  const address = text(location, 'subtitle', home.locationSub)
+  const lastComma = address.lastIndexOf(',')
+  const place =
+    lastComma > 0
+      ? { where: address.slice(0, lastComma).trim(), country: address.slice(lastComma + 1).trim() }
+      : { where: address, country: '' }
   return (
     <div className="bg-background text-foreground">
       <HomeHero images={galleryImages} />
@@ -443,9 +495,12 @@ export default function HomePage() {
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
                     <MapPin className="h-5 w-5" aria-hidden />
                   </span>
-                  <p className="text-sm font-semibold text-foreground">
-                    {text(location, 'subtitle', home.locationSub)}
-                  </p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{place.where}</p>
+                    {place.country && (
+                      <p className="text-xs text-muted-foreground">{place.country}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -463,25 +518,13 @@ export default function HomePage() {
                   {text(location, 'body', home.nearbyTitle)}
                 </h3>
                 <ul className="mt-4 space-y-3">
-                  {(highlights.length > 0
-                    ? highlights.map((item) => ({
-                        key: item.id,
-                        icon: item.icon,
-                        label: item.label,
-                        body: item.body,
-                      }))
-                    : home.nearby.map((item) => ({ key: item, icon: '', label: item, body: '' }))
-                  ).map((item) => (
+                  {nearbyPoints.map((item) => (
                     <li
                       key={item.key}
                       className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft transition-all hover:-translate-y-0.5"
                     >
                       <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                        {item.icon ? (
-                          <ContentIcon name={item.icon} className="h-5 w-5" />
-                        ) : (
-                          <MapPin className="h-5 w-5" />
-                        )}
+                        <ContentIcon name={item.icon} className="h-5 w-5" />
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground">{item.label}</p>
