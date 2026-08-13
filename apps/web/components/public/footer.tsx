@@ -35,7 +35,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-sm space-y-4">
-            <SiteLogo className="h-14 w-auto" />
+            <SiteLogo className="h-11 w-auto" />
             <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
             {social.length > 0 && (
               <div className="flex flex-wrap gap-4 text-sm">

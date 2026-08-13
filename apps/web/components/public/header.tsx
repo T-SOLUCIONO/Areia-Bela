@@ -176,7 +176,7 @@ export function Header() {
               Bare over the hero, the ground is the navy scrim in *both* themes,
               so the mark drawn for a dark ground is the right one there
               whatever the page theme says. */}
-          <SiteLogo variant={glass ? 'auto' : 'dark'} className="h-9 w-auto sm:h-14" />
+          <SiteLogo variant={glass ? 'auto' : 'dark'} className="h-11 w-auto sm:h-14" />
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -245,8 +245,8 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="overflow-y-auto">
               <SheetHeader className="pt-8">
-                <SheetTitle className="flex justify-center">
-                  <SiteLogo className="h-auto w-[220px]" />
+                <SheetTitle className="flex justify-start">
+                  <SiteLogo className="h-11 w-auto" />
                 </SheetTitle>
                 <SheetDescription className="text-[10px] uppercase tracking-[0.2em]">
                   {language === 'en'
