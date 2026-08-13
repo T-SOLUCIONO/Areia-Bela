@@ -227,19 +227,16 @@ export default function HomePage() {
                   <article
                     key={card.id}
                     className={cn(
-                      'group relative overflow-hidden rounded-3xl border border-border bg-card shadow-soft',
+                      'group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-soft',
                       'transition-all duration-300 hover:-translate-y-1 hover:shadow-float',
-                      // The first card runs tall, which is what stops three
-                      // equal boxes from reading as a form.
-                      index === 0 && 'lg:row-span-2',
                     )}
                   >
-                    <div
-                      className={cn(
-                        'relative w-full overflow-hidden bg-muted',
-                        index === 0 ? 'aspect-[4/5]' : 'aspect-[16/10]',
-                      )}
-                    >
+                    {/* All three the same, at the tall card's proportion. The
+                        staggered version put one card at 4/5 and two at 16/10,
+                        which left a hole under the short pair and made the row
+                        look unfinished when the texts were of different
+                        lengths. */}
+                    <div className="relative w-full overflow-hidden bg-muted aspect-[4/5]">
                       <Image
                         // A card with no image of its own borrows one from the
                         // gallery rather than leaving a hole in the grid.
