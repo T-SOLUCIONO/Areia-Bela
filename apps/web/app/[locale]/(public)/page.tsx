@@ -507,20 +507,22 @@ export default function HomePage() {
                     title="Areia Bela map"
                   />
                 </div>
-                {/* Under the map, not floating on it. The reference's pill sits
-                    on a photograph, where it covers nothing that matters; on a
-                    live map every corner is taken — Google's place card at the
-                    top left, its controls and its required attribution along the
-                    bottom. So it becomes the frame's own footer. */}
-                <div className="flex items-center gap-3 border-t border-border bg-card px-4 py-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
-                    <MapPin className="h-5 w-5" aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{place.where}</p>
-                    {place.country && (
-                      <p className="text-xs text-muted-foreground">{place.country}</p>
-                    )}
+                {/* The reference's floating pill, with its margin — but under
+                    the map rather than on top of it. On a photograph it covers
+                    nothing; on a live map every corner is taken, and the bottom
+                    edge carries Google's required attribution. Inset in its own
+                    padded strip, it reads the same and hides nothing. */}
+                <div className="bg-card p-3">
+                  <div className="glass flex items-center gap-3 rounded-2xl px-4 py-3 shadow-soft">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                      <MapPin className="h-5 w-5" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{place.where}</p>
+                      {place.country && (
+                        <p className="text-xs text-muted-foreground">{place.country}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -618,7 +620,11 @@ export default function HomePage() {
                   <DialogTrigger asChild>
                     <button
                       type="button"
-                      className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary hover:text-primary"
+                      /* Full width on a phone, hugging its text from `sm` up.
+                         In a card that runs edge to edge, a short outline button
+                         floating at the bottom left reads as an afterthought —
+                         and it is the only thing in this section to press. */
+                      className="mt-8 inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary hover:text-primary sm:w-auto sm:min-h-11"
                     >
                       <MessageCircle className="h-4 w-4" aria-hidden />
                       {text(host, 'ctaLabel', home.contactHost)}
