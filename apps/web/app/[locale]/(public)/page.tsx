@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -11,9 +12,16 @@ import {
   Quote,
   ShieldCheck,
   Star,
+  X,
 } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@areia-bela/ui/dialog'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from '@areia-bela/ui/dialog'
 import { HomeHero } from '@/components/public/home-hero'
 import { PhotoGallery } from '@/components/public/photo-gallery'
 import { HouseDetails } from '@/components/public/house-details'
@@ -388,46 +396,13 @@ export default function HomePage() {
             {shownReviews.length > 0 && (
               <div className="grid gap-5 sm:grid-cols-2">
                 {shownReviews.map((review) => (
-                  <figure
+                  <ReviewCard
                     key={review.id}
-                    className="flex flex-col rounded-3xl border border-border bg-card p-6 shadow-soft transition-all hover:-translate-y-1 hover:shadow-float"
-                  >
-                    <Quote className="h-7 w-7 text-primary/25" fill="currentColor" aria-hidden />
-                    <blockquote className="mt-3 flex-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
-                      {review.text}
-                    </blockquote>
-                    <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
-                      {/* Her photo when there is one, her initial when there is
-                          not — an empty circle says nothing about who wrote
-                          this. */}
-                      {review.authorPhotoUrl ? (
-                        <Image
-                          src={review.authorPhotoUrl}
-                          alt=""
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 shrink-0 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span
-                          aria-hidden
-                          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 font-display text-sm font-semibold text-primary"
-                        >
-                          {review.authorName.charAt(0)}
-                        </span>
-                      )}
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {review.authorName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {review.verified ? ui.verifiedStay : ''}
-                          {review.verified && review.stayedAt ? ' · ' : ''}
-                          {review.stayedAt ?? ''}
-                        </p>
-                      </div>
-                    </figcaption>
-                  </figure>
+                    review={review}
+                    verifiedLabel={ui.verifiedStay}
+                    readLabel={ui.readReview}
+                    closeLabel={ui.closeGallery}
+                  />
                 ))}
               </div>
             )}
@@ -647,5 +622,124 @@ export default function HomePage() {
         </section>
       )}
     </div>
+  )
+}
+
+/**
+ * One quote, and the whole quote behind a click.
+ *
+ * Guests write however long they like: one review here runs eleven lines and
+ * the next runs two, which left the grid with a tall card beside an almost
+ * empty one. The card clamps to six lines so the four read as a set, and the
+ * card itself is the button that opens the rest — clamping text without a way
+ * to reach what was cut is just hiding it.
+ */
+function ReviewCard({
+  review,
+  verifiedLabel,
+  readLabel,
+  closeLabel,
+}: {
+  review: {
+    id: string
+    text: string
+    authorName: string
+    authorPhotoUrl?: string | null
+    stayedAt?: string | null
+    verified?: boolean
+  }
+  verifiedLabel: string
+  readLabel: string
+  closeLabel: string
+}) {
+  const meta = [review.verified ? verifiedLabel : null, review.stayedAt].filter(Boolean).join(' · ')
+  /**
+   * Whether the clamp actually cut anything.
+   *
+   * Measured rather than guessed from a character count: the clamp is six
+   * lines, and how many characters fit in six lines depends on the column, the
+   * language and where the guest pressed Enter. A "read the full review" under
+   * a review that is already complete is a promise of something more.
+   */
+  const textRef = useRef<HTMLParagraphElement>(null)
+  const [clamped, setClamped] = useState(false)
+  useEffect(() => {
+    const element = textRef.current
+    if (element) setClamped(element.scrollHeight > element.clientHeight + 1)
+  }, [review.text])
+
+  /* Her photo when there is one, her initial when there is not — an empty
+     circle says nothing about who wrote this. */
+  const author = (
+    <>
+      {review.authorPhotoUrl ? (
+        <Image
+          src={review.authorPhotoUrl}
+          alt=""
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 rounded-full object-cover"
+        />
+      ) : (
+        <span
+          aria-hidden
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 font-display text-sm font-semibold text-primary"
+        >
+          {review.authorName.charAt(0)}
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-foreground">{review.authorName}</p>
+        {meta && <p className="text-xs text-muted-foreground">{meta}</p>}
+      </div>
+    </>
+  )
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        {/* The card is the control, not a link buried inside it: a quote you
+            can only half read is asking to be tapped anywhere. */}
+        <button
+          type="button"
+          aria-label={`${readLabel}: ${review.authorName}`}
+          className="flex flex-col rounded-3xl border border-border bg-card p-6 text-left shadow-soft transition-all hover:-translate-y-1 hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Quote className="h-7 w-7 text-primary/25" fill="currentColor" aria-hidden />
+          <p
+            ref={textRef}
+            className="mt-3 line-clamp-6 flex-1 whitespace-pre-line text-sm leading-relaxed text-foreground"
+          >
+            {review.text}
+          </p>
+          {clamped && <span className="mt-3 text-sm font-semibold text-primary">{readLabel}</span>}
+          <span className="mt-5 flex items-center gap-3 border-t border-border pt-4">{author}</span>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[85vh] max-w-lg overflow-y-auto rounded-3xl border-border bg-card p-6 sm:p-8"
+      >
+        <DialogTitle className="sr-only">{`${readLabel}: ${review.authorName}`}</DialogTitle>
+        <DialogClose asChild>
+          <button
+            type="button"
+            className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-secondary text-foreground transition-colors hover:bg-muted"
+          >
+            <X className="h-4 w-4" aria-hidden />
+            <span className="sr-only">{closeLabel}</span>
+          </button>
+        </DialogClose>
+
+        <Quote className="h-8 w-8 text-primary/25" fill="currentColor" aria-hidden />
+        <blockquote className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-foreground">
+          {review.text}
+        </blockquote>
+        <figcaption className="mt-6 flex items-center gap-3 border-t border-border pt-4">
+          {author}
+        </figcaption>
+      </DialogContent>
+    </Dialog>
   )
 }
