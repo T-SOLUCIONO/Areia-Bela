@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Grid2x2, X } from 'lucide-react'
+import { ArrowUpRight, X } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@areia-bela/ui/dialog'
 import {
@@ -36,66 +36,36 @@ function captionOf(photo: { caption?: string }, fallback: string): string {
   return photo.caption?.trim() || fallback
 }
 
+/**
+ * All forty-six photos, behind one button.
+ *
+ * It used to draw a five-tile mosaic of its own with the button pinned in a
+ * corner. The section around it now shows the house through the three cards the
+ * host writes in the panel and the two photos under them, so a second grid of
+ * the same photographs directly above them was the page saying the same thing
+ * twice. What is left is what the mosaic could not do: every photo, full size,
+ * with a keyboard-navigable carousel.
+ */
 export function PhotoGallery({ photos, propertyName, showAllLabel, closeLabel }: Props) {
   const [open, setOpen] = useState(false)
-  const [startIndex, setStartIndex] = useState(0)
+  const [startIndex] = useState(0)
 
-  const openAt = (index: number) => {
-    setStartIndex(index)
-    setOpen(true)
-  }
-
-  const tiles = photos.slice(0, 5)
-  const hero = tiles[0]
-  const thumbs = tiles.slice(1, 5)
-
-  if (!hero) return null
+  if (photos.length === 0) return null
 
   return (
     <>
-      <div className="grid grid-cols-4 grid-rows-2 gap-2 overflow-hidden rounded-[28px] sm:gap-3">
-        <button
-          type="button"
-          onClick={() => openAt(0)}
-          className="relative col-span-4 row-span-2 aspect-[4/3] overflow-hidden sm:col-span-2 sm:aspect-auto"
-        >
-          <Image
-            src={hero.large}
-            alt={captionOf(hero, propertyName)}
-            fill
-            className="object-cover transition-transform duration-700 hover:scale-[1.03]"
-            priority
-          />
-        </button>
-
-        {thumbs.map((photo, index) => (
-          <button
-            key={photo.id}
-            type="button"
-            onClick={() => openAt(index + 1)}
-            className={cn(
-              'relative hidden aspect-square overflow-hidden sm:block',
-              index < 2 ? 'sm:col-span-1' : 'sm:col-span-1',
-            )}
-          >
-            <Image
-              src={photo.large}
-              alt={captionOf(photo, propertyName)}
-              fill
-              className="object-cover transition-transform duration-700 hover:scale-[1.03]"
-            />
-          </button>
-        ))}
-
-        <button
-          type="button"
-          onClick={() => openAt(0)}
-          className="absolute bottom-4 right-4 flex min-h-11 items-center gap-2 rounded-full bg-card px-4 text-sm font-medium text-foreground shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition hover:bg-muted"
-        >
-          <Grid2x2 className="h-4 w-4" />
-          {showAllLabel}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4',
+          'text-sm font-semibold text-foreground shadow-soft transition-all',
+          'hover:-translate-y-0.5 hover:border-primary hover:text-primary',
+        )}
+      >
+        {showAllLabel}
+        <ArrowUpRight className="h-4 w-4" aria-hidden />
+      </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent

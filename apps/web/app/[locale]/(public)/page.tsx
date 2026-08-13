@@ -16,6 +16,7 @@ import { translations } from '@/lib/i18n'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { itemsOf } from '@/lib/cms-public'
 import { ContentIcon } from '@/lib/content-icons'
+import { cn } from '@/lib/utils'
 
 const bundledImages = propertyData.photos?.map((photo) => photo.large) ?? propertyInfo.images
 
@@ -26,10 +27,11 @@ export default function HomePage() {
 
   // The gallery the host curates in /admin/content wins; the images bundled
   // from the original listing are the fallback for a cold or offline API.
-  const galleryImages =
+  const galleryPhotos =
     siteContent && siteContent.images.length > 0
-      ? siteContent.images.map((image) => image.url)
-      : bundledImages
+      ? siteContent.images
+      : bundledImages.map((url) => ({ url, alt: propertyData.name }))
+  const galleryImages = galleryPhotos.map((photo) => photo.url)
   // Sections and reviews come from /admin/content. When the API is unreachable
   // `sections` is empty and each block falls back to the bundled copy below.
   // True once the CMS has answered. A section missing from `sections` then
@@ -51,6 +53,21 @@ export default function HomePage() {
   const host = sections?.HOST
 
   const featureCards = itemsOf(features, 'FEATURE_CARD')
+  /**
+   * The two wide photos under the cards.
+   *
+   * Chosen by elimination rather than by index: whatever the cards above are
+   * already showing is skipped, and so is the first photo — the panel calls it
+   * "la portada" and the hero opens on it. Reordering the gallery in the panel
+   * never puts the same kitchen twice on the same screen.
+   */
+  const usedInCards = new Set(
+    featureCards.map((card) => card.imageUrl).filter((url): url is string => Boolean(url)),
+  )
+  const stripPhotos = galleryPhotos
+    .slice(1)
+    .filter((photo) => !usedInCards.has(photo.url))
+    .slice(0, 2)
   const amenityTags = itemsOf(amenities, 'AMENITY')
   const reviewScores = itemsOf(reviewsSection, 'REVIEW_RATING')
   const highlights = itemsOf(location, 'LOCATION_HIGHLIGHT')
@@ -155,62 +172,104 @@ export default function HomePage() {
       {shows(features) && (
         <section
           id="gallery"
-          className="scroll-mt-24 relative overflow-hidden py-10 sm:py-12 lg:py-14"
+          className="mx-auto max-w-6xl scroll-mt-24 px-4 py-20 sm:px-6 lg:py-28"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_32%),linear-gradient(180deg,rgba(247,242,234,0.96)_0%,rgba(247,242,234,0.9)_100%)]" />
-
-          <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-px w-12 bg-primary/30" />
-              <h2 className="font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
+          {/* Heading on the left, the way in to the photos on the right — not a
+              centred stack. The eye starts where the text starts. */}
+          <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
+            <div className="max-w-2xl">
+              {/* Only when the host has written one. The reference carries an
+                  eyebrow here ("Cada detalle cuenta") and this section's is
+                  empty in the panel; a phrase invented in the code would be a
+                  phrase she cannot edit. */}
+              {features?.eyebrow && (
+                <span className="text-sm font-semibold uppercase tracking-widest text-primary">
+                  {features.eyebrow}
+                </span>
+              )}
+              <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
                 {text(features, 'title', home.galleryTitle)}
               </h2>
             </div>
 
-            <div className="relative mt-8">
-              <PhotoGallery
-                photos={propertyData.photos}
-                propertyName={propertyData.name}
-                showAllLabel={home.showAllPhotos}
-                closeLabel={ui.closeGallery}
-              />
-            </div>
-
-            {featureCards.length > 0 && (
-              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {featureCards.map((card, index) => {
-                  const title = card.label
-                  return (
-                    <article
-                      key={card.id}
-                      className="overflow-hidden rounded-[28px] border border-border bg-card/90 shadow-[0_18px_50px_rgba(15,23,42,0.06)]"
-                    >
-                      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
-                        <Image
-                          // A card with no image of its own borrows one from the
-                          // gallery rather than leaving a hole in the grid.
-                          src={card.imageUrl ?? galleryImages[index + 1] ?? galleryImages[0]}
-                          alt={title}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          className="object-cover transition-transform duration-700 hover:scale-[1.03]"
-                        />
-                      </div>
-                      <div className="p-5">
-                        <div className="flex items-center gap-2 text-primary">
-                          <ContentIcon name={card.icon} className="h-5 w-5" />
-                          <h3 className="font-serif text-2xl text-foreground">{title}</h3>
-                        </div>
-                        <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
-                          {card.body}
-                        </p>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            )}
+            <PhotoGallery
+              photos={propertyData.photos}
+              propertyName={propertyData.name}
+              showAllLabel={home.showAllPhotos}
+              closeLabel={ui.closeGallery}
+            />
           </div>
+
+          {featureCards.length > 0 && (
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {featureCards.map((card, index) => {
+                const title = card.label
+                return (
+                  <article
+                    key={card.id}
+                    className={cn(
+                      'group relative overflow-hidden rounded-3xl border border-border bg-card shadow-soft',
+                      'transition-all duration-300 hover:-translate-y-1 hover:shadow-float',
+                      // The first card runs tall, which is what stops three
+                      // equal boxes from reading as a form.
+                      index === 0 && 'lg:row-span-2',
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'relative w-full overflow-hidden bg-muted',
+                        index === 0 ? 'aspect-[4/5]' : 'aspect-[16/10]',
+                      )}
+                    >
+                      <Image
+                        // A card with no image of its own borrows one from the
+                        // gallery rather than leaving a hole in the grid.
+                        src={card.imageUrl ?? galleryImages[index + 1] ?? galleryImages[0]}
+                        alt={title}
+                        fill
+                        sizes="(max-width: 1024px) 100vw, 33vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      {/* The photo darkens towards the bottom so the icon chip
+                          and the card's own edge stay readable over whatever
+                          the host uploads. */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-ocean-deep/70 via-transparent to-transparent" />
+                      <span className="glass absolute left-4 top-4 grid size-11 place-items-center rounded-2xl text-primary shadow-soft">
+                        <ContentIcon name={card.icon} className="h-5 w-5" />
+                      </span>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-display text-xl font-semibold text-foreground">
+                        {title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        {card.body}
+                      </p>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+
+          {stripPhotos.length > 0 && (
+            <div className="mt-6 grid gap-6 sm:grid-cols-2">
+              {stripPhotos.map((photo) => (
+                <div
+                  key={photo.url}
+                  className="group relative aspect-[16/9] overflow-hidden rounded-3xl border border-border shadow-soft"
+                >
+                  <Image
+                    src={photo.url}
+                    alt={photo.alt}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 50vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
