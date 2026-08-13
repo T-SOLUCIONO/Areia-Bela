@@ -319,19 +319,6 @@
     -webkit-backdrop-filter: blur(20px) saturate(160%);
     border: 1px solid color-mix(in oklab, var(--card) 60%, transparent);
   }
-  /* The same frost, less of it.
-   *
-   * `.glass` is for surfaces that carry a handful of words. The quoter carries
-   * dark ink, faint field borders and a price over a hero photo that rotates
-   * through twelve images — at 72% its price line measured 3.17:1 against the
-   * darkest of them, and at 88% still 4.36. 92% is what measured clear, and it
-   * keeps a hint of the water; a brighter photo only helps. */
-  .glass-strong {
-    background: color-mix(in oklab, var(--card) 92%, transparent);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border: 1px solid color-mix(in oklab, var(--card) 60%, transparent);
-  }
   .glass-dark {
     background: color-mix(in oklab, var(--ocean-deep) 55%, transparent);
     backdrop-filter: blur(18px) saturate(150%);

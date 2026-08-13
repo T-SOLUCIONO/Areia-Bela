@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { de, enUS, es, fr, ptBR } from 'date-fns/locale'
-import { ChevronDown, ShieldCheck, X } from 'lucide-react'
+import { ChevronDown, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@areia-bela/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@areia-bela/ui/popover'
@@ -80,6 +80,8 @@ export function AvailabilityCard({ className }: Props) {
   const router = useRouter()
   const { language } = useLanguage()
   const copy = translations[language].availability
+  // "Desde" and "/ noche" live with the price strings, not with the calendar's.
+  const fromCopy = translations[language].quote
   const locale = { es, en: enUS, pt: ptBR, fr, de }[language]
   /**
    * Empty until the guest picks.
@@ -154,6 +156,16 @@ export function AvailabilityCard({ className }: Props) {
       setUnavailable(taken)
     })
   }, [])
+
+  /**
+   * The cheapest night the server knows about, for the "from" price.
+   *
+   * Taken from the year of rates this card already fetches, not from the number
+   * bundled in `property-data.ts`: a rate typed into the frontend is one that
+   * goes stale in silence, and in this project the server owns pricing. Null
+   * until that request lands, which is what the header falls back on.
+   */
+  const fromRate = rates.size > 0 ? Math.min(...rates.values()) : null
 
   const [quote, setQuote] = useState<BookingQuote | null>(null)
   const [isPricing, setIsPricing] = useState(false)
@@ -255,33 +267,53 @@ export function AvailabilityCard({ className }: Props) {
 
   return (
     <aside
-      /* Frosted rather than a solid white slab: it sits on the hero photo, and
-         the reference lets the water show through it. `.glass-strong` rather
-         than `.glass` because this card carries ink, not a logotype — see the
-         note on the utility. Both are built from `--card`, so they frost in
-         either theme instead of dropping a bright panel into a dark page. */
-      className={cn('glass-strong shadow-float w-full rounded-3xl p-5 sm:p-6', className)}
+      /* Frosted rather than a solid white slab: it sits on the hero photo and
+         the reference lets the water show through it, at the reference's own
+         72%. Built from `--card`, so it frosts in either theme instead of
+         dropping a bright panel into a dark page.
+
+         What that transparency costs is legibility for grey text, so the lines
+         inside carry full-strength ink instead — see the note on the header. */
+      className={cn('glass shadow-float w-full rounded-3xl p-5 sm:p-6', className)}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        {quote ? (
-          <p className="text-[15px] text-muted-foreground">
-            <span className="text-[26px] font-semibold text-foreground underline decoration-slate-900/25 underline-offset-4">
-              {currency(quote.total)} USD
-            </span>{' '}
-            {quote.nights === 1
-              ? copy.perNightOne
-              : fill(copy.perNights, { count: String(quote.nights) })}
-          </p>
-        ) : isPricing ? (
-          // The dates are chosen; only the figure is missing. Saying "pick
-          // your dates" here would be telling the guest to redo what they
-          // just did.
-          <span className="h-8 w-44 animate-pulse rounded-full bg-muted" aria-hidden />
-        ) : (
-          <p className="text-[15px] text-muted-foreground">{copy.pickDates}</p>
-        )}
-        <span className="rounded-full bg-amber-50 dark:bg-amber-950 px-3 py-1 text-[11px] font-medium text-amber-800 dark:text-amber-200 ring-1 ring-amber-200/70">
-          {copy.guaranteed}
+      {/* The price, then the promise.
+
+          Every line here is `text-foreground`, not the reference's grey: the
+          card is 72% opaque and sits on a hero photo that rotates through
+          twelve images, where the muted token measured 3.17:1 against the
+          brightest of them. The typographic hierarchy comes from size and
+          weight, which a photograph cannot take away. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0">
+          {quote ? (
+            <p className="text-[15px] text-foreground">
+              <span className="font-display text-[26px] font-semibold underline decoration-foreground/25 underline-offset-4">
+                {currency(quote.total)} USD
+              </span>{' '}
+              {quote.nights === 1
+                ? copy.perNightOne
+                : fill(copy.perNights, { count: String(quote.nights) })}
+            </p>
+          ) : isPricing ? (
+            // The dates are chosen; only the figure is missing. Saying "pick
+            // your dates" here would be telling the guest to redo what they
+            // just did.
+            <span className="block h-8 w-44 animate-pulse rounded-full bg-muted" aria-hidden />
+          ) : fromRate ? (
+            <>
+              <p className="text-sm font-medium text-foreground">{fromCopy.from}</p>
+              <p className="font-display text-3xl font-semibold text-foreground">
+                {currency(fromRate)}{' '}
+                <span className="text-base font-normal">{fromCopy.perNight}</span>
+              </p>
+            </>
+          ) : (
+            <p className="text-[15px] text-foreground">{copy.pickDates}</p>
+          )}
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sand px-3 py-1.5 text-xs font-semibold text-sand-foreground">
+          <Sparkles className="h-3.5 w-3.5" aria-hidden />
+          {copy.bestRate}
         </span>
       </div>
 
@@ -442,7 +474,10 @@ export function AvailabilityCard({ className }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="w-full rounded-b-[14px] border border-border bg-card px-4 py-2.5 text-left transition hover:bg-muted"
+            /* Transparent like the date boxes above it. A solid `bg-card` here
+               put an opaque white slab in the middle of a frosted card, which
+               made the guest row look like a different component. */
+            className="w-full rounded-b-[14px] border border-border px-4 py-2.5 text-left transition hover:bg-secondary/60"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -549,7 +584,7 @@ export function AvailabilityCard({ className }: Props) {
       )}
 
       {quote && !stayLength && (
-        <p className="mt-4 rounded-2xl bg-muted px-4 py-3 text-center text-[13px] text-muted-foreground">
+        <p className="mt-4 rounded-2xl bg-muted px-4 py-3 text-center text-[13px] text-foreground">
           {fill(copy.cancelBefore, { date: cancellationDate })}
         </p>
       )}
@@ -565,10 +600,13 @@ export function AvailabilityCard({ className }: Props) {
       </Button>
 
       {/* Says out loud that the button does not take money — the single line
-          that stops people hesitating over a booking button. */}
-      <p className="mt-3 text-center text-[13px] text-muted-foreground">{copy.noChargeYet}</p>
+          that stops people hesitating over a booking button.
 
-      <div className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
+          Full-strength ink, like everything else that sits straight on the
+          frosted surface: the muted token measured 4.2:1 there. */}
+      <p className="mt-3 text-center text-[13px] text-foreground">{copy.noChargeYet}</p>
+
+      <div className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm text-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-800 dark:text-amber-200" />
         <span>{copy.footer}</span>
       </div>
