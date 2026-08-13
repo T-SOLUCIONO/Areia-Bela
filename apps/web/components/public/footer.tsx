@@ -3,9 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { MapPin, Phone, Mail, ArrowUpRight } from 'lucide-react'
-import { Button } from '@areia-bela/ui/button'
 import { propertyInfo } from '@/lib/mock-data'
-import { propertyData } from '@/lib/property-data'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { translations } from '@/lib/i18n'
@@ -13,7 +11,6 @@ import { translations } from '@/lib/i18n'
 export function Footer() {
   const { language } = useLanguage()
   const copy = translations[language].footer
-  const perNight = translations[language].quote.perNight
 
   // Contact details are editable in /admin/settings; the bundled values are
   // the fallback when the API is unreachable.
@@ -31,43 +28,31 @@ export function Footer() {
   ].filter((link): link is { href: string; label: string } => Boolean(link.href))
 
   return (
-    <footer className="border-t border-border/70 bg-card/70 backdrop-blur">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-[1.3fr_0.9fr_0.8fr]">
-          <div className="space-y-4">
-            <div>
-              <Image
-                src={logo}
-                alt="Areia Bela"
-                width={220}
-                height={72}
-                className="h-auto w-[200px]"
-              />
-            </div>
-            <p className="max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                <span>{propertyInfo.address}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                <span>{phone}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span>{email}</span>
-              </div>
-            </div>
+    /* Slim, the way the reference ends: a line of who and where, not a wall of
+       columns. What the reference does not have — a telephone, an address, an
+       inbox, the accounts the host actually answers on — stays, because a guest
+       reaching for the phone number should not have to hunt for it. */
+    <footer className="border-t border-border">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-sm space-y-4">
+            <Image
+              src={logo}
+              alt="Areia Bela"
+              width={200}
+              height={80}
+              className="h-10 w-auto dark:brightness-0 dark:invert"
+            />
+            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
             {social.length > 0 && (
-              <div className="flex flex-wrap gap-4 pt-1 text-sm">
+              <div className="flex flex-wrap gap-4 text-sm">
                 {social.map((link) => (
                   <a
                     key={link.label}
                     href={link.href}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    className="inline-flex min-h-11 items-center text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                   >
                     {link.label}
                   </a>
@@ -76,54 +61,66 @@ export function Footer() {
             )}
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-              {copy.explore}
-            </h3>
-            <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-              <Link
-                href="#gallery"
-                className="inline-flex min-h-11 items-center justify-between rounded-full border border-border/70 px-4 transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {copy.photos} <ArrowUpRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="#amenities"
-                className="inline-flex min-h-11 items-center justify-between rounded-full border border-border/70 px-4 transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {copy.services} <ArrowUpRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="#reviews"
-                className="inline-flex min-h-11 items-center justify-between rounded-full border border-border/70 px-4 transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {copy.reviews} <ArrowUpRight className="h-4 w-4" />
-              </Link>
+          <div className="grid gap-8 sm:grid-cols-2 lg:gap-16">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-primary">
+                {copy.explore}
+              </h3>
+              <ul className="mt-4 space-y-1 text-sm">
+                {[
+                  { href: '#gallery', label: copy.photos },
+                  { href: '#amenities', label: copy.services },
+                  { href: '#reviews', label: copy.reviews },
+                ].map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="inline-flex min-h-11 items-center gap-1.5 text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      {item.label}
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-              {copy.reserve}
-            </h3>
-            <div className="rounded-3xl border border-border/70 bg-background p-5">
-              <p className="text-sm text-muted-foreground">{copy.from}</p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">
-                ${propertyData.pricing.price_per_night}{' '}
-                <span className="text-sm font-normal text-muted-foreground">{perNight}</span>
-              </p>
-              <Button
-                asChild
-                className="mt-4 h-11 w-full rounded-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90 text-primary-foreground"
-              >
-                <Link href="#reservar">{copy.availability}</Link>
-              </Button>
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-primary">
+                {copy.contact}
+              </h3>
+              <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
+                <li>
+                  <a
+                    href={`tel:${phone.replace(/[^\d+]/g, '')}`}
+                    className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-primary"
+                  >
+                    <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                    {phone}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`mailto:${email}`}
+                    className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-primary"
+                  >
+                    <Mail className="h-4 w-4 shrink-0" aria-hidden />
+                    {email}
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 border-t border-border/70 pt-5 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} Areia Bela. {copy.rights}
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row">
+          <p className="flex items-center gap-2">
+            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {propertyInfo.address}
+          </p>
+          <p>
+            &copy; {new Date().getFullYear()} Areia Bela. {copy.rights}
+          </p>
         </div>
       </div>
     </footer>

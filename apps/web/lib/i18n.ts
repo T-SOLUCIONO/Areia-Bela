@@ -311,7 +311,7 @@ export const translations = {
       description:
         'Premium getaway near Madeira Beach with a heated pool, coffee bar, and self check-in for a smooth stay.',
       explore: 'Explore',
-      reserve: 'Reserve',
+      contact: 'Contact',
       photos: 'Photos',
       services: 'Amenities',
       reviews: 'Reviews',
@@ -612,7 +612,7 @@ export const translations = {
       description:
         'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
       explore: 'Explorar',
-      reserve: 'Reservar',
+      contact: 'Contacto',
       photos: 'Fotos',
       services: 'Servicios',
       reviews: 'Reseñas',
@@ -911,7 +911,7 @@ export const translations = {
       description:
         'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
       explore: 'Explorar',
-      reserve: 'Reservar',
+      contact: 'Contato',
       photos: 'Fotos',
       services: 'Comodidades',
       reviews: 'Avaliações',
@@ -1213,7 +1213,7 @@ export const translations = {
       description:
         'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
       explore: 'Explorer',
-      reserve: 'Réserver',
+      contact: 'Contact',
       photos: 'Photos',
       services: 'Équipements',
       reviews: 'Avis',
@@ -1516,7 +1516,7 @@ export const translations = {
       description:
         'Escapada premium junto a Madeira Beach con piscina climatizada, coffee bar y self check-in para viajar sin fricción.',
       explore: 'Entdecken',
-      reserve: 'Buchen',
+      contact: 'Kontakt',
       photos: 'Fotos',
       services: 'Ausstattung',
       reviews: 'Bewertungen',

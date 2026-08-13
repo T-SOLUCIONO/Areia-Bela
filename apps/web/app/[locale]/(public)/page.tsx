@@ -2,7 +2,16 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Award, BadgeCheck, MapPin, MessageCircle, Quote, Sparkles, Star } from 'lucide-react'
+import {
+  Award,
+  BadgeCheck,
+  ChevronRight,
+  MapPin,
+  MessageCircle,
+  Quote,
+  ShieldCheck,
+  Star,
+} from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@areia-bela/ui/dialog'
 import { HomeHero } from '@/components/public/home-hero'
@@ -509,29 +518,6 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-
-                {/* Stays here for one more commit. This is the closing panel's
-                    content in the reference, and the closing panel arrives with
-                    the footer — moving it out now would just make it vanish. */}
-                {shows(directBooking) && (
-                  <div className="mt-8 rounded-3xl bg-panel p-6 text-panel-foreground shadow-float">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-accent" aria-hidden />
-                      <span className="text-sm font-semibold uppercase tracking-widest">
-                        {text(directBooking, 'title', home.directTitle)}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-relaxed text-panel-muted">
-                      {text(directBooking, 'body', home.directBody)}
-                    </p>
-                    <Link
-                      href={directBooking?.ctaHref || '#reservar'}
-                      className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-accent-foreground transition-all hover:-translate-y-0.5"
-                    >
-                      {text(directBooking, 'ctaLabel', home.directCta)}
-                    </Link>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -603,6 +589,61 @@ export default function HomePage() {
                     <ContactSection />
                   </DialogContent>
                 </Dialog>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* The closing panel: the last thing on the page is the reason the guest
+          came. Navy in both themes, like every dark panel in this design, so it
+          reads as the end of the page whatever the theme is doing. */}
+      {shows(directBooking) && (
+        <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+          <div className="relative overflow-hidden rounded-3xl bg-ocean-deep p-8 shadow-float sm:p-12 lg:p-16">
+            {galleryImages[0] && (
+              <div className="absolute inset-0 opacity-30">
+                <Image
+                  src={galleryImages[0]}
+                  alt=""
+                  aria-hidden
+                  fill
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-r from-ocean-deep via-ocean-deep/90 to-ocean-deep/60" />
+
+            {/* `text-white` rather than `text-foreground`: this panel is navy in
+                both themes, so a token that flips would take the text with it. */}
+            <div className="relative z-10 max-w-xl text-white">
+              <span className="glass-dark inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium">
+                <Star className="h-3.5 w-3.5 fill-current text-accent" aria-hidden />
+                {/* The panel's own promise, not a second copy of the heading:
+                    this section has no eyebrow in /admin/content, and the
+                    guarantee is already translated in all five locales. */}
+                {translations[language].availability.guaranteed}
+              </span>
+              <h2 className="mt-5 text-balance font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+                {text(directBooking, 'title', home.directTitle)}
+              </h2>
+              <p className="mt-4 text-pretty leading-relaxed text-white/90">
+                {text(directBooking, 'body', home.directBody)}
+              </p>
+
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <Link
+                  href={directBooking?.ctaHref || '#reservar'}
+                  className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-float transition-all hover:-translate-y-0.5"
+                >
+                  {text(directBooking, 'ctaLabel', home.directCta)}
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </Link>
+                <span className="inline-flex items-center gap-2 text-sm text-white/90">
+                  <ShieldCheck className="h-4 w-4 text-accent" aria-hidden />
+                  {translations[language].availability.noChargeYet}
+                </span>
               </div>
             </div>
           </div>
