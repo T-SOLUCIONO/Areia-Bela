@@ -764,7 +764,15 @@ function ReviewCard({
           >
             {review.text}
           </p>
-          {clamped && <span className="mt-3 text-sm font-semibold text-primary">{readLabel}</span>}
+          {/* Ink with a teal rule under it, not teal type. `--primary` is the
+              reference's exact turquoise and it measures 4.37:1 on a white card
+              — fine for a decorative eyebrow, not for the one line that tells
+              you there is more to read. The colour stays, as the underline. */}
+          {clamped && (
+            <span className="mt-3 text-sm font-semibold text-foreground underline decoration-primary decoration-2 underline-offset-4">
+              {readLabel}
+            </span>
+          )}
           <span className="mt-5 flex items-center gap-3 border-t border-border pt-4">{author}</span>
         </button>
       </DialogTrigger>
