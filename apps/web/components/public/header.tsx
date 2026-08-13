@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Check, Globe, Menu } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import {
@@ -81,10 +82,28 @@ function LanguageMenu({ compact = false }: { compact?: boolean }) {
   )
 }
 
+/**
+ * The floating bar: a frosted pill that hovers over the page, rather than a
+ * full-width bar welded to the top with a border under it.
+ *
+ * On the landing it is `fixed`, so the hero photo runs the full height of the
+ * window underneath it and the bar floats on the image. Every other public page —
+ * checkout, confirmation, my booking — starts with content at the top and has no
+ * photo to float over, so there the bar is `sticky` and occupies its own space
+ * instead of covering the first thing the guest came to read.
+ *
+ * The reference drops the glass entirely while the bar sits on the hero and only
+ * frosts it once you scroll past. That state is not here yet on purpose: it needs
+ * the hero's dark scrim to be legible, and over today's light hero the nav
+ * measures 1.9:1. It arrives with the hero.
+ */
 export function Header() {
   // Editable in /admin/settings; the bundled mark is the fallback.
   const logo = useSiteContent()?.settings?.logoUrl ?? '/areia-bela-logo.png'
   const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
+  // `/es`, `/en`… and nothing deeper: the landing is the only page with a hero.
+  const overHero = /^\/[a-z]{2}\/?$/.test(pathname ?? '')
   // Choosing a language is LanguageMenu's job now; this only reads it.
   const { language } = useLanguage()
   const copy = translations[language]
@@ -111,43 +130,70 @@ export function Header() {
     .filter((item): item is { name: string; href: string } => Boolean(item.name?.trim()))
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/70">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
+    /* `pointer-events-none` on the frame, restored on the pill: the padding
+       around a fixed bar is a transparent strip the width of the page, and it
+       would otherwise swallow every click landing near the top of the hero. */
+    <header
+      className={cn(
+        'inset-x-0 top-0 z-50 pointer-events-none px-3 pt-3 sm:px-5 sm:pt-4',
+        overHero ? 'fixed' : 'sticky pb-3 sm:pb-4',
+      )}
+    >
+      <div className="glass shadow-soft pointer-events-auto mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-2xl px-4 py-3 transition-all duration-300 sm:px-6">
+        <Link href="/" className="flex min-h-11 items-center">
           <Image
             src={logo}
             alt="Areia Bela"
             width={170}
-            height={56}
-            className="h-auto w-[170px] sm:w-[190px]"
+            height={68}
+            // Height-bound rather than width-bound: the pill is 68px tall and a
+            // 170px-wide logo of unknown aspect ratio decides how tall it wants
+            // to be. The host can swap the file in /admin/settings without the
+            // header changing height.
+            //
+            // Flattened to white in dark mode. The mark is black ink on a
+            // transparent ground, drawn for a white page: on the dark pill the
+            // wordmark all but disappeared while the teal starfish stayed. One
+            // file, both themes — better than asking the host for a second logo.
+            className="h-9 w-auto sm:h-10 dark:brightness-0 dark:invert"
           />
         </Link>
 
-        <nav className="hidden items-center gap-2 lg:flex">
+        <nav className="hidden items-center gap-1 lg:flex">
           {navigation.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              /* Full-strength ink, not the reference's muted grey. Frosted glass
+                 is 72% opaque, so on the landing these links sit on the hero
+                 photo showing through — where the muted token measured 3.49:1
+                 against the brightest part of the pool. Muted returns when the
+                 bar stops resting on the photo. */
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary hover:text-primary"
             >
               {item.name}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <Button asChild variant="brand" size="lg" className="font-semibold">
-            <Link href="#reservar">{copy.bookNow}</Link>
-          </Button>
+        <div className="hidden items-center gap-2 lg:flex">
           <ThemeToggle darkLabel={copy.ui.themeDark} lightLabel={copy.ui.themeLight} />
           <LanguageMenu />
+          {/* Navy rather than teal, and last in the row: it is the one thing on
+              this bar the guest is meant to press. */}
+          <Link
+            href="#reservar"
+            className="inline-flex min-h-11 items-center rounded-xl bg-panel px-4 text-sm font-semibold text-panel-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-primary-foreground hover:shadow-glow"
+          >
+            {copy.bookNow}
+          </Link>
         </div>
 
         {/* Beside the menu button rather than inside the sheet. Changing
             language is a one-tap decision a visitor makes on arrival, and
             burying it behind the hamburger asked for two taps and a guess about
             where it lived. */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <ThemeToggle darkLabel={copy.ui.themeDark} lightLabel={copy.ui.themeLight} />
           <LanguageMenu compact />
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -165,7 +211,7 @@ export function Header() {
                     alt="Areia Bela"
                     width={220}
                     height={72}
-                    className="h-auto w-[220px]"
+                    className="h-auto w-[220px] dark:brightness-0 dark:invert"
                   />
                 </SheetTitle>
                 <SheetDescription className="text-[10px] uppercase tracking-[0.2em]">
