@@ -12,7 +12,6 @@ import { useSiteContent } from '@/components/public/site-content-provider'
 import { useLanguage } from '@/components/language-provider'
 import { ContentIcon } from '@/lib/content-icons'
 import { translations } from '@/lib/i18n'
-import { cn } from '@/lib/utils'
 
 /**
  * The order these read in on the page, and the icon each one carries.
@@ -124,70 +123,76 @@ export function HouseDetails({
             </ul>
           )}
 
-          {faqs.length > 0 && (
-            <Accordion type="single" collapsible className="flex flex-col gap-3">
-              {faqs.map((faq) => (
-                <AccordionItem key={faq.id} value={faq.id} className={ITEM}>
-                  <AccordionTrigger className={TRIGGER}>
-                    <span className="flex min-w-0 items-center gap-3">
-                      <MessageCircleQuestion
-                        className="h-5 w-5 shrink-0 text-primary/60 transition-colors group-data-[state=open]:text-primary"
-                        aria-hidden
-                      />
-                      <span className="font-display text-base font-semibold text-foreground">
-                        {faq.question}
+          {/* The questions and, under them, the long pages. Both are "things
+              the guest reads before booking", and putting the pages in a band of
+              their own across the full width made them look like a separate
+              section that had wandered in. */}
+          <div className="flex flex-col gap-3">
+            {faqs.length > 0 && (
+              <Accordion type="single" collapsible className="flex flex-col gap-3">
+                {faqs.map((faq) => (
+                  <AccordionItem key={faq.id} value={faq.id} className={ITEM}>
+                    <AccordionTrigger className={TRIGGER}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <MessageCircleQuestion
+                          className="h-5 w-5 shrink-0 text-primary/60 transition-colors group-data-[state=open]:text-primary"
+                          aria-hidden
+                        />
+                        <span className="font-display text-base font-semibold text-foreground">
+                          {faq.question}
+                        </span>
                       </span>
-                    </span>
-                    <ToggleChip />
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
-                      {faq.answer}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          )}
-        </div>
+                      <ToggleChip />
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
+                        {faq.answer}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
 
-        {sections.length > 0 && (
-          <>
-            <h3 className="mt-14 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-primary">
-              <BookOpen className="h-4 w-4" aria-hidden />
-              {copy.house}
-            </h3>
-            {/* Nada abierto al cargar. Abrir la primera por defecto obliga a quien
-                llega a cerrarla para ver el índice completo, y da a esa sección
-                una prominencia que no pidió nadie. */}
-            <Accordion type="single" collapsible className="mt-4 grid gap-3 lg:grid-cols-2">
-              {sections.map(({ slug, icon, page }) => (
-                <AccordionItem key={slug} value={slug} className={cn(ITEM, 'self-start')}>
-                  <AccordionTrigger className={TRIGGER}>
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-primary-foreground">
-                        <ContentIcon name={icon} className="h-4 w-4" />
-                      </span>
-                      <span className="font-display text-base font-semibold text-foreground">
-                        {page!.title}
-                      </span>
-                    </span>
-                    <ToggleChip />
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-3 px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
-                      {page!.body.split(/\n{2,}/).map((paragraph, index) => (
-                        <p key={index} className="whitespace-pre-line">
-                          {paragraph}
-                        </p>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </>
-        )}
+            {sections.length > 0 && (
+              <>
+                <h3 className="mt-6 flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-primary">
+                  <BookOpen className="h-4 w-4" aria-hidden />
+                  {copy.house}
+                </h3>
+                {/* Nada abierto al cargar. Abrir la primera por defecto obliga a
+                    quien llega a cerrarla para ver el índice completo, y da a esa
+                    sección una prominencia que no pidió nadie. */}
+                <Accordion type="single" collapsible className="flex flex-col gap-3">
+                  {sections.map(({ slug, icon, page }) => (
+                    <AccordionItem key={slug} value={slug} className={ITEM}>
+                      <AccordionTrigger className={TRIGGER}>
+                        <span className="flex min-w-0 items-center gap-3">
+                          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-primary-foreground">
+                            <ContentIcon name={icon} className="h-4 w-4" />
+                          </span>
+                          <span className="font-display text-base font-semibold text-foreground">
+                            {page!.title}
+                          </span>
+                        </span>
+                        <ToggleChip />
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3 px-5 pb-5 text-sm leading-relaxed text-muted-foreground">
+                          {page!.body.split(/\n{2,}/).map((paragraph, index) => (
+                            <p key={index} className="whitespace-pre-line">
+                              {paragraph}
+                            </p>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   )
