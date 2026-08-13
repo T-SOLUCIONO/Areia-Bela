@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils'
  *
  * `compact` only changes the trigger's footprint. What it opens is identical.
  */
-function LanguageMenu({ compact = false }: { compact?: boolean }) {
+function LanguageMenu({ compact = false, bare = false }: { compact?: boolean; bare?: boolean }) {
   const { language, setLanguage } = useLanguage()
   const copy = translations[language]
 
@@ -54,6 +54,8 @@ function LanguageMenu({ compact = false }: { compact?: boolean }) {
             // 44px is the touch minimum, and this one sits beside the menu
             // button where a mis-tap opens the wrong thing.
             compact && 'h-11 px-3',
+            // On the bare bar it is white on the photo, like everything else.
+            bare && 'border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white',
           )}
           aria-label={copy.ui.changeLanguage}
         >
@@ -92,18 +94,29 @@ function LanguageMenu({ compact = false }: { compact?: boolean }) {
  * photo to float over, so there the bar is `sticky` and occupies its own space
  * instead of covering the first thing the guest came to read.
  *
- * The reference drops the glass entirely while the bar sits on the hero and only
- * frosts it once you scroll past. That state is not here yet on purpose: it needs
- * the hero's dark scrim to be legible, and over today's light hero the nav
- * measures 1.9:1. It arrives with the hero.
+ * While it rests on the hero it drops the glass altogether: the photo runs
+ * uninterrupted from the top of the window and the bar reads as part of it. The
+ * moment it leaves the photo it takes on glass, because the same white type has
+ * nothing to sit on over a pale page.
  */
 export function Header() {
   // Editable in /admin/settings; the bundled mark is the fallback.
   const logo = useSiteContent()?.settings?.logoUrl ?? '/areia-bela-logo.png'
   const [isOpen, setIsOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
   // `/es`, `/en`… and nothing deeper: the landing is the only page with a hero.
   const overHero = /^\/[a-z]{2}\/?$/.test(pathname ?? '')
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Bare only while the bar is lying on the hero photo.
+  const glass = !overHero || scrolled
   // Choosing a language is LanguageMenu's job now; this only reads it.
   const { language } = useLanguage()
   const copy = translations[language]
@@ -139,7 +152,12 @@ export function Header() {
         overHero ? 'fixed' : 'sticky pb-3 sm:pb-4',
       )}
     >
-      <div className="glass shadow-soft pointer-events-auto mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-2xl px-4 py-3 transition-all duration-300 sm:px-6">
+      <div
+        className={cn(
+          'pointer-events-auto mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-2xl px-4 py-3 transition-all duration-300 sm:px-6',
+          glass ? 'glass shadow-soft' : 'border border-transparent',
+        )}
+      >
         <Link href="/" className="flex min-h-11 items-center">
           <Image
             src={logo}
@@ -155,7 +173,12 @@ export function Header() {
             // transparent ground, drawn for a white page: on the dark pill the
             // wordmark all but disappeared while the teal starfish stayed. One
             // file, both themes — better than asking the host for a second logo.
-            className="h-9 w-auto sm:h-10 dark:brightness-0 dark:invert"
+            className={cn(
+              'h-9 w-auto sm:h-10',
+              // White over the hero's dark scrim, and white again on the dark
+              // pill, but left alone on the frosted one in daylight.
+              glass ? 'dark:brightness-0 dark:invert' : 'brightness-0 invert',
+            )}
           />
         </Link>
 
@@ -164,12 +187,17 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              /* Full-strength ink, not the reference's muted grey. Frosted glass
-                 is 72% opaque, so on the landing these links sit on the hero
-                 photo showing through — where the muted token measured 3.49:1
-                 against the brightest part of the pool. Muted returns when the
-                 bar stops resting on the photo. */
-              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary hover:text-primary"
+              className={cn(
+                'inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium transition-colors',
+                /* Full-strength ink on the glass, not the reference's muted
+                   grey: frosted glass is 72% opaque, so on the landing these
+                   links sit on the hero photo showing through, where the muted
+                   token measured 3.49:1 against the brightest part of the
+                   pool. */
+                glass
+                  ? 'text-foreground hover:bg-secondary hover:text-primary'
+                  : 'text-white hover:text-accent',
+              )}
             >
               {item.name}
             </Link>
@@ -177,8 +205,12 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <ThemeToggle darkLabel={copy.ui.themeDark} lightLabel={copy.ui.themeLight} />
-          <LanguageMenu />
+          <ThemeToggle
+            darkLabel={copy.ui.themeDark}
+            lightLabel={copy.ui.themeLight}
+            className={glass ? undefined : 'border-white/40 text-white hover:bg-white/10'}
+          />
+          <LanguageMenu bare={!glass} />
           {/* Navy rather than teal, and last in the row: it is the one thing on
               this bar the guest is meant to press. */}
           <Link
@@ -194,11 +226,22 @@ export function Header() {
             burying it behind the hamburger asked for two taps and a guess about
             where it lived. */}
         <div className="flex items-center gap-2 lg:hidden">
-          <ThemeToggle darkLabel={copy.ui.themeDark} lightLabel={copy.ui.themeLight} />
-          <LanguageMenu compact />
+          <ThemeToggle
+            darkLabel={copy.ui.themeDark}
+            lightLabel={copy.ui.themeLight}
+            className={glass ? undefined : 'border-white/40 text-white hover:bg-white/10'}
+          />
+          <LanguageMenu compact bare={!glass} />
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'h-11 w-11',
+                  !glass && 'text-white hover:bg-white/10 hover:text-white',
+                )}
+              >
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">{copy.ui.toggleMenu}</span>
               </Button>

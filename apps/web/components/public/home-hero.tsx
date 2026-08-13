@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { Button } from '@areia-bela/ui/button'
 import { AvailabilityCard } from '@/components/public/availability-card'
 import { ContentIcon } from '@/lib/content-icons'
 import { cn } from '@/lib/utils'
@@ -12,6 +11,7 @@ import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { itemsOf } from '@/lib/cms-public'
 import { translations } from '@/lib/i18n'
+import { propertyData } from '@/lib/property-data'
 
 type HeroProps = {
   images: string[]
@@ -31,6 +31,25 @@ export function HomeHero({ images }: HeroProps) {
   const subtitle = section ? section.subtitle : ''
   const subline = section ? section.body : ''
   const ctaLabel = section ? section.ctaLabel : ''
+  /**
+   * The line above the headline: where the house is and who keeps it.
+   *
+   * Composed from facts rather than written here — the city and the rating come
+   * from the listing, the word "Superhost" from the locale — and only when they
+   * exist. The host can override the whole line from /admin/content; an empty
+   * eyebrow there means she has not written one, not that the pill should show a
+   * half-built sentence.
+   */
+  const eyebrow =
+    section?.eyebrow ||
+    [
+      propertyData.city,
+      propertyData.host.isSuperhost
+        ? `${copy.contact.superhost} ${propertyData.rating.toFixed(1)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
 
   useEffect(() => {
     if (total <= 1) return
@@ -62,8 +81,8 @@ export function HomeHero({ images }: HeroProps) {
     slide === index || slide === (index + 1) % total || slide === (index - 1 + total) % total
 
   return (
-    <section className="relative isolate w-full overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0">
+    <section id="inicio" className="relative isolate overflow-hidden pt-24 sm:pt-28">
+      <div className="absolute inset-0 z-0">
         {images.map((src, slideIndex) =>
           !visible(slideIndex) ? null : (
             <Image
@@ -81,105 +100,97 @@ export function HomeHero({ images }: HeroProps) {
             />
           ),
         )}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(247,242,234,0.98)_0%,rgba(247,242,234,0.76)_18%,rgba(247,242,234,0.24)_50%,rgba(247,242,234,0.08)_100%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(255,255,255,0.58),transparent_24%),radial-gradient(circle_at_74%_20%,rgba(255,255,255,0.18),transparent_28%)]" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-[linear-gradient(180deg,transparent_0%,rgba(247,242,234,0.12)_35%,rgba(247,242,234,0.9)_100%)]" />
+        {/* Two scrims, not one.
+
+            The horizontal pass darkens the side the type sits on; the vertical
+            pass melts the photo into the page so the section has no seam. The
+            wash this replaces went the other way — cream at 98% over the left —
+            which is why the headline had to be ink and why the floating header
+            had nothing to sit on. White type over an arbitrary photo is a
+            gamble without them, and twelve photos rotate through here. */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ocean-deep/90 via-ocean-deep/65 to-ocean-deep/25" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
       </div>
 
-      <div className="relative mx-auto flex min-h-[100svh] max-w-[1680px] flex-col px-4 pb-4 pt-4 sm:px-6 lg:px-8 xl:px-10 lg:pb-6 lg:pt-6">
-        <div className="relative z-10 grid flex-1 items-center gap-10 pb-8 pt-10 lg:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.78fr)] lg:items-center lg:gap-12 lg:pb-20 lg:pt-6 xl:gap-16">
-          <div className="max-w-3xl space-y-5 pt-10 lg:pt-0">
-            {/* The last words of the editable title keep the display face the
-                bundled three-line version used, so an edit can't break the
-                typography. */}
-            <h1 className="max-w-2xl font-serif text-[clamp(3.15rem,5.15vw,5.8rem)] leading-[0.92] tracking-tight text-foreground">
-              {title ? (
-                <HeroTitle text={title} />
-              ) : (
-                <>
-                  {copy.heroTitle[0]}
-                  <span className="block">{copy.heroTitle[1]}</span>
-                  <span
-                    className="mt-1 block italic text-primary"
-                    style={{ fontFamily: "'Areia Bela'", fontSize: '1.03em' }}
-                  >
-                    {copy.heroTitle[2]}
-                  </span>
-                </>
-              )}
-            </h1>
+      <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 pb-16 pt-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:pb-24 lg:pt-24">
+        <div className="animate-rise text-white">
+          {eyebrow && (
+            <span className="glass-dark inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium text-white">
+              <span className="size-1.5 rounded-full bg-accent" aria-hidden />
+              {eyebrow}
+            </span>
+          )}
 
-            <p className="max-w-2xl text-[16px] leading-8 text-muted-foreground">
-              {subtitle || copy.heroDescription}
-              <span className="mt-1 block">{subline || copy.heroSubline}</span>
-            </p>
+          <h1 className="mt-5 text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+            {title ? (
+              <HeroTitle text={title} />
+            ) : (
+              <>
+                {copy.heroTitle[0]} {copy.heroTitle[1]}{' '}
+                <GradientTail>{copy.heroTitle[2]}</GradientTail>
+              </>
+            )}
+          </h1>
 
-            <Button asChild variant="brand" size="lg" className="px-6 text-sm font-semibold">
-              <Link href={section?.ctaHref || '#reservar'}>
-                {ctaLabel || copy.heroCta}
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
+          <p className="mt-5 max-w-lg text-pretty text-base leading-relaxed text-white sm:text-lg">
+            {subtitle || copy.heroDescription}
+            <span className="mt-1 block">{subline || copy.heroSubline}</span>
+          </p>
 
-          <div
-            id="reservar"
-            className="relative z-20 lg:justify-self-end lg:self-center lg:-translate-y-3"
+          <Link
+            href={section?.ctaHref || '#reservar'}
+            className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-float transition-all hover:-translate-y-0.5"
           >
-            <AvailabilityCard className="w-full max-w-[430px] border border-white/75 bg-card/95 shadow-[0_32px_100px_rgba(15,23,42,0.18)] backdrop-blur-xl" />
-          </div>
+            {ctaLabel || copy.heroCta}
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Link>
+
+          {badges.length > 0 && (
+            <ul className="mt-9 flex flex-wrap gap-2.5">
+              {badges.map((badge) => (
+                <li
+                  key={badge.id}
+                  className="glass-dark inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium text-white"
+                >
+                  <ContentIcon name={badge.icon} className="h-4 w-4 shrink-0 text-accent" />
+                  {badge.label}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {badges.length > 0 && (
-          /* Flujo centrado y no una rejilla de cinco columnas.
-             
-             Con `lg:grid-cols-5` fijo, quitar una insignia dejaba una celda
-             vacía a la derecha y estiraba las cuatro restantes; con tres, dos
-             celdas. Una píldora que se ensancha porque falta una vecina no se
-             lee como una decisión.
-             
-             Así abrazan su contenido, se centran y siguen funcionando con
-             cualquier número — incluidas más de cinco, que antes habrían roto
-             la fila. */
-          <div className="relative z-10 mt-auto flex flex-wrap justify-center gap-3 pb-2 lg:gap-4">
-            {badges.map((badge) => (
-              <div
-                key={badge.id}
-                className="flex min-h-16 items-center gap-3 rounded-full border border-white/75 bg-card/85 px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)] backdrop-blur-md"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <ContentIcon name={badge.icon} className="h-5 w-5" />
-                </div>
-                <span className="text-sm font-medium text-foreground">{badge.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <div id="reservar" className="animate-rise scroll-mt-28 [animation-delay:120ms]">
+          <AvailabilityCard />
+        </div>
       </div>
     </section>
   )
 }
 
+/** The sand-to-amber wash the reference gives the last words of the headline. */
+function GradientTail({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="bg-gradient-to-r from-accent to-sand bg-clip-text text-transparent">
+      {children}
+    </span>
+  )
+}
+
 /**
- * Splits the heading so the last few words keep the brand's script face, the
- * way the original three-line hero did. Purely presentational: the host writes
- * one sentence and doesn't have to think about line breaks.
+ * Splits the heading so the last few words carry the wash. Purely
+ * presentational: the host writes one sentence and doesn't have to think about
+ * line breaks or which words to mark.
  */
 function HeroTitle({ text }: { text: string }) {
   const words = text.trim().split(/\s+/)
-  const scriptFrom = Math.max(1, words.length - 2)
-  const lead = words.slice(0, scriptFrom).join(' ')
-  const tail = words.slice(scriptFrom).join(' ')
+  const tailFrom = Math.max(1, words.length - 2)
+  const lead = words.slice(0, tailFrom).join(' ')
+  const tail = words.slice(tailFrom).join(' ')
 
   return (
     <>
-      {lead}
-      <span
-        className="mt-1 block italic text-primary"
-        style={{ fontFamily: "'Areia Bela'", fontSize: '1.03em' }}
-      >
-        {tail}
-      </span>
+      {lead} <GradientTail>{tail}</GradientTail>
     </>
   )
 }

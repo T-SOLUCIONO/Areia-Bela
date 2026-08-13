@@ -255,10 +255,12 @@ export function AvailabilityCard({ className }: Props) {
 
   return (
     <aside
-      className={cn(
-        'w-full rounded-[28px] bg-card/95 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] ring-1 ring-black/5 sm:p-6',
-        className,
-      )}
+      /* Frosted rather than a solid white slab: it sits on the hero photo, and
+         the reference lets the water show through it. `.glass-strong` rather
+         than `.glass` because this card carries ink, not a logotype — see the
+         note on the utility. Both are built from `--card`, so they frost in
+         either theme instead of dropping a bright panel into a dark page. */
+      className={cn('glass-strong shadow-float w-full rounded-3xl p-5 sm:p-6', className)}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         {quote ? (
