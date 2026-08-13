@@ -52,6 +52,7 @@ const LAYOUT: Record<
     items: { kind: 'HERO_BADGE', features: { icon: true } },
   },
   FEATURES: {
+    eyebrow: true,
     title: true,
     canHide: true,
     items: { kind: 'FEATURE_CARD', features: { icon: true, image: true, body: true } },
@@ -72,6 +73,7 @@ const LAYOUT: Record<
     items: { kind: 'REVIEW_RATING', features: { value: true } },
   },
   LOCATION: {
+    eyebrow: true,
     title: true,
     subtitle: true,
     body: true,

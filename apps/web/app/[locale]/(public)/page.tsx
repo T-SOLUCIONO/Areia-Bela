@@ -109,6 +109,7 @@ export default function HomePage() {
   const home =
     language === 'en'
       ? {
+          galleryEyebrow: 'Every detail counts',
           galleryTitle: 'Thoughtful touches for an unforgettable stay',
           galleryCards: [
             {
@@ -130,7 +131,10 @@ export default function HomePage() {
           showAllPhotos: 'Show all photos',
           reviewsIntro: 'Verified guests',
           reviewsTitle: 'What our guests say',
-          locationTitle: "Where you'll be staying",
+          locationEyebrow: "Where you'll be staying",
+          locationHeadline: 'Close to everything that makes the coast special',
+          locationLead:
+            'A quiet, safe neighbourhood, minutes from the beach and the best things to do nearby.',
           locationSub: 'St. Petersburg, Florida, United States',
           nearbyTitle: 'Highlights nearby',
           nearby: [
@@ -161,6 +165,7 @@ export default function HomePage() {
           verified: 'Verified',
         }
       : {
+          galleryEyebrow: 'Cada detalle cuenta',
           galleryTitle: 'Detalles pensados para una estadía inolvidable',
           galleryCards: [
             {
@@ -181,7 +186,10 @@ export default function HomePage() {
           showAllPhotos: 'Ver todas las fotos',
           reviewsIntro: 'Huéspedes verificados',
           reviewsTitle: 'Lo que dicen nuestros huéspedes',
-          locationTitle: 'Dónde te quedarás',
+          locationEyebrow: 'Dónde te quedarás',
+          locationHeadline: 'Cerca de todo lo que hace especial la costa',
+          locationLead:
+            'Un barrio tranquilo y seguro, a minutos de la playa y de los mejores planes de la zona.',
           locationSub: 'St. Petersburg, Florida, Estados Unidos',
           nearbyTitle: 'Puntos cercanos',
           nearby: [
@@ -242,6 +250,21 @@ export default function HomePage() {
    * string — "St. Petersburg, Florida, Estados Unidos" — and the last comma is
    * where the country starts.
    */
+  const locationEyebrow = text(location, 'eyebrow', home.locationEyebrow)
+  /**
+   * The heading, unless the panel is repeating the eyebrow.
+   *
+   * LOCATION's title in /admin/content is "Dónde te quedarás", which is the
+   * eyebrow's own words: printing both would have the section say the same
+   * thing twice, one above the other. When they match, the heading falls back to
+   * the reference's line. The moment the host writes a heading of her own, hers
+   * is what shows.
+   */
+  const cmsHeading = location?.title?.trim() ?? ''
+  const locationHeading =
+    cmsHeading && cmsHeading.toLowerCase() !== locationEyebrow.trim().toLowerCase()
+      ? cmsHeading
+      : home.locationHeadline
   const address = text(location, 'subtitle', home.locationSub)
   const lastComma = address.lastIndexOf(',')
   const place =
@@ -261,15 +284,9 @@ export default function HomePage() {
               centred stack. The eye starts where the text starts. */}
           <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
             <div className="max-w-2xl">
-              {/* Only when the host has written one. The reference carries an
-                  eyebrow here ("Cada detalle cuenta") and this section's is
-                  empty in the panel; a phrase invented in the code would be a
-                  phrase she cannot edit. */}
-              {features?.eyebrow && (
-                <span className="text-sm font-semibold uppercase tracking-widest text-primary">
-                  {features.eyebrow}
-                </span>
-              )}
+              <span className="text-sm font-semibold uppercase tracking-widest text-primary">
+                {text(features, 'eyebrow', home.galleryEyebrow)}
+              </span>
               <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
                 {text(features, 'title', home.galleryTitle)}
               </h2>
@@ -509,14 +526,20 @@ export default function HomePage() {
               </div>
 
               <div>
-                {location?.eyebrow && (
-                  <span className="text-sm font-semibold uppercase tracking-widest text-primary">
-                    {location.eyebrow}
-                  </span>
-                )}
+                <span className="text-sm font-semibold uppercase tracking-widest text-primary">
+                  {locationEyebrow}
+                </span>
                 <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                  {text(location, 'title', home.locationTitle)}
+                  {locationHeading}
                 </h2>
+                {/* The one sentence on this page that lives in code. LOCATION's
+                    four slots are spoken for — the eyebrow, the heading, the
+                    address under the map and the label over the list — so there
+                    is nowhere in the panel to put a lead. It gets a slot the day
+                    the section grows one. */}
+                <p className="mt-4 text-pretty leading-relaxed text-muted-foreground">
+                  {home.locationLead}
+                </p>
 
                 <h3 className="mt-8 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                   {text(location, 'body', home.nearbyTitle)}

@@ -241,7 +241,7 @@ export const translations = {
       tagline: 'Heated Pool & Coffee Bar',
     },
     details: {
-      eyebrow: 'Good to know',
+      eyebrow: 'All set for you',
       title: 'Everything about the house',
       lead: 'The details worth reading before you book — and the answers to what guests ask most.',
       house: 'The house',
@@ -543,7 +543,7 @@ export const translations = {
       tagline: 'Piscina climatizada y coffee bar',
     },
     details: {
-      eyebrow: 'Conviene saber',
+      eyebrow: 'Todo listo para ti',
       title: 'Todo sobre la casa',
       lead: 'Los detalles que conviene leer antes de reservar, y las respuestas a lo que más preguntan.',
       house: 'La casa',
@@ -845,7 +845,7 @@ export const translations = {
       tagline: 'Piscina aquecida e coffee bar',
     },
     details: {
-      eyebrow: 'Bom saber',
+      eyebrow: 'Tudo pronto para você',
       title: 'Tudo sobre a casa',
       lead: 'Os detalhes que vale a pena ler antes de reservar, e as respostas ao que mais perguntam.',
       house: 'A casa',
@@ -1149,7 +1149,7 @@ export const translations = {
       tagline: 'Piscine chauffée et coffee bar',
     },
     details: {
-      eyebrow: 'Bon à savoir',
+      eyebrow: 'Tout est prêt pour vous',
       title: 'Tout sur la maison',
       lead: 'Les détails à lire avant de réserver, et les réponses aux questions les plus fréquentes.',
       house: 'La maison',
@@ -1453,7 +1453,7 @@ export const translations = {
       tagline: 'Beheizter Pool & Coffee Bar',
     },
     details: {
-      eyebrow: 'Gut zu wissen',
+      eyebrow: 'Alles für Sie bereit',
       title: 'Alles über das Haus',
       lead: 'Was Sie vor der Buchung wissen sollten — und die Antworten auf die häufigsten Fragen.',
       house: 'Das Haus',
