@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { BadgeCheck, MapPin, Quote, ShieldCheck, Sparkles, Star } from 'lucide-react'
+import { Award, BadgeCheck, MapPin, MessageCircle, Quote, Sparkles, Star } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@areia-bela/ui/dialog'
 import { HomeHero } from '@/components/public/home-hero'
@@ -539,101 +539,70 @@ export default function HomePage() {
       )}
 
       {shows(host) && (
-        <section className="border-t border-border bg-background py-14 lg:py-20">
-          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-            {/* Left-aligned like the amenities and details sections, rather
-                than a centred stack: this page introduces things from the left
-                and the eye already knows where to start. */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-800 dark:text-amber-200">
-                  {text(host, 'eyebrow', home.hostKicker)}
-                </p>
-                <h2 className="mt-3 font-serif text-3xl text-foreground sm:text-4xl">
+        <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
+          <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-float">
+            <div className="grid md:grid-cols-[0.8fr_1.2fr]">
+              {/* Full-bleed against the card's edge, not a rounded portrait
+                  floating inside it. She is the content of this section. */}
+              <div className="relative min-h-72 bg-muted md:min-h-full">
+                <Image
+                  src={host?.imageUrl ?? propertyData.host.pictureUrl}
+                  alt={propertyData.host.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                  className="object-cover"
+                />
+              </div>
+
+              <div className="p-8 sm:p-10 lg:p-12">
+                <span className="inline-flex items-center gap-2 rounded-full bg-sand px-3 py-1.5 text-xs font-semibold text-sand-foreground">
+                  <Award className="h-3.5 w-3.5" aria-hidden />
+                  {text(host, 'subtitle', home.hostBadge)}
+                  {host?.statValue
+                    ? ` · ${text(host, 'statLabel', ui.hostSince)} ${host.statValue}`
+                    : ''}
+                </span>
+                <h2 className="mt-4 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                   {text(host, 'title', home.hostTitle)}
                 </h2>
-              </div>
-              <p className="flex items-center gap-2 text-[15px] text-muted-foreground">
-                <Sparkles className="h-4 w-4 text-primary" aria-hidden />
-                {text(host, 'statLabel', ui.hostSince)}{' '}
-                {host?.statValue || propertyData.hostSinceYear}
-              </p>
-            </div>
+                <p className="mt-4 whitespace-pre-line text-pretty leading-relaxed text-muted-foreground">
+                  {text(host, 'body', home.hostBody)}
+                </p>
 
-            <div className="mt-10 grid gap-8 lg:grid-cols-[0.62fr_1fr] lg:items-stretch lg:gap-12">
-              {/* The photo gets real size instead of a 256px sliver. She is
-                  the content of this section; the numbers are footnotes. */}
-              <div className="relative overflow-hidden rounded-[28px] bg-muted shadow-[0_18px_50px_rgba(15,23,42,0.10)]">
-                <div className="relative aspect-[4/5] w-full lg:absolute lg:inset-0 lg:aspect-auto">
-                  <Image
-                    src={host?.imageUrl ?? propertyData.host.pictureUrl}
-                    alt={propertyData.host.name}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 34vw"
-                    className="object-cover"
-                  />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-foreground/55 to-transparent" />
+                {hostStats.length > 0 && (
+                  <dl className="mt-8 grid grid-cols-3 gap-3">
+                    {hostStats.map((stat) => (
+                      <div
+                        key={stat.id}
+                        className="rounded-2xl border border-border bg-background/60 p-4 text-center"
+                      >
+                        <ContentIcon name={stat.icon} className="mx-auto h-5 w-5 text-primary" />
+                        <dd className="mt-2 font-display text-xl font-semibold text-foreground">
+                          {stat.value}
+                        </dd>
+                        <dt className="text-xs text-muted-foreground">{stat.label}</dt>
+                      </div>
+                    ))}
+                  </dl>
+                )}
 
-                  <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center gap-2">
-                    <span className="font-serif text-2xl text-panel-foreground">
-                      {propertyData.host.firstName}
-                    </span>
-                    {text(host, 'subtitle', home.hostBadge) && (
-                      <span className="flex items-center gap-1 rounded-full bg-card/90 px-3 py-1 text-xs text-foreground backdrop-blur-sm">
-                        <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
-                        {text(host, 'subtitle', home.hostBadge)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-between gap-8 rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:p-10">
-                {/* Her own words, set as a quote rather than a grey paragraph.
-                    It is the most human thing on the page and it was being
-                    treated as filler. */}
-                <blockquote className="relative">
-                  <Quote
-                    className="absolute -left-1 -top-2 h-10 w-10 text-primary/10"
-                    aria-hidden
-                  />
-                  <p className="relative whitespace-pre-line font-serif text-[22px] leading-[1.55] text-foreground sm:text-[26px]">
-                    {text(host, 'body', home.hostBody)}
-                  </p>
-                </blockquote>
-
-                <div className="space-y-7">
-                  {hostStats.length > 0 && (
-                    // A row of figures with rules between them, not three
-                    // tinted boxes: they are data, and boxing data gives it
-                    // more weight than it has earned.
-                    <dl className="flex flex-wrap gap-x-10 gap-y-4 border-t border-border pt-6">
-                      {hostStats.map((stat) => (
-                        <div key={stat.id}>
-                          <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-                            <ContentIcon name={stat.icon} className="h-3.5 w-3.5 text-primary" />
-                            {stat.label}
-                          </dt>
-                          <dd className="mt-1 font-serif text-2xl text-foreground">{stat.value}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  )}
-
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="brand" size="lg" className="w-full font-semibold sm:w-auto">
-                        <Quote className="h-4 w-4" /> {text(host, 'ctaLabel', home.contactHost)}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-none bg-transparent p-0 shadow-none [&>button]:z-10 [&>button]:rounded-full [&>button]:bg-card [&>button]:p-1.5 [&>button]:opacity-100 [&>button]:shadow-md">
-                      <DialogTitle className="sr-only">
-                        {text(host, 'ctaLabel', home.contactHost)}
-                      </DialogTitle>
-                      <ContactSection />
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary hover:text-primary"
+                    >
+                      <MessageCircle className="h-4 w-4" aria-hidden />
+                      {text(host, 'ctaLabel', home.contactHost)}
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-none bg-transparent p-0 shadow-none [&>button]:z-10 [&>button]:rounded-full [&>button]:bg-card [&>button]:p-1.5 [&>button]:opacity-100 [&>button]:shadow-md">
+                    <DialogTitle className="sr-only">
+                      {text(host, 'ctaLabel', home.contactHost)}
+                    </DialogTitle>
+                    <ContactSection />
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </div>
