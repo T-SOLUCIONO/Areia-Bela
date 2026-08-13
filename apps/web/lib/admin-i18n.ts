@@ -685,7 +685,13 @@ export const adminCopy = {
       imageReplace: 'Replace',
       imageRemove: 'Remove',
       logo: 'Logo',
-      logoHint: 'Used in the header and the footer. Without one, the bundled logo is used.',
+      logoLight: 'Logo for a light background',
+      logoDark: 'Logo for a dark background',
+      logoHint:
+        'Used in the header and the footer. The dark one is shown when the visitor has dark mode on. Without one, the bundled logo is used.',
+      favicon: 'Tab icon',
+      faviconHint:
+        'The small icon a browser shows in the tab. A square PNG of 64px or more. Without one, the bundled starfish is used.',
       reviewAdd: 'Add a review',
       reviewAuthor: 'Guest name',
       reviewRating: 'Stars',
@@ -1527,7 +1533,13 @@ export const adminCopy = {
       imageReplace: 'Reemplazar',
       imageRemove: 'Quitar',
       logo: 'Logo',
-      logoHint: 'Se usa en la cabecera y en el pie. Sin uno, se usa el logo incluido.',
+      logoLight: 'Logo para fondo claro',
+      logoDark: 'Logo para fondo oscuro',
+      logoHint:
+        'Se usa en la cabecera y en el pie. El oscuro se muestra cuando el visitante tiene el modo oscuro. Sin uno, se usa el logo incluido.',
+      favicon: 'Icono de la pestaña',
+      faviconHint:
+        'El icono pequeño que el navegador muestra en la pestaña. Un PNG cuadrado de 64px o más. Sin uno, se usa la estrella incluida.',
       reviewAdd: 'Añadir reseña',
       reviewAuthor: 'Nombre del huésped',
       reviewRating: 'Estrellas',

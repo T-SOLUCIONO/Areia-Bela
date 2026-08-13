@@ -31,6 +31,8 @@ const BLANK: Settings = {
   facebookUrl: null,
   airbnbUrl: null,
   logoUrl: null,
+  logoDarkUrl: null,
+  faviconUrl: null,
   notifyEmail: '',
   notifyWhatsapp: '',
   notifyTelegram: '',
@@ -374,12 +376,32 @@ export function SiteSettings() {
 
       <section className="space-y-3">
         <h3 className="font-serif text-base">{t.content.logo}</h3>
-        <ImageField
-          label={t.content.logo}
-          value={draft.logoUrl}
-          onChange={(logoUrl) => edit({ logoUrl })}
-        />
+        {/* Two marks, not one flattened by a filter. The light one is black ink
+            on transparency; turning it white in CSS also turns the turquoise
+            starfish white. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ImageField
+            label={t.content.logoLight}
+            value={draft.logoUrl}
+            onChange={(logoUrl) => edit({ logoUrl })}
+          />
+          <ImageField
+            label={t.content.logoDark}
+            value={draft.logoDarkUrl}
+            onChange={(logoDarkUrl) => edit({ logoDarkUrl })}
+          />
+        </div>
         <p className="text-xs text-muted-foreground">{t.content.logoHint}</p>
+
+        <div className="pt-2">
+          <ImageField
+            label={t.content.favicon}
+            shape="square"
+            value={draft.faviconUrl}
+            onChange={(faviconUrl) => edit({ faviconUrl })}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">{t.content.faviconHint}</p>
+        </div>
       </section>
 
       <section className="space-y-3">

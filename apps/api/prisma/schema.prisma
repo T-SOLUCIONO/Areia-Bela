@@ -574,6 +574,13 @@ model SiteSettings {
   airbnbUrl        String?
   // Header and footer share one mark; null falls back to the bundled PNG.
   logoUrl          String?
+  // The same mark drawn for a dark page. The light one is black ink on
+  // transparency, so on the dark header the wordmark disappears and only the
+  // turquoise starfish survives. Null falls back to the bundled white version.
+  logoDarkUrl      String?
+  // The tab icon. Null falls back to the bundled starfish, which ships in a
+  // light and a dark variant; one uploaded file replaces both.
+  faviconUrl       String?
   updatedAt        DateTime         @updatedAt
 }
 

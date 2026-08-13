@@ -70,6 +70,10 @@ export class UpdateSiteSettingsDto {
   @IsOptional() @IsUrl() airbnbUrl?: string
   // Not @IsUrl: the dev storage fallback returns a relative "/uploads/…" path.
   @IsOptional() @IsString() logoUrl?: string | null
+  // The same mark drawn for a dark page, and the tab icon. Null in either means
+  // "use the one that ships with the site", not "no logo".
+  @IsOptional() @IsString() logoDarkUrl?: string | null
+  @IsOptional() @IsString() faviconUrl?: string | null
 
   // Where the host is told about bookings. Empty falls back to the public
   // fields above, so one address does not have to be typed twice.

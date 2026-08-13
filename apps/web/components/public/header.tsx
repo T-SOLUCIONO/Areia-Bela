@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Check, Globe, Menu } from 'lucide-react'
@@ -25,6 +24,7 @@ import { translations } from '@/lib/i18n'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
 import { publicNavItems } from '@/components/public/public-navigation'
+import { SiteLogo } from '@/components/public/site-logo'
 import { ThemeToggle } from '@/components/public/theme-toggle'
 import { cn } from '@/lib/utils'
 
@@ -100,8 +100,6 @@ function LanguageMenu({ compact = false, bare = false }: { compact?: boolean; ba
  * nothing to sit on over a pale page.
  */
 export function Header() {
-  // Editable in /admin/settings; the bundled mark is the fallback.
-  const logo = useSiteContent()?.settings?.logoUrl ?? '/areia-bela-logo.png'
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
@@ -170,27 +168,15 @@ export function Header() {
         )}
       >
         <Link href="/" className="flex min-h-11 items-center">
-          <Image
-            src={logo}
-            alt="Areia Bela"
-            width={170}
-            height={68}
-            // Height-bound rather than width-bound: the pill is 68px tall and a
-            // 170px-wide logo of unknown aspect ratio decides how tall it wants
-            // to be. The host can swap the file in /admin/settings without the
-            // header changing height.
-            //
-            // Flattened to white in dark mode. The mark is black ink on a
-            // transparent ground, drawn for a white page: on the dark pill the
-            // wordmark all but disappeared while the teal starfish stayed. One
-            // file, both themes — better than asking the host for a second logo.
-            className={cn(
-              'h-9 w-auto sm:h-14',
-              // White over the hero's dark scrim, and white again on the dark
-              // pill, but left alone on the frosted one in daylight.
-              //glass ? 'dark:brightness-0 dark:invert' : 'brightness-0 invert',
-            )}
-          />
+          {/* Height-bound rather than width-bound: the pill is 68px tall and a
+              logo of unknown aspect ratio decides how tall it wants to be, so
+              the host can swap the file in /admin/settings without the header
+              changing height.
+
+              Bare over the hero, the ground is the navy scrim in *both* themes,
+              so the mark drawn for a dark ground is the right one there
+              whatever the page theme says. */}
+          <SiteLogo variant={glass ? 'auto' : 'dark'} className="h-9 w-auto sm:h-14" />
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -260,13 +246,7 @@ export function Header() {
             <SheetContent side="right" className="overflow-y-auto">
               <SheetHeader className="pt-8">
                 <SheetTitle className="flex justify-center">
-                  <Image
-                    src={logo}
-                    alt="Areia Bela"
-                    width={220}
-                    height={72}
-                    className="h-auto w-[220px] dark:brightness-0 dark:invert"
-                  />
+                  <SiteLogo className="h-auto w-[220px]" />
                 </SheetTitle>
                 <SheetDescription className="text-[10px] uppercase tracking-[0.2em]">
                   {language === 'en'

@@ -54,6 +54,8 @@ export interface SiteSettings {
   facebookUrl: string | null
   airbnbUrl: string | null
   logoUrl: string | null
+  logoDarkUrl: string | null
+  faviconUrl: string | null
   notifyEmail: string
   notifyWhatsapp: string
   notifyTelegram: string
@@ -222,6 +224,8 @@ export const cms = {
         facebookUrl: body.facebookUrl,
         airbnbUrl: body.airbnbUrl,
         logoUrl: body.logoUrl,
+        logoDarkUrl: body.logoDarkUrl,
+        faviconUrl: body.faviconUrl,
         notifyEmail: body.notifyEmail,
         notifyWhatsapp: body.notifyWhatsapp,
         notifyTelegram: body.notifyTelegram,

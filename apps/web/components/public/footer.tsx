@@ -1,11 +1,11 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { MapPin, Phone, Mail, ArrowUpRight } from 'lucide-react'
 import { propertyInfo } from '@/lib/mock-data'
 import { useLanguage } from '@/components/language-provider'
 import { useSiteContent } from '@/components/public/site-content-provider'
+import { SiteLogo } from '@/components/public/site-logo'
 import { translations } from '@/lib/i18n'
 
 export function Footer() {
@@ -16,7 +16,6 @@ export function Footer() {
   // the fallback when the API is unreachable.
   const content = useSiteContent()
   const settings = content?.settings
-  const logo = settings?.logoUrl ?? '/areia-bela-logo.png'
   const phone = settings?.contactPhone || propertyInfo.phone
   const email = settings?.contactEmail || propertyInfo.email
   const footerSection = content?.sections.FOOTER
@@ -36,13 +35,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-sm space-y-4">
-            <Image
-              src={logo}
-              alt="Areia Bela"
-              width={200}
-              height={80}
-              className="h-10 w-auto dark:brightness-0 dark:invert"
-            />
+            <SiteLogo className="h-14 w-auto" />
             <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
             {social.length > 0 && (
               <div className="flex flex-wrap gap-4 text-sm">

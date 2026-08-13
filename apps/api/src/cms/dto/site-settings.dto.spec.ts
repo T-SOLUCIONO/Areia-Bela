@@ -23,6 +23,8 @@ const payload = {
   facebookUrl: null,
   airbnbUrl: null,
   logoUrl: null,
+  logoDarkUrl: null,
+  faviconUrl: null,
   notifyEmail: 'egiraldom@outlook.com',
   notifyWhatsapp: '',
   notifyTelegram: '691691881',

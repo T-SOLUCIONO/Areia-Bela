@@ -31,7 +31,21 @@ export async function generateMetadata({
     languages: languageAlternates(),
   }
 
-  if (!settings?.seoTitle) return { alternates }
+  /**
+   * The tab icon, when the host has uploaded one.
+   *
+   * Declared here rather than in the root layout so it costs nothing: this
+   * layout already has the settings in hand, and putting it upstairs would mean
+   * a second call to the CMS on every request — including /admin, which does not
+   * need it. Undefined leaves the root's bundled pair in place, which is a
+   * light and a dark starfish; one uploaded file answers for both, because the
+   * host uploaded one file and not two.
+   */
+  const icons = settings?.faviconUrl
+    ? { icon: settings.faviconUrl, apple: settings.faviconUrl }
+    : undefined
+
+  if (!settings?.seoTitle) return { alternates, icons }
 
   const { seoTitle: title, seoDescription: description } = settings
 
@@ -39,6 +53,7 @@ export async function generateMetadata({
     title,
     description,
     alternates,
+    icons,
     openGraph: {
       title,
       description,
