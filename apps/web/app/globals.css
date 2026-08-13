@@ -258,6 +258,15 @@
 }
 
 @layer base {
+  /* The teal highlight from the reference. Copied because it is part of the
+   * design and not a browser default: `--ocean` is the same blue the rating bars
+   * and the logotype use, so selecting text reads as the site rather than as the
+   * operating system. */
+  ::selection {
+    background: var(--ocean);
+    color: var(--primary-foreground);
+  }
+
   @font-face {
     font-family: 'Areia Bela';
     src: url('/fonts/Areia-bela.woff2') format('woff2-variations');
