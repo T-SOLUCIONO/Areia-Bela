@@ -7345,3 +7345,82 @@ del texto de origen para detectar traducciones obsoletas. Miré el modelo y no l
 capa de traducción, y afirmé una limitación del esquema que no existe. El hueco
 real es de contenido —falta la traducción de esa página, o su hash no coincide—, y
 hay un endpoint `/cms/admin/translation-status` para verlo.
+
+## 54. La landing, reestilada sección por sección contra `/preview`
+
+Pedido: dejar la web principal idéntica a `/preview`, **una sección por commit**,
+empezando por la cabecera, y verificar cada una con capturas y contraste en claro,
+oscuro y móvil.
+
+El camino contrario —llevar el cotizador, Stripe, los cinco idiomas y el CMS a
+`/preview`— era remontar la maquinaria delicada dentro de un cascarón nuevo. Este
+solo cambia la piel alrededor de algo que ya gira. Y con los tokens y Sora ya en
+`globals.css`, medio camino estaba hecho sin saberlo.
+
+### Las ocho
+
+| #   | Commit    | Qué cambia                                                          |
+| --- | --------- | ------------------------------------------------------------------- |
+| 1   | `c7640ff` | Cabecera: pastilla flotante, `fixed` en la landing y `sticky` fuera |
+| 2   | `59b60ba` | Hero: velo oscuro, titular con degradado, cotizador en cristal      |
+| 3   | `3075782` | Galería: tarjeta alta escalonada y tira de dos fotos                |
+| 4   | `707e7d9` | Comodidades y preguntas, en banda teñida y a dos columnas           |
+| 5   | `7290da9` | Reseñas: barras de valoración y cuatro tarjetas iguales             |
+| 6   | `18188f9` | Ubicación: mapa a la izquierda, puntos cercanos como tarjetas       |
+| 7   | `66fb746` | Anfitriona: una sola tarjeta partida                                |
+| 8   | `3dffa12` | Panel navy de cierre y pie esbelto                                  |
+
+### Lo que el contraste obligó a cambiar
+
+La referencia es **light-only** y descansa sobre una foto concreta. Aquí hay dos
+temas y doce fotos rotando, así que copiar los valores a ciegas no bastaba:
+
+- La cabecera transparente sobre el hero medía **1.9:1** mientras el hero seguía
+  siendo el lavado crema. Por eso el estado transparente no llegó con la cabecera
+  sino con el hero — el velo oscuro es lo que lo hace legible. Ahora mide 14–15.
+- Sobre el cristal al 72%, el menú en gris apagado daba **3.49:1** contra la parte
+  más clara de la piscina. Va en tinta plena.
+- El cotizador con `.glass` daba **3.17:1** en su línea de precio. Nace
+  `.glass-strong` al 92%: 4.74 y sigue dejando ver el agua.
+- El logo es tinta negra sobre fondo transparente. Sobre la pastilla oscura
+  desaparecía el logotipo y quedaba solo la estrella; se aplana a blanco en modo
+  oscuro y sobre la foto.
+
+### Lo que no se copió, y por qué
+
+- **El mapa se queda donde la referencia pone una fotografía.** Responde a la
+  misma pregunta y la responde mejor. La dirección baja a una franja bajo el
+  marco: sobre un mapa vivo todas las esquinas están ocupadas, incluida la
+  atribución obligatoria de Google.
+- **El pie conserva teléfono, correo y redes.** El de la referencia no los tiene
+  porque es una maqueta. Quien busca el teléfono no debería tener que cazarlo.
+- **El formulario de contacto real** en vez del enlace a WhatsApp de la
+  referencia.
+- **El mosaico de cinco fotos desaparece** y sus 46 fotos siguen ahí, detrás del
+  botón «Ver todas las fotos». Enseñaba las mismas fotografías que las tarjetas
+  justo encima.
+
+### Huecos declarados
+
+- **El antetítulo de la galería no se dibuja.** La referencia lleva «Cada detalle
+  cuenta»; ese campo está vacío en el panel y una frase inventada en el código es
+  una frase que la anfitriona no puede editar.
+- **`--primary` sigue por debajo de AA.** Los antetítulos en turquesa miden 3.97
+  sobre la banda teñida y 4.19 en el pie. Es la desviación ya documentada en
+  `globals.css`: es el turquesa exacto de la referencia. Un `#00697b` lo dejaría
+  en 6.35 si algún día pesa más el contraste que el parecido.
+- **El titular perdió la letra manuscrita.** La referencia da a las últimas
+  palabras un degradado ámbar-arena y eso es lo que se copió. Recuperar la
+  manuscrita es una línea.
+- **`RESERVA TU ESTADÍA` sigue en versales** porque así está escrito en el panel.
+  Los rótulos del menú sí bajaron a caja de frase: esos vivían en `i18n.ts`.
+
+### Verificación
+
+```
+pnpm build ✅  pnpm lint ✅  pnpm typecheck ✅  pnpm test ✅ (409)
+```
+
+Capturas de cada sección en claro, oscuro y móvil, y contraste medido con las
+pixeles reales —color computado contra el color dominante de la caja— y no contra
+el token, que es lo que engañaba cuando debajo hay una foto.
