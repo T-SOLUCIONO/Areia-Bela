@@ -41,24 +41,17 @@ export function SiteLogo({
   const settings = useSiteContent()?.settings
   const light = settings?.logoUrl ?? BUNDLED_LIGHT
   /**
-   * Three cases, in order: the host uploaded a dark mark, so use it; she
-   * uploaded only a light one, so that file gets flattened to white — legible
-   * beats faithful when the alternative is an invisible logo; she uploaded
-   * neither, so the bundled dark version is exactly right and needs no filter.
+   * Whatever the host uploaded is what gets drawn, untouched.
+   *
+   * No CSS filter anywhere: a file she uploaded for a dark ground is already
+   * right, and flattening one to white would only ever be a guess about a file
+   * this component cannot see. The bundled mark is the fallback for a site with
+   * no settings at all, not a way to patch a half-filled one.
    */
   const dark = settings?.logoDarkUrl ?? settings?.logoUrl ?? BUNDLED_DARK
-  const flatten = !settings?.logoDarkUrl && Boolean(settings?.logoUrl)
 
   if (variant === 'dark') {
-    return (
-      <Image
-        src={dark}
-        alt="Areia Bela"
-        width={width}
-        height={height}
-        className={cn(className, flatten && 'brightness-0 invert')}
-      />
-    )
+    return <Image src={dark} alt="Areia Bela" width={width} height={height} className={className} />
   }
 
   return (
@@ -76,7 +69,7 @@ export function SiteLogo({
         aria-hidden
         width={width}
         height={height}
-        className={cn(className, 'hidden dark:block', flatten && 'brightness-0 invert')}
+        className={cn(className, 'hidden dark:block')}
       />
     </>
   )
