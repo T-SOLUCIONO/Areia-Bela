@@ -275,4 +275,75 @@ describe('CmsService', () => {
       expect(prisma.review.delete).not.toHaveBeenCalled()
     })
   })
+
+  describe('the guest site payload', () => {
+    /** Everything the row holds, so the assertion is about what leaves, not
+     *  about what a fixture happened to include. */
+    const fullRow = {
+      id: 'settings',
+      contactEmail: 'host@areiabela.com',
+      contactPhone: '+1 (727) 555-3043',
+      whatsapp: '17275553043',
+      seoTitle: 'Areia Bela',
+      seoDescription: 'Casa completa',
+      instagramUrl: null,
+      facebookUrl: null,
+      airbnbUrl: null,
+      logoUrl: 'https://example.test/logo.png',
+      logoDarkUrl: 'https://example.test/logo-dark.png',
+      faviconUrl: 'https://example.test/favicon.png',
+      notifyEmail: 'angelica@example.test',
+      notifyWhatsapp: '18605497679',
+      notifyTelegram: '691691881',
+      whatsappProvider: 'META',
+      notifyOnBooking: true,
+      notifyOnCancel: true,
+      notifyOnChange: true,
+      notifyOnMessage: true,
+    }
+
+    beforeEach(() => {
+      prisma.siteSettings.findUnique.mockResolvedValue(fullRow)
+      for (const model of [
+        prisma.cMSPage,
+        prisma.fAQ,
+        prisma.galleryImage,
+        prisma.contentSection,
+        prisma.review,
+      ]) {
+        model.findMany.mockResolvedValue([])
+      }
+    })
+
+    it('never publishes where the house sends its own alerts', async () => {
+      const { settings } = await service.getLocalizedContent('es')
+
+      // This endpoint is unauthenticated: it is what every visitor's browser
+      // asks for. The host's personal WhatsApp and the Telegram chat id are not
+      // contact details, and they used to go out with everything else.
+      expect(settings).not.toHaveProperty('notifyWhatsapp')
+      expect(settings).not.toHaveProperty('notifyTelegram')
+      expect(settings).not.toHaveProperty('notifyEmail')
+      expect(settings).not.toHaveProperty('whatsappProvider')
+      expect(JSON.stringify(settings)).not.toContain('18605497679')
+    })
+
+    it('still publishes what the guest site draws', async () => {
+      const { settings } = await service.getLocalizedContent('es')
+
+      expect(settings).toEqual({
+        contactEmail: 'host@areiabela.com',
+        contactPhone: '+1 (727) 555-3043',
+        whatsapp: '17275553043',
+        seoTitle: 'Areia Bela',
+        seoDescription: 'Casa completa',
+        instagramUrl: null,
+        facebookUrl: null,
+        airbnbUrl: null,
+        logoUrl: 'https://example.test/logo.png',
+        logoDarkUrl: 'https://example.test/logo-dark.png',
+        faviconUrl: 'https://example.test/favicon.png',
+      })
+    })
+  })
 })

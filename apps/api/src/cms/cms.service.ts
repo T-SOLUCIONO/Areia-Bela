@@ -4,6 +4,7 @@ import {
   type ContentItemKind,
   type ContentSectionKey,
   type Prisma,
+  type SiteSettings,
 } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { TranslationService } from './translation.service'
@@ -19,6 +20,39 @@ import {
   UpdateReviewDto,
   UpdateSiteSettingsDto,
 } from './dto/cms.dto'
+
+/**
+ * The settings fields the guest site is allowed to see.
+ *
+ * `/cms/site` has no authentication — it is what every visitor's browser asks
+ * for — and it used to answer with the whole row. That published the host's
+ * personal WhatsApp number and the Telegram chat id where booking alerts land:
+ * neither is contact information, they are where the house talks to itself.
+ *
+ * A whitelist and not a blacklist, so a column added later is private until
+ * somebody decides otherwise. Adding one here is the decision.
+ */
+const PUBLIC_SETTINGS = [
+  'contactEmail',
+  'contactPhone',
+  'whatsapp',
+  'seoTitle',
+  'seoDescription',
+  'instagramUrl',
+  'facebookUrl',
+  'airbnbUrl',
+  'logoUrl',
+  'logoDarkUrl',
+  'faviconUrl',
+] as const
+
+type PublicSettings = Pick<SiteSettings, (typeof PUBLIC_SETTINGS)[number]>
+
+function publicSettings(settings: SiteSettings): PublicSettings {
+  return Object.fromEntries(
+    PUBLIC_SETTINGS.map((field) => [field, settings[field]]),
+  ) as PublicSettings
+}
 
 /** Pinned id, so the single settings row can be upserted without a lookup. */
 const SETTINGS_ID = 'site'
@@ -96,7 +130,7 @@ export class CmsService {
         this.translations.localize(image, TRANSLATABLE.GalleryImage, imageT),
       ),
       settings: settings
-        ? this.translations.localize(settings, TRANSLATABLE.SiteSettings, settingsT)
+        ? publicSettings(this.translations.localize(settings, TRANSLATABLE.SiteSettings, settingsT))
         : null,
     }
   }

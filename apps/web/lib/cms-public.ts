@@ -9,11 +9,32 @@ import type {
   FAQ,
   GalleryImage,
   Review,
-  SiteSettings,
 } from '@/lib/cms-client'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const PROPERTY_SLUG = 'areia-bela'
+
+/**
+ * What `/cms/site` actually answers with.
+ *
+ * A subset of the admin's `SiteSettings`, and deliberately so: that endpoint has
+ * no authentication, so it whitelists the fields a guest may see and leaves out
+ * where the house sends its own alerts. Typing it as the full row would be a
+ * promise the API stopped keeping.
+ */
+export interface PublicSiteSettings {
+  contactEmail: string
+  contactPhone: string
+  whatsapp: string
+  seoTitle: string
+  seoDescription: string
+  instagramUrl: string | null
+  facebookUrl: string | null
+  airbnbUrl: string | null
+  logoUrl: string | null
+  logoDarkUrl: string | null
+  faviconUrl: string | null
+}
 
 export interface SiteContent {
   pages: Partial<Record<CMSPageSlug, CMSPage>>
@@ -21,7 +42,7 @@ export interface SiteContent {
   reviews: Review[]
   faqs: FAQ[]
   images: GalleryImage[]
-  settings: SiteSettings | null
+  settings: PublicSiteSettings | null
   /**
    * Whether the CMS answered at all.
    *
@@ -40,7 +61,7 @@ interface SitePayload {
   reviews: Review[]
   faqs: FAQ[]
   images: GalleryImage[]
-  settings: SiteSettings | null
+  settings: PublicSiteSettings | null
 }
 
 const EMPTY: SiteContent = {
