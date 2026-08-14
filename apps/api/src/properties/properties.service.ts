@@ -24,6 +24,17 @@ import { CreatePriceRuleDto, UpdatePriceRuleDto } from './dto/price-rule.dto'
 
 const iso = (date: Date) => date.toISOString().slice(0, 10)
 
+/**
+ * A blocked range is a pair of days, not a pair of instants.
+ *
+ * The column is `@db.Date` and `toISOString()` was dressing it up as midnight
+ * UTC. West of Greenwich that instant belongs to the day before, so a browser
+ * doing `new Date(...)` drew every block one day early: a range Airbnb closed
+ * from the 4th to the 9th of November showed up in the calendar as the 3rd to
+ * the 8th. The date never moved in the database — only its costume did.
+ */
+const asDay = (date: Date) => date.toISOString().slice(0, 10)
+
 @Injectable()
 export class PropertiesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -457,8 +468,8 @@ export class PropertiesService {
     return blockedDates.map((blockedDate) => ({
       id: blockedDate.id,
       propertyId: blockedDate.propertyId,
-      startDate: blockedDate.startDate.toISOString(),
-      endDate: blockedDate.endDate.toISOString(),
+      startDate: asDay(blockedDate.startDate),
+      endDate: asDay(blockedDate.endDate),
       reason: blockedDate.reason ?? undefined,
     }))
   }
@@ -510,8 +521,8 @@ export class PropertiesService {
     return {
       id: created.id,
       propertyId: created.propertyId,
-      startDate: created.startDate.toISOString(),
-      endDate: created.endDate.toISOString(),
+      startDate: asDay(created.startDate),
+      endDate: asDay(created.endDate),
       reason: created.reason ?? undefined,
     }
   }
@@ -537,8 +548,8 @@ export class PropertiesService {
     return {
       id: updated.id,
       propertyId: updated.propertyId,
-      startDate: updated.startDate.toISOString(),
-      endDate: updated.endDate.toISOString(),
+      startDate: asDay(updated.startDate),
+      endDate: asDay(updated.endDate),
       reason: updated.reason ?? undefined,
     }
   }

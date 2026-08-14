@@ -20,6 +20,7 @@ const prismaMock = () => ({
         Promise.resolve({ id: 'b1', reason: null, ...data }),
       ),
     deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    findMany: jest.fn().mockResolvedValue([]),
   },
 })
 
@@ -98,5 +99,25 @@ describe('PropertiesService — blocking dates', () => {
     prisma.blockedDate.deleteMany.mockResolvedValue({ count: 0 })
 
     await expect(service.unblockDates('ghost')).rejects.toBeInstanceOf(NotFoundException)
+  })
+
+  it('answers with plain days, not with midnight in UTC', async () => {
+    // The column is a date. Serialising it as an instant made every browser
+    // west of Greenwich draw the block a day early — the range Airbnb closed
+    // from 4 to 9 November appeared in the calendar as 3 to 8.
+    prisma.blockedDate.findMany.mockResolvedValue([
+      {
+        id: 'b1',
+        propertyId: 'p1',
+        startDate: new Date('2026-11-04T00:00:00Z'),
+        endDate: new Date('2026-11-04T00:00:00Z'),
+        reason: 'Airbnb',
+      },
+    ])
+
+    const [range] = await service.getBlockedDates('areia-bela')
+
+    expect(range.startDate).toBe('2026-11-04')
+    expect(range.endDate).toBe('2026-11-04')
   })
 })
