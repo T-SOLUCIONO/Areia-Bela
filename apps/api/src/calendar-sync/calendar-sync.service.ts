@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { SETTINGS_ID } from '../cms/settings-id'
 import { parseIcal, type IcalBlock } from './ical'
-
-/** The single settings row, pinned like everywhere else it is written. */
-const SETTINGS_ID = 'settings'
 
 /**
  * How long the importer waits for Airbnb.

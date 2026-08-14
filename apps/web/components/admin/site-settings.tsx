@@ -181,7 +181,12 @@ export function SiteSettings() {
       const result = await cms.syncAirbnb()
       const refreshed = await cms.settings()
       if (refreshed) setDraft(refreshed)
-      if (!result) return
+      // The server ran but had no calendar to read: saying nothing here would
+      // look exactly like a sync that worked.
+      if (!result || 'configured' in result) {
+        toast.error(t.content.airbnbNoUrl)
+        return
+      }
       toast.success(
         fill(t.content.airbnbDone, {
           nights: String(result.nights),

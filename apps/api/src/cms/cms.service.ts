@@ -7,6 +7,7 @@ import {
   type SiteSettings,
 } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { SETTINGS_ID } from './settings-id'
 import { TranslationService } from './translation.service'
 import {
   CreateContentItemDto,
@@ -53,9 +54,6 @@ function publicSettings(settings: SiteSettings): PublicSettings {
     PUBLIC_SETTINGS.map((field) => [field, settings[field]]),
   ) as PublicSettings
 }
-
-/** Pinned id, so the single settings row can be upserted without a lookup. */
-const SETTINGS_ID = 'site'
 
 /**
  * Which fields of each model hold prose the guest reads, and therefore need

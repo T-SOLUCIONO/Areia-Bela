@@ -1,4 +1,5 @@
 import { CalendarSyncService } from './calendar-sync.service'
+import { SETTINGS_ID } from '../cms/settings-id'
 import type { PrismaService } from '../prisma/prisma.service'
 
 const ICAL = [
@@ -45,6 +46,16 @@ describe('CalendarSyncService', () => {
     }
     service = new CalendarSyncService(prisma as unknown as PrismaService)
     respondWith(ICAL)
+  })
+
+  it('reads the same settings row the panel writes', async () => {
+    // It did not. This module pinned its own id — `settings` against the CMS's
+    // `site` — so every import read a row that does not exist and reported
+    // "nothing configured" while the panel showed the URL saved. The constant
+    // is shared now; this is the test that keeps it that way.
+    await service.importAirbnb('areia-bela')
+
+    expect(prisma.siteSettings.findUnique).toHaveBeenCalledWith({ where: { id: SETTINGS_ID } })
   })
 
   it('does nothing at all when no calendar is configured', async () => {

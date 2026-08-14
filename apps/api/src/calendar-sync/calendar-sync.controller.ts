@@ -19,7 +19,11 @@ export class CalendarSyncController {
   @Roles(UserRole.SUPERADMIN, UserRole.MANAGER)
   @Post(':slug/airbnb')
   @HttpCode(200)
-  sync(@Param('slug') slug: string) {
-    return this.calendarSync.importAirbnb(slug)
+  async sync(@Param('slug') slug: string) {
+    // Never a bare `null`: Nest serialises that as an empty body, and a caller
+    // parsing JSON gets "Unexpected end of JSON input" — which says nothing
+    // about the only thing that happened, which is that no calendar is set.
+    const result = await this.calendarSync.importAirbnb(slug)
+    return result ?? { configured: false }
   }
 }

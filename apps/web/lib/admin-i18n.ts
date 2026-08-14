@@ -696,6 +696,7 @@ export const adminCopy = {
       airbnbSync: 'Sync now',
       airbnbSyncing: 'Syncing…',
       airbnbNever: 'Never synced',
+      airbnbNoUrl: 'The server has no calendar link saved yet. Save the settings and try again.',
       airbnbLastSync: 'Last sync',
       airbnbFailing: 'The last sync failed',
       airbnbDone: 'Blocked {nights} nights in {blocks} ranges',
@@ -1555,6 +1556,8 @@ export const adminCopy = {
       airbnbSync: 'Sincronizar ahora',
       airbnbSyncing: 'Sincronizando…',
       airbnbNever: 'Nunca sincronizado',
+      airbnbNoUrl:
+        'El servidor todavía no tiene guardado el enlace del calendario. Guarda los ajustes y vuelve a intentarlo.',
       airbnbLastSync: 'Última sincronización',
       airbnbFailing: 'La última sincronización falló',
       airbnbDone: 'Bloqueadas {nights} noches en {blocks} rangos',

@@ -55,7 +55,16 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (!response.ok) throw await toApiError(response)
   if (response.status === 204) return undefined as T
 
-  return (await response.json()) as T
+  /**
+   * An empty body is not a parse error.
+   *
+   * A Nest handler that returns `null` answers 200 with nothing in it, and
+   * `response.json()` on that throws "Unexpected end of JSON input" — an error
+   * about JSON, surfaced to the user, for a request that succeeded. Reading the
+   * text first turns that into the `undefined` the caller can actually handle.
+   */
+  const body = await response.text()
+  return (body ? JSON.parse(body) : undefined) as T
 }
 
 export { API_URL, REFRESH_TOKEN_COOKIE }
