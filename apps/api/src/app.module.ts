@@ -15,6 +15,7 @@ import { PaymentsReportModule } from './payments/payments-report.module'
 import { TaxesModule } from './taxes/taxes.module'
 import { CustomersModule } from './customers/customers.module'
 import { GuestModule } from './guest/guest.module'
+import { CalendarSyncModule } from './calendar-sync/calendar-sync.module'
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { GuestModule } from './guest/guest.module'
     TaxesModule,
     CustomersModule,
     GuestModule,
+    CalendarSyncModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

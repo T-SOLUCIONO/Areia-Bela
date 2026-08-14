@@ -364,14 +364,28 @@ model PriceRule {
   active      Boolean    @default(true)
 }
 
-model BlockedDate {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id])
-  startDate  DateTime @db.Date
-  endDate    DateTime @db.Date
-  reason     String?
+// Quien cerró estas noches. Un bloqueo importado se reemplaza entero en cada
+// sincronización; uno hecho a mano en el panel no se toca nunca.
+enum BlockedDateSource {
+  MANUAL
+  AIRBNB
+}
 
+model BlockedDate {
+  id         String            @id @default(cuid())
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  startDate  DateTime          @db.Date
+  // Inclusive: the night of `endDate` is blocked too. iCal's DTEND is not, so
+  // the importer subtracts a day — see parseIcal.
+  endDate    DateTime          @db.Date
+  reason     String?
+  source     BlockedDateSource @default(MANUAL)
+  // The calendar event's UID, which Airbnb keeps stable across exports. It is
+  // what makes re-importing idempotent instead of duplicating every run.
+  externalId String?
+
+  @@unique([propertyId, externalId])
   @@index([propertyId, startDate, endDate])
 }
 
@@ -581,6 +595,17 @@ model SiteSettings {
   // The tab icon. Null falls back to the bundled starfish, which ships in a
   // light and a dark variant; one uploaded file replaces both.
   faviconUrl       String?
+
+  // Airbnb's calendar export. It carries no password, but it is a credential
+  // all the same: whoever holds it reads every booked date and the last four
+  // digits of each guest's phone. It must never reach /cms/site, which is why
+  // that endpoint whitelists what it publishes.
+  airbnbIcalUrl    String?
+  // When the last import ran and how it went. Null error means it worked. The
+  // panel shows both, because a sync that quietly stopped is the failure that
+  // matters: the host believes the calendar is guarded and it is not.
+  airbnbSyncedAt   DateTime?
+  airbnbSyncError  String?
   updatedAt        DateTime         @updatedAt
 }
 
