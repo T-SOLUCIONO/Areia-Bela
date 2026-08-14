@@ -48,6 +48,44 @@ export class CalendarSyncService {
   }
 
   /**
+   * Is Airbnb holding any of these nights, right now?
+   *
+   * The periodic import is a net with fifteen-minute holes in it. This asks the
+   * live calendar in the seconds before a booking is confirmed, which is the
+   * only moment the answer is worth anything — Airbnb's feed is generated when
+   * requested, so it already knows about a stay somebody booked a minute ago.
+   *
+   * Returns `null` for "could not tell": no calendar configured, Airbnb slow, or
+   * Airbnb down. The caller lets the booking through on `null` **on purpose**.
+   * Refusing real money because a third party timed out costs more than the
+   * booking it would have prevented, and the import behind it will catch the
+   * overlap within the quarter hour and raise it.
+   */
+  async takenOnAirbnb(
+    checkIn: string,
+    checkOut: string,
+    timeoutMs = 3_000,
+  ): Promise<boolean | null> {
+    const settings = await this.prisma.siteSettings.findUnique({ where: { id: SETTINGS_ID } })
+    const url = settings?.airbnbIcalUrl?.trim()
+    if (!url) return null
+
+    try {
+      const blocks = await this.fetchBlocks(url, timeoutMs)
+      // `endDate` is the last night; a guest leaving the morning a block starts
+      // is not an overlap.
+      return blocks.some((block) => block.startDate < checkOut && block.endDate >= checkIn)
+    } catch (error) {
+      this.logger.warn(
+        `Could not check Airbnb before confirming ${checkIn}-${checkOut}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+      return null
+    }
+  }
+
+  /**
    * Pulls Airbnb's calendar into `BlockedDate`.
    *
    * Replace, not merge: every range the feed no longer carries is deleted and

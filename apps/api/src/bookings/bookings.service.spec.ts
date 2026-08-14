@@ -9,6 +9,7 @@ import type { PaymentsService } from './payments.service'
 import type { GuestService } from '../guest/guest.service'
 import type { BookingPdfService } from '../guest/booking-pdf.service'
 import type { PrismaService } from '../prisma/prisma.service'
+import type { CalendarSyncService } from '../calendar-sync/calendar-sync.service'
 import type { CreateHoldDto } from './dto/create-hold.dto'
 import { ManualPaymentMethod } from './dto/manual-booking.dto'
 
@@ -105,6 +106,7 @@ describe('BookingsService', () => {
   let properties: { getQuote: jest.Mock }
   let guests: { myBooking: jest.Mock }
   let pdfs: { render: jest.Mock }
+  let calendarSync: { takenOnAirbnb: jest.Mock }
   let payments: { checkoutUrlFor: jest.Mock; ensureCustomer: jest.Mock; sessionStatus?: jest.Mock }
   let notifications: {
     bookingCreated: jest.Mock
@@ -157,6 +159,10 @@ describe('BookingsService', () => {
 
     pdfs = { render: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 fake')) }
 
+    // Null is "could not tell", which is what an unconfigured calendar answers
+    // and the state every test that is not about Airbnb wants to be in.
+    calendarSync = { takenOnAirbnb: jest.fn().mockResolvedValue(null) }
+
     service = new BookingsService(
       prisma as unknown as PrismaService,
       properties as unknown as PropertiesService,
@@ -167,6 +173,7 @@ describe('BookingsService', () => {
       } as unknown as ConfigService,
       guests as unknown as GuestService,
       pdfs as unknown as BookingPdfService,
+      calendarSync as unknown as CalendarSyncService,
     )
   })
 
@@ -282,6 +289,42 @@ describe('BookingsService', () => {
         ConflictException,
       )
       expect(prisma.booking.create).not.toHaveBeenCalled()
+    })
+
+    it('refuses dates Airbnb is already holding, asked live', async () => {
+      // The import runs every quarter of an hour. This is the second before the
+      // dates are taken, which is the only moment the answer is worth having.
+      calendarSync.takenOnAirbnb.mockResolvedValue(true)
+
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).rejects.toBeInstanceOf(
+        ConflictException,
+      )
+      expect(prisma.booking.create).not.toHaveBeenCalled()
+    })
+
+    it('lets the booking through when Airbnb cannot be reached', async () => {
+      // Deliberate. Turning away a guest with their card out because a third
+      // party timed out costs more than the overlap it would prevent, and the
+      // periodic import raises the collision either way.
+      calendarSync.takenOnAirbnb.mockResolvedValue(null)
+
+      await expect(service.hold('areia-bela', DTO, ORIGIN)).resolves.toBeDefined()
+      expect(prisma.booking.create).toHaveBeenCalled()
+    })
+
+    it('looks for blocks that end the day the guest arrives', async () => {
+      // `endDate` is inclusive: a block ending on the arrival date closes that
+      // night. Asking for `endDate > checkIn` missed it, so a one-night block
+      // was invisible to whoever checked in on it — and Airbnb's calendar is
+      // full of one-night blocks.
+      await service.hold('areia-bela', DTO, ORIGIN)
+
+      expect(prisma.blockedDate.findFirst).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          endDate: { gte: new Date(DTO.checkIn) },
+          startDate: { lt: new Date(DTO.checkOut) },
+        }),
+      })
     })
 
     it('retries with a new reference when one collides', async () => {

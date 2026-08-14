@@ -16,6 +16,7 @@ import {
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma/prisma.service'
 import { PropertiesService } from '../properties/properties.service'
+import { CalendarSyncService } from '../calendar-sync/calendar-sync.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { CreateHoldDto } from './dto/create-hold.dto'
 import { CreateManualBookingDto } from './dto/manual-booking.dto'
@@ -70,6 +71,27 @@ export interface UpdateBookingResult {
 
 const iso = (date: Date): string => date.toISOString().slice(0, 10)
 
+/**
+ * Does a stay land on a blocked range?
+ *
+ * `endDate` is **inclusive** — the night of that day is closed too, which is
+ * what `takenNights` draws on the calendar. The three copies of this query all
+ * asked for `endDate > checkIn`, so a block ending the day a guest arrived did
+ * not count: a one-night block was invisible to anyone checking in on it, and
+ * the booking went through against a night the calendar showed as taken.
+ *
+ * It mattered little while blocks were rare and long. Airbnb's calendar is full
+ * of one-night blocks — the export this was written against has five — so it
+ * stopped being theoretical the moment the import landed.
+ */
+function blockedOverlap(propertyId: string, checkIn: string, checkOut: string) {
+  return {
+    propertyId,
+    startDate: { lt: new Date(checkOut) },
+    endDate: { gte: new Date(checkIn) },
+  }
+}
+
 @Injectable()
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name)
@@ -82,6 +104,7 @@ export class BookingsService {
     private readonly config: ConfigService,
     private readonly guests: GuestService,
     private readonly pdfs: BookingPdfService,
+    private readonly calendarSync: CalendarSyncService,
   ) {}
 
   /**
@@ -129,13 +152,27 @@ export class BookingsService {
     // A date the host blocked is not a booking, so the exclusion constraint
     // knows nothing about it. This check does.
     const blocked = await this.prisma.blockedDate.findFirst({
-      where: {
-        propertyId: property.id,
-        startDate: { lt: new Date(dto.checkOut) },
-        endDate: { gt: new Date(dto.checkIn) },
-      },
+      where: blockedOverlap(property.id, dto.checkIn, dto.checkOut),
     })
     if (blocked) {
+      throw new ConflictException('Those dates are not available')
+    }
+
+    /**
+     * And Airbnb, live, in the seconds before the dates are taken.
+     *
+     * The import behind this runs every quarter of an hour, which leaves a
+     * fifteen-minute window in which Airbnb can sell a night this house is
+     * still offering. Asking the calendar here closes it to about a second.
+     *
+     * `null` means the question could not be answered — no calendar configured,
+     * or Airbnb slow or down — and the booking goes through. That is the
+     * deliberate choice: turning away a guest with their card out because a
+     * third party timed out costs more than the rare overlap it would prevent,
+     * and the periodic import raises the collision either way.
+     */
+    if ((await this.calendarSync.takenOnAirbnb(dto.checkIn, dto.checkOut)) === true) {
+      this.logger.warn(`Airbnb already holds ${dto.checkIn}-${dto.checkOut}; refused the hold`)
       throw new ConflictException('Those dates are not available')
     }
 
@@ -198,11 +235,7 @@ export class BookingsService {
     // it. The host can still block first and book after — this only refuses
     // the collision, not the intent.
     const blocked = await this.prisma.blockedDate.findFirst({
-      where: {
-        propertyId: property.id,
-        startDate: { lt: new Date(dto.checkOut) },
-        endDate: { gt: new Date(dto.checkIn) },
-      },
+      where: blockedOverlap(property.id, dto.checkIn, dto.checkOut),
     })
     if (blocked) {
       throw new ConflictException('Those dates are blocked. Free them first.')
@@ -909,11 +942,7 @@ export class BookingsService {
     // Same reasoning as a manual booking: a blocked range is not a booking, so
     // the exclusion constraint knows nothing about it.
     const blocked = await this.prisma.blockedDate.findFirst({
-      where: {
-        propertyId: existing.propertyId,
-        startDate: { lt: new Date(checkOut) },
-        endDate: { gt: new Date(checkIn) },
-      },
+      where: blockedOverlap(existing.propertyId, checkIn, checkOut),
     })
     if (blocked) throw new ConflictException('Those dates are blocked. Free them first.')
 
