@@ -12,6 +12,8 @@ import {
   type ContentState,
   type ContentTarget,
 } from '@/components/admin/content/content-nav'
+import { PropertySettings } from '@/components/admin/property-settings'
+import { SiteSettings } from '@/components/admin/site-settings'
 import { PagesEditor } from '@/components/admin/content/pages-editor'
 import { FaqsManager } from '@/components/admin/content/faqs-manager'
 import { GalleryManager } from '@/components/admin/content/gallery-manager'
@@ -96,7 +98,9 @@ export default function ContentPage() {
       ? `${SECTION_ORDER.indexOf(target.key) + 1} · ${t.content.sections[target.key]}`
       : target.kind === 'page'
         ? t.content.slugs[target.slug]
-        : t.content[target.kind]
+        : target.kind === 'setup'
+          ? t.content.setup[target.key]
+          : t.content[target.kind]
 
   const select = (next: ContentTarget) => {
     setTarget(next)
@@ -141,6 +145,16 @@ export default function ContentPage() {
           {target.kind === 'reviews' && <ReviewsEditor onChanged={refresh} />}
           {target.kind === 'faqs' && <FaqsManager onChanged={refresh} />}
           {target.kind === 'gallery' && <GalleryManager onChanged={refresh} />}
+          {/* One row in the database behind five screens. Each panel loads and
+              saves the whole row, so editing the phone number cannot wipe the
+              search description. */}
+          {target.kind === 'setup' && target.key === 'house' && <PropertySettings />}
+          {target.kind === 'setup' && target.key === 'contact' && (
+            <SiteSettings section="contact" />
+          )}
+          {target.kind === 'setup' && target.key === 'seo' && <SiteSettings section="seo" />}
+          {target.kind === 'setup' && target.key === 'brand' && <SiteSettings section="brand" />}
+          {target.kind === 'setup' && target.key === 'airbnb' && <SiteSettings section="airbnb" />}
         </div>
       </div>
     </div>

@@ -34,6 +34,18 @@ export const PAGE_ORDER: CMSPageSlug[] = [
   'POLICIES',
 ]
 
+/**
+ * How the site presents itself, as opposed to what it says.
+ *
+ * These lived behind two tabs on the settings screen, next to passwords and
+ * staff accounts. They are not that: a phone number, a search description, a
+ * logo and the house's own capacity are the website, and the person editing
+ * them is doing the same job as the person editing the hero — which is why they
+ * belong in the same rail and not one menu away.
+ */
+export const SETUP_ORDER = ['house', 'contact', 'seo', 'brand', 'airbnb'] as const
+export type SetupKey = (typeof SETUP_ORDER)[number]
+
 /** Where the editor is pointing. */
 export type ContentTarget =
   | { kind: 'section'; key: ContentSectionKey }
@@ -41,6 +53,7 @@ export type ContentTarget =
   | { kind: 'reviews' }
   | { kind: 'faqs' }
   | { kind: 'gallery' }
+  | { kind: 'setup'; key: SetupKey }
 
 /** What the rail knows without opening anything. */
 export interface ContentState {
@@ -183,6 +196,17 @@ export function ContentNav({ state, target, onSelect }: Props) {
           t.content.libraryPhotos,
           () => onSelect({ kind: 'gallery' }),
           state && count(state.photos),
+        )}
+      </div>
+
+      <div className="space-y-0.5">
+        <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+          {t.content.groupSetup}
+        </p>
+        {SETUP_ORDER.map((key) =>
+          row(target.kind === 'setup' && target.key === key, key, t.content.setup[key], () =>
+            onSelect({ kind: 'setup', key }),
+          ),
         )}
       </div>
 

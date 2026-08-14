@@ -1,22 +1,23 @@
 'use client'
 
-import { Globe2, Home, KeyRound, ShieldCheck, Users } from 'lucide-react'
+import { Bell, KeyRound, ShieldCheck, Users } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@areia-bela/ui/tabs'
 import { TeamManagement } from '@/components/admin/team-management'
 import { TwoFactorSettings } from '@/components/admin/two-factor-settings'
 import { ChangePassword } from '@/components/admin/change-password'
-import { PropertySettings } from '@/components/admin/property-settings'
 import { SiteSettings } from '@/components/admin/site-settings'
 import { useHasRole } from '@/components/admin/admin-session-provider'
 import { useAdminCopy } from '@/components/admin/admin-language-provider'
 
 /**
- * Only what actually persists. The old General / Booking / Notifications /
- * Billing tabs were 26 fields behind a "Save changes" button that was a
- * one-second timeout and no request, so they were deleted. House and
- * Contact & SEO are their replacement, now that Fase 5 gave them real
- * endpoints — every field below reaches the database.
+ * Your account, and how the house reaches you.
+ *
+ * What used to sit here — the house's own facts, the contact details, the
+ * search description, the logo — is the website, and it moved into the website
+ * screen's rail where the person editing the hero can find it. What is left is
+ * the part that is genuinely not the website: where booking alerts land, your
+ * password, and who else can sign in.
  */
 export default function SettingsPage() {
   const isSuperadmin = useHasRole('superadmin')
@@ -25,10 +26,9 @@ export default function SettingsPage() {
   const t = useAdminCopy()
 
   return (
-    <Tabs defaultValue={canEditHouse ? 'house' : 'security'} className="space-y-6">
+    <Tabs defaultValue={canEditHouse ? 'alerts' : 'security'} className="space-y-6">
       <TabsList>
-        {canEditHouse && <TabsTrigger value="house">{t.settings.house}</TabsTrigger>}
-        {canEditHouse && <TabsTrigger value="site">{t.settings.site}</TabsTrigger>}
+        {canEditHouse && <TabsTrigger value="alerts">{t.site.notifyTitle}</TabsTrigger>}
         <TabsTrigger value="security">{t.settings.security}</TabsTrigger>
         {/* Managing other people is superadmin-only, so the tab isn't offered
             to roles that would only find a permission notice behind it. */}
@@ -36,34 +36,17 @@ export default function SettingsPage() {
       </TabsList>
 
       {canEditHouse && (
-        <TabsContent value="house">
+        <TabsContent value="alerts">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-serif">
-                <Home className="h-5 w-5 text-primary" />
-                {t.property.title}
+                <Bell className="h-5 w-5 text-primary" />
+                {t.site.notifyTitle}
               </CardTitle>
-              <CardDescription>{t.property.subtitle}</CardDescription>
+              <CardDescription>{t.site.notifySubtitle}</CardDescription>
             </CardHeader>
             <CardContent>
-              <PropertySettings />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      )}
-
-      {canEditHouse && (
-        <TabsContent value="site">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-serif">
-                <Globe2 className="h-5 w-5 text-primary" />
-                {t.site.title}
-              </CardTitle>
-              <CardDescription>{t.site.subtitle}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SiteSettings />
+              <SiteSettings section="notifications" />
             </CardContent>
           </Card>
         </TabsContent>

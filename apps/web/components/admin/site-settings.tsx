@@ -103,7 +103,18 @@ function Warning({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function SiteSettings() {
+/**
+ * Which part of the site's configuration to show.
+ *
+ * One row in the database, five screens on top of it. Splitting the component
+ * rather than the data keeps a single load and a single save — editing the
+ * contact details and pressing save cannot wipe the SEO fields, because the
+ * draft is always the whole row.
+ */
+export type SiteSettingsSection = 'contact' | 'seo' | 'brand' | 'airbnb' | 'notifications'
+
+export function SiteSettings({ section }: { section: SiteSettingsSection }) {
+  const show = (name: SiteSettingsSection) => section === name
   const t = useAdminCopy()
   const copyRef = useAdminCopyRef()
   const [stored, setStored] = useState<Settings | null>(null)
@@ -226,290 +237,312 @@ export function SiteSettings() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="contact-email">{t.site.contactEmail}</Label>
-          <Input
-            id="contact-email"
-            type="email"
-            value={draft.contactEmail}
-            onChange={(e) => edit({ contactEmail: e.target.value })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="contact-phone">{t.site.contactPhone}</Label>
-          <Input
-            id="contact-phone"
-            type="tel"
-            value={draft.contactPhone}
-            onChange={(e) => edit({ contactPhone: e.target.value })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="whatsapp">{t.site.whatsapp}</Label>
-          <Input
-            id="whatsapp"
-            inputMode="numeric"
-            value={draft.whatsapp}
-            onChange={(e) => edit({ whatsapp: e.target.value.replace(/\D/g, '') })}
-          />
-          <p className="text-xs text-muted-foreground">{t.site.whatsappHint}</p>
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div>
-          <h3 className="font-serif text-base">SEO</h3>
-          <p className="text-sm text-muted-foreground">{t.site.seoHint}</p>
-        </div>
-        <div className="space-y-3 rounded-xl border bg-card p-4">
-          {listingName && (
+      {show('contact') && (
+        <>
+          <section className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <Label htmlFor="listing-name">{t.site.listingName}</Label>
+              <Label htmlFor="contact-email">{t.site.contactEmail}</Label>
               <Input
-                id="listing-name"
-                value={listingName.draft}
-                onChange={(e) => setListingName({ ...listingName, draft: e.target.value })}
+                id="contact-email"
+                type="email"
+                value={draft.contactEmail}
+                onChange={(e) => edit({ contactEmail: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">{t.site.listingNameHint}</p>
             </div>
-          )}
-          <div className="space-y-1.5">
-            <Label htmlFor="seoTitle">{t.site.seoTitle}</Label>
-            <Input
-              id="seoTitle"
-              value={draft.seoTitle}
-              onChange={(e) => edit({ seoTitle: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="seoDescription">{t.site.seoDescription}</Label>
-            <Textarea
-              id="seoDescription"
-              rows={3}
-              value={draft.seoDescription}
-              onChange={(e) => edit({ seoDescription: e.target.value })}
-            />
-            <p className="text-right text-xs text-muted-foreground">
-              {draft.seoDescription.length} / 155
-            </p>
-          </div>
-        </div>
-      </section>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-phone">{t.site.contactPhone}</Label>
+              <Input
+                id="contact-phone"
+                type="tel"
+                value={draft.contactPhone}
+                onChange={(e) => edit({ contactPhone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="whatsapp">{t.site.whatsapp}</Label>
+              <Input
+                id="whatsapp"
+                inputMode="numeric"
+                value={draft.whatsapp}
+                onChange={(e) => edit({ whatsapp: e.target.value.replace(/\D/g, '') })}
+              />
+              <p className="text-xs text-muted-foreground">{t.site.whatsappHint}</p>
+            </div>
+          </section>
 
-      <section className="space-y-4">
-        <div>
-          <h3 className="font-serif text-base">{t.site.notifyTitle}</h3>
-          <p className="text-sm text-muted-foreground">{t.site.notifySubtitle}</p>
-        </div>
+          <section className="space-y-3">
+            <h3 className="font-serif text-base">{t.site.links}</h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {(
+                [
+                  ['instagramUrl', t.site.instagram],
+                  ['facebookUrl', t.site.facebook],
+                  ['airbnbUrl', t.site.airbnb],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="space-y-1.5">
+                  <Label htmlFor={key}>{label}</Label>
+                  <Input
+                    id={key}
+                    type="url"
+                    placeholder="https://"
+                    value={draft[key] ?? ''}
+                    // Empty means "no link", which is null in the database, not "".
+                    onChange={(e) => edit({ [key]: e.target.value.trim() || null })}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="notifyEmail">{t.site.notifyEmail}</Label>
-            <Input
-              id="notifyEmail"
-              type="email"
-              placeholder={draft.contactEmail}
-              value={draft.notifyEmail}
-              onChange={(e) => edit({ notifyEmail: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">
-              {status?.email ? t.site.notifyEmailOn : t.site.notifyEmailOff}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="whatsappProvider">{t.site.whatsappProvider}</Label>
-            <Select
-              value={draft.whatsappProvider}
-              onValueChange={(value) => edit({ whatsappProvider: value as 'TWILIO' | 'META' })}
-            >
-              <SelectTrigger id="whatsappProvider">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TWILIO">{t.site.whatsappProviderTwilio}</SelectItem>
-                <SelectItem value="META">{t.site.whatsappProviderMeta}</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{t.site.whatsappProviderHint}</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="notifyWhatsapp">{t.site.notifyWhatsapp}</Label>
-            <Input
-              id="notifyWhatsapp"
-              inputMode="numeric"
-              placeholder={draft.whatsapp}
-              value={draft.notifyWhatsapp}
-              onChange={(e) => edit({ notifyWhatsapp: e.target.value.replace(/\D/g, '') })}
-            />
-            <p className="text-xs text-muted-foreground">
-              {status?.whatsappConfigured
-                ? t.site.notifyWhatsappOn
-                : t.site.whatsappProviderMissing}
-            </p>
-            {/* Which one is missing matters: the host can pick the other, but
+      {show('seo') && (
+        <>
+          <section className="space-y-4">
+            <div>
+              <h3 className="font-serif text-base">SEO</h3>
+              <p className="text-sm text-muted-foreground">{t.site.seoHint}</p>
+            </div>
+            <div className="space-y-3 rounded-xl border bg-card p-4">
+              {listingName && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="listing-name">{t.site.listingName}</Label>
+                  <Input
+                    id="listing-name"
+                    value={listingName.draft}
+                    onChange={(e) => setListingName({ ...listingName, draft: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">{t.site.listingNameHint}</p>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="seoTitle">{t.site.seoTitle}</Label>
+                <Input
+                  id="seoTitle"
+                  value={draft.seoTitle}
+                  onChange={(e) => edit({ seoTitle: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="seoDescription">{t.site.seoDescription}</Label>
+                <Textarea
+                  id="seoDescription"
+                  rows={3}
+                  value={draft.seoDescription}
+                  onChange={(e) => edit({ seoDescription: e.target.value })}
+                />
+                <p className="text-right text-xs text-muted-foreground">
+                  {draft.seoDescription.length} / 155
+                </p>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {show('brand') && (
+        <>
+          <section className="space-y-3">
+            <h3 className="font-serif text-base">{t.content.logo}</h3>
+            {/* Two marks, not one flattened by a filter. The light one is black ink
+            on transparency; turning it white in CSS also turns the turquoise
+            starfish white. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ImageField
+                label={t.content.logoLight}
+                value={draft.logoUrl}
+                onChange={(logoUrl) => edit({ logoUrl })}
+              />
+              <ImageField
+                label={t.content.logoDark}
+                value={draft.logoDarkUrl}
+                onChange={(logoDarkUrl) => edit({ logoDarkUrl })}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{t.content.logoHint}</p>
+
+            <div className="pt-2">
+              <ImageField
+                label={t.content.favicon}
+                shape="square"
+                value={draft.faviconUrl}
+                onChange={(faviconUrl) => edit({ faviconUrl })}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">{t.content.faviconHint}</p>
+            </div>
+          </section>
+        </>
+      )}
+
+      {show('airbnb') && (
+        <>
+          <section className="space-y-3">
+            <h3 className="font-serif text-base">{t.content.airbnbTitle}</h3>
+            <div className="space-y-1.5">
+              <Label htmlFor="airbnbIcalUrl">{t.content.airbnbUrl}</Label>
+              <Input
+                id="airbnbIcalUrl"
+                type="url"
+                placeholder="https://www.airbnb.com/calendar/ical/..."
+                value={draft.airbnbIcalUrl ?? ''}
+                onChange={(e) => edit({ airbnbIcalUrl: e.target.value.trim() || null })}
+              />
+              <p className="text-xs text-muted-foreground">{t.content.airbnbHint}</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isSyncing || !draft.airbnbIcalUrl}
+                onClick={() => void syncAirbnb()}
+              >
+                {isSyncing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+                {isSyncing ? t.content.airbnbSyncing : t.content.airbnbSync}
+              </Button>
+
+              {/* The state of the last run, not just of this button. A sync that
+              quietly stopped working is the failure that matters: the host
+              believes the calendar is guarded when it is not. */}
+              <span className="text-xs text-muted-foreground">
+                {draft.airbnbSyncError ? (
+                  <span className="text-destructive">
+                    {t.content.airbnbFailing} · {draft.airbnbSyncError}
+                  </span>
+                ) : draft.airbnbSyncedAt ? (
+                  `${t.content.airbnbLastSync}: ${new Date(draft.airbnbSyncedAt).toLocaleString()}`
+                ) : (
+                  t.content.airbnbNever
+                )}
+              </span>
+            </div>
+          </section>
+        </>
+      )}
+
+      {show('notifications') && (
+        <>
+          <section className="space-y-4">
+            <div>
+              <h3 className="font-serif text-base">{t.site.notifyTitle}</h3>
+              <p className="text-sm text-muted-foreground">{t.site.notifySubtitle}</p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="notifyEmail">{t.site.notifyEmail}</Label>
+                <Input
+                  id="notifyEmail"
+                  type="email"
+                  placeholder={draft.contactEmail}
+                  value={draft.notifyEmail}
+                  onChange={(e) => edit({ notifyEmail: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {status?.email ? t.site.notifyEmailOn : t.site.notifyEmailOff}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="whatsappProvider">{t.site.whatsappProvider}</Label>
+                <Select
+                  value={draft.whatsappProvider}
+                  onValueChange={(value) => edit({ whatsappProvider: value as 'TWILIO' | 'META' })}
+                >
+                  <SelectTrigger id="whatsappProvider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TWILIO">{t.site.whatsappProviderTwilio}</SelectItem>
+                    <SelectItem value="META">{t.site.whatsappProviderMeta}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t.site.whatsappProviderHint}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="notifyWhatsapp">{t.site.notifyWhatsapp}</Label>
+                <Input
+                  id="notifyWhatsapp"
+                  inputMode="numeric"
+                  placeholder={draft.whatsapp}
+                  value={draft.notifyWhatsapp}
+                  onChange={(e) => edit({ notifyWhatsapp: e.target.value.replace(/\D/g, '') })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {status?.whatsappConfigured
+                    ? t.site.notifyWhatsappOn
+                    : t.site.whatsappProviderMissing}
+                </p>
+                {/* Which one is missing matters: the host can pick the other, but
                 only a deploy can add credentials. Saying "WhatsApp is off"
                 would send them looking in the wrong place. */}
-            {/* Meta's own sentence, on its own line rather than glued to a
+                {/* Meta's own sentence, on its own line rather than glued to a
                 translated prefix: it arrives in English whatever language the
                 panel is in, and it carries the date the token died. */}
-            {draft.whatsappProvider === 'META' && status?.metaProblem && (
-              <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2">
-                <p className="text-xs">{t.site.metaRejected}</p>
-                <p className="text-xs font-mono text-muted-foreground">{status.metaProblem}</p>
-                <p className="text-xs text-muted-foreground">{t.site.metaRejectedFix}</p>
-              </div>
-            )}
-            {/* Three different states that all look identical from the outside:
+                {draft.whatsappProvider === 'META' && status?.metaProblem && (
+                  <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2">
+                    <p className="text-xs">{t.site.metaRejected}</p>
+                    <p className="text-xs font-mono text-muted-foreground">{status.metaProblem}</p>
+                    <p className="text-xs text-muted-foreground">{t.site.metaRejectedFix}</p>
+                  </div>
+                )}
+                {/* Three different states that all look identical from the outside:
                 no template (falls back to text, works in an open window), a
                 template Meta does not know (every send fails), and an approved
                 one (arrives always). Only the last is good news. */}
-            {draft.whatsappProvider === 'META' && status?.metaConfigured && !status.metaProblem && (
-              <MetaTemplateNotice
-                configured={status.metaTemplate}
-                templateStatus={status.metaTemplateStatus}
-                copy={t.site}
-              />
-            )}
-            {status !== null &&
-              !status.whatsappConfigured &&
-              (draft.whatsappProvider === 'META'
-                ? status.twilioConfigured
-                : status.metaConfigured) && (
-                <p className="text-xs text-muted-foreground">{t.site.whatsappOtherReady}</p>
-              )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="notifyTelegram">{t.site.notifyTelegram}</Label>
-            <Input
-              id="notifyTelegram"
-              inputMode="numeric"
-              value={draft.notifyTelegram}
-              // A chat id can be negative — a group's is — so the minus sign
-              // survives while everything else that is not a digit does not.
-              onChange={(e) => edit({ notifyTelegram: e.target.value.replace(/[^\d-]/g, '') })}
-            />
-            <p className="text-xs text-muted-foreground">
-              {status?.telegramConfigured ? t.site.notifyTelegramOn : t.site.notifyTelegramOff}
-            </p>
-            <p className="text-xs text-muted-foreground">{t.site.notifyTelegramHint}</p>
-          </div>
-        </div>
-
-        <div className="space-y-2 rounded-xl border bg-muted/30 p-4">
-          {(
-            [
-              ['notifyOnBooking', t.site.notifyOnBooking],
-              ['notifyOnCancel', t.site.notifyOnCancel],
-              ['notifyOnChange', t.site.notifyOnChange],
-              ['notifyOnMessage', t.site.notifyOnMessage],
-            ] as const
-          ).map(([key, label]) => (
-            <Label key={key} className="flex items-center gap-2 text-sm font-normal">
-              <Switch checked={draft[key]} onCheckedChange={(on) => edit({ [key]: on })} />
-              {label}
-            </Label>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="font-serif text-base">{t.content.logo}</h3>
-        {/* Two marks, not one flattened by a filter. The light one is black ink
-            on transparency; turning it white in CSS also turns the turquoise
-            starfish white. */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ImageField
-            label={t.content.logoLight}
-            value={draft.logoUrl}
-            onChange={(logoUrl) => edit({ logoUrl })}
-          />
-          <ImageField
-            label={t.content.logoDark}
-            value={draft.logoDarkUrl}
-            onChange={(logoDarkUrl) => edit({ logoDarkUrl })}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">{t.content.logoHint}</p>
-
-        <div className="pt-2">
-          <ImageField
-            label={t.content.favicon}
-            shape="square"
-            value={draft.faviconUrl}
-            onChange={(faviconUrl) => edit({ faviconUrl })}
-          />
-          <p className="mt-2 text-xs text-muted-foreground">{t.content.faviconHint}</p>
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="font-serif text-base">{t.content.airbnbTitle}</h3>
-        <div className="space-y-1.5">
-          <Label htmlFor="airbnbIcalUrl">{t.content.airbnbUrl}</Label>
-          <Input
-            id="airbnbIcalUrl"
-            type="url"
-            placeholder="https://www.airbnb.com/calendar/ical/..."
-            value={draft.airbnbIcalUrl ?? ''}
-            onChange={(e) => edit({ airbnbIcalUrl: e.target.value.trim() || null })}
-          />
-          <p className="text-xs text-muted-foreground">{t.content.airbnbHint}</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isSyncing || !draft.airbnbIcalUrl}
-            onClick={() => void syncAirbnb()}
-          >
-            {isSyncing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-            {isSyncing ? t.content.airbnbSyncing : t.content.airbnbSync}
-          </Button>
-
-          {/* The state of the last run, not just of this button. A sync that
-              quietly stopped working is the failure that matters: the host
-              believes the calendar is guarded when it is not. */}
-          <span className="text-xs text-muted-foreground">
-            {draft.airbnbSyncError ? (
-              <span className="text-destructive">
-                {t.content.airbnbFailing} · {draft.airbnbSyncError}
-              </span>
-            ) : draft.airbnbSyncedAt ? (
-              `${t.content.airbnbLastSync}: ${new Date(draft.airbnbSyncedAt).toLocaleString()}`
-            ) : (
-              t.content.airbnbNever
-            )}
-          </span>
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="font-serif text-base">{t.site.links}</h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {(
-            [
-              ['instagramUrl', t.site.instagram],
-              ['facebookUrl', t.site.facebook],
-              ['airbnbUrl', t.site.airbnb],
-            ] as const
-          ).map(([key, label]) => (
-            <div key={key} className="space-y-1.5">
-              <Label htmlFor={key}>{label}</Label>
-              <Input
-                id={key}
-                type="url"
-                placeholder="https://"
-                value={draft[key] ?? ''}
-                // Empty means "no link", which is null in the database, not "".
-                onChange={(e) => edit({ [key]: e.target.value.trim() || null })}
-              />
+                {draft.whatsappProvider === 'META' &&
+                  status?.metaConfigured &&
+                  !status.metaProblem && (
+                    <MetaTemplateNotice
+                      configured={status.metaTemplate}
+                      templateStatus={status.metaTemplateStatus}
+                      copy={t.site}
+                    />
+                  )}
+                {status !== null &&
+                  !status.whatsappConfigured &&
+                  (draft.whatsappProvider === 'META'
+                    ? status.twilioConfigured
+                    : status.metaConfigured) && (
+                    <p className="text-xs text-muted-foreground">{t.site.whatsappOtherReady}</p>
+                  )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="notifyTelegram">{t.site.notifyTelegram}</Label>
+                <Input
+                  id="notifyTelegram"
+                  inputMode="numeric"
+                  value={draft.notifyTelegram}
+                  // A chat id can be negative — a group's is — so the minus sign
+                  // survives while everything else that is not a digit does not.
+                  onChange={(e) => edit({ notifyTelegram: e.target.value.replace(/[^\d-]/g, '') })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {status?.telegramConfigured ? t.site.notifyTelegramOn : t.site.notifyTelegramOff}
+                </p>
+                <p className="text-xs text-muted-foreground">{t.site.notifyTelegramHint}</p>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+
+            <div className="space-y-2 rounded-xl border bg-muted/30 p-4">
+              {(
+                [
+                  ['notifyOnBooking', t.site.notifyOnBooking],
+                  ['notifyOnCancel', t.site.notifyOnCancel],
+                  ['notifyOnChange', t.site.notifyOnChange],
+                  ['notifyOnMessage', t.site.notifyOnMessage],
+                ] as const
+              ).map(([key, label]) => (
+                <Label key={key} className="flex items-center gap-2 text-sm font-normal">
+                  <Switch checked={draft[key]} onCheckedChange={(on) => edit({ [key]: on })} />
+                  {label}
+                </Label>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       <div className="flex items-center justify-end gap-3 border-t pt-4">
         {isDirty && <span className="text-sm text-muted-foreground">{t.content.unsaved}</span>}
