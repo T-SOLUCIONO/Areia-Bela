@@ -75,6 +75,13 @@ export class UpdateSiteSettingsDto {
   @IsOptional() @IsString() logoDarkUrl?: string | null
   @IsOptional() @IsString() faviconUrl?: string | null
 
+  /**
+   * Airbnb's calendar export. Not `@IsUrl` for the same reason as the logo: the
+   * validator is not the place this is checked — a URL that parses but is not a
+   * calendar fails on the first import, and the panel shows why.
+   */
+  @IsOptional() @IsString() airbnbIcalUrl?: string | null
+
   // Where the host is told about bookings. Empty falls back to the public
   // fields above, so one address does not have to be typed twice.
   @IsOptional() @IsString() notifyEmail?: string

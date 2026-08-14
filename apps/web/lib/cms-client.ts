@@ -56,6 +56,10 @@ export interface SiteSettings {
   logoUrl: string | null
   logoDarkUrl: string | null
   faviconUrl: string | null
+  airbnbIcalUrl: string | null
+  /** Written by the importer, never by the form. */
+  airbnbSyncedAt?: string | null
+  airbnbSyncError?: string | null
   notifyEmail: string
   notifyWhatsapp: string
   notifyTelegram: string
@@ -194,6 +198,20 @@ export const cms = {
     }>('/notifications/status'),
 
   settings: () => apiFetch<SiteSettings | null>('/cms/settings'),
+
+  /**
+   * Runs the Airbnb import now instead of waiting for the quarter hour.
+   *
+   * What the host needs the moment she pastes the URL: telling her to come back
+   * in fifteen minutes to find out whether she pasted the right thing is how a
+   * feature gets abandoned.
+   */
+  syncAirbnb: () =>
+    apiFetch<{
+      blocks: number
+      nights: number
+      collisions: Array<{ reference: string; checkIn: string; checkOut: string }>
+    } | null>(`/calendar-sync/${PROPERTY_SLUG}/airbnb`, { method: 'POST' }),
   storageStatus: () => apiFetch<{ backend: 'gcs' | 'blob' | 'local' }>('/cms/storage'),
 
   /**
@@ -226,6 +244,7 @@ export const cms = {
         logoUrl: body.logoUrl,
         logoDarkUrl: body.logoDarkUrl,
         faviconUrl: body.faviconUrl,
+        airbnbIcalUrl: body.airbnbIcalUrl,
         notifyEmail: body.notifyEmail,
         notifyWhatsapp: body.notifyWhatsapp,
         notifyTelegram: body.notifyTelegram,

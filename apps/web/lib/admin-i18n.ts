@@ -689,6 +689,17 @@ export const adminCopy = {
       logoDark: 'Logo for a dark background',
       logoHint:
         'Used in the header and the footer. The dark one is shown when the visitor has dark mode on. Without one, the bundled logo is used.',
+      airbnbTitle: 'Airbnb calendar',
+      airbnbUrl: 'Calendar link (iCal)',
+      airbnbHint:
+        'In Airbnb: Calendar → Availability → Sync calendars → Export calendar. Airbnb\u2019s booked dates are blocked here every 15 minutes, and checked live before every booking. Treat the link as a password: whoever has it can read your booked dates.',
+      airbnbSync: 'Sync now',
+      airbnbSyncing: 'Syncing…',
+      airbnbNever: 'Never synced',
+      airbnbLastSync: 'Last sync',
+      airbnbFailing: 'The last sync failed',
+      airbnbDone: 'Blocked {nights} nights in {blocks} ranges',
+      airbnbCollisions: '{count} of your own bookings overlap what Airbnb has taken',
       favicon: 'Tab icon',
       faviconHint:
         'The small icon a browser shows in the tab. A square PNG of 64px or more. Without one, the bundled starfish is used.',
@@ -1537,6 +1548,17 @@ export const adminCopy = {
       logoDark: 'Logo para fondo oscuro',
       logoHint:
         'Se usa en la cabecera y en el pie. El oscuro se muestra cuando el visitante tiene el modo oscuro. Sin uno, se usa el logo incluido.',
+      airbnbTitle: 'Calendario de Airbnb',
+      airbnbUrl: 'Enlace del calendario (iCal)',
+      airbnbHint:
+        'En Airbnb: Calendario → Disponibilidad → Sincronizar calendarios → Exportar calendario. Las fechas ocupadas en Airbnb se bloquean aquí cada 15 minutos, y se comprueban en vivo antes de cada reserva. Trata el enlace como una contraseña: quien lo tenga puede leer tus fechas ocupadas.',
+      airbnbSync: 'Sincronizar ahora',
+      airbnbSyncing: 'Sincronizando…',
+      airbnbNever: 'Nunca sincronizado',
+      airbnbLastSync: 'Última sincronización',
+      airbnbFailing: 'La última sincronización falló',
+      airbnbDone: 'Bloqueadas {nights} noches en {blocks} rangos',
+      airbnbCollisions: '{count} reservas tuyas se cruzan con lo que Airbnb tiene ocupado',
       favicon: 'Icono de la pestaña',
       faviconHint:
         'El icono pequeño que el navegador muestra en la pestaña. Un PNG cuadrado de 64px o más. Sin uno, se usa la estrella incluida.',

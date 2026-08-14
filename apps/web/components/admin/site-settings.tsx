@@ -17,11 +17,13 @@ import { Label } from '@areia-bela/ui/label'
 import { Skeleton } from '@areia-bela/ui/skeleton'
 import { Textarea } from '@areia-bela/ui/textarea'
 import { ApiError } from '@/lib/api-client'
+import { fill } from '@areia-bela/shared'
 import { cms, type SiteSettings as Settings } from '@/lib/cms-client'
 import { useAdminCopy, useAdminCopyRef } from '@/components/admin/admin-language-provider'
 import { ImageField } from '@/components/admin/content/image-field'
 
 const BLANK: Settings = {
+  airbnbIcalUrl: null,
   contactEmail: '',
   contactPhone: '',
   whatsapp: '',
@@ -106,6 +108,7 @@ export function SiteSettings() {
   const copyRef = useAdminCopyRef()
   const [stored, setStored] = useState<Settings | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   // Lives on the property row, not on settings, but belongs on this screen: its
   // only job is being the name in the structured data, next to the other two
@@ -163,6 +166,37 @@ export function SiteSettings() {
     JSON.stringify(draft) !== JSON.stringify(stored) ||
     (listingName !== null && listingName.draft !== listingName.stored)
   const edit = (patch: Partial<Settings>) => setDraft({ ...draft, ...patch })
+
+  /**
+   * Saves first, then imports.
+   *
+   * Syncing against a URL still sitting in the form and not in the database
+   * would report on a calendar the server has never seen — and the host would
+   * read that result as proof the link she just typed works.
+   */
+  const syncAirbnb = async () => {
+    setIsSyncing(true)
+    try {
+      await cms.saveSettings(draft)
+      const result = await cms.syncAirbnb()
+      const refreshed = await cms.settings()
+      if (refreshed) setDraft(refreshed)
+      if (!result) return
+      toast.success(
+        fill(t.content.airbnbDone, {
+          nights: String(result.nights),
+          blocks: String(result.blocks),
+        }),
+      )
+      if (result.collisions.length > 0) {
+        toast.warning(fill(t.content.airbnbCollisions, { count: String(result.collisions.length) }))
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.content.saveFailed)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   const save = async () => {
     setIsSaving(true)
@@ -401,6 +435,49 @@ export function SiteSettings() {
             onChange={(faviconUrl) => edit({ faviconUrl })}
           />
           <p className="mt-2 text-xs text-muted-foreground">{t.content.faviconHint}</p>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-serif text-base">{t.content.airbnbTitle}</h3>
+        <div className="space-y-1.5">
+          <Label htmlFor="airbnbIcalUrl">{t.content.airbnbUrl}</Label>
+          <Input
+            id="airbnbIcalUrl"
+            type="url"
+            placeholder="https://www.airbnb.com/calendar/ical/..."
+            value={draft.airbnbIcalUrl ?? ''}
+            onChange={(e) => edit({ airbnbIcalUrl: e.target.value.trim() || null })}
+          />
+          <p className="text-xs text-muted-foreground">{t.content.airbnbHint}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isSyncing || !draft.airbnbIcalUrl}
+            onClick={() => void syncAirbnb()}
+          >
+            {isSyncing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+            {isSyncing ? t.content.airbnbSyncing : t.content.airbnbSync}
+          </Button>
+
+          {/* The state of the last run, not just of this button. A sync that
+              quietly stopped working is the failure that matters: the host
+              believes the calendar is guarded when it is not. */}
+          <span className="text-xs text-muted-foreground">
+            {draft.airbnbSyncError ? (
+              <span className="text-destructive">
+                {t.content.airbnbFailing} · {draft.airbnbSyncError}
+              </span>
+            ) : draft.airbnbSyncedAt ? (
+              `${t.content.airbnbLastSync}: ${new Date(draft.airbnbSyncedAt).toLocaleString()}`
+            ) : (
+              t.content.airbnbNever
+            )}
+          </span>
         </div>
       </section>
 
