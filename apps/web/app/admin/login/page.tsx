@@ -3,11 +3,12 @@
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, KeyRound, Lock, Mail } from 'lucide-react'
+import { ArrowLeft, KeyRound, Lock, Mail } from 'lucide-react'
 import { Button } from '@areia-bela/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@areia-bela/ui/card'
 import { Input } from '@areia-bela/ui/input'
 import { Label } from '@areia-bela/ui/label'
+import { SiteLogo } from '@/components/public/site-logo'
 import { apiFetch, ApiError } from '@/lib/api-client'
 
 interface LoginResponse {
@@ -93,13 +94,23 @@ function LoginForm() {
 
         <Card>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary-foreground">
-              {isTotpStep ? (
+            {/* The mark on the first step, the key on the second.
+                
+                A generic office-building glyph stood here, which said nothing
+                about whose panel this is — and this is the one screen someone
+                sees before there is any other branding on it. The key stays on
+                the code step: there it is not decoration, it says which of the
+                two things is being asked for.
+                
+                No circle behind the logo: a mark inside a tinted disc reads as
+                an avatar. */}
+            {isTotpStep ? (
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <KeyRound className="h-8 w-8 text-primary" />
-              ) : (
-                <Building2 className="h-8 w-8 text-primary" />
-              )}
-            </div>
+              </div>
+            ) : (
+              <SiteLogo className="mx-auto mb-4 h-12 w-auto" />
+            )}
             <CardTitle className="font-serif text-2xl">
               {isTotpStep ? 'Two-step verification' : 'Admin portal'}
             </CardTitle>
